@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>writ — Nothing runs without a writ</title>
-<meta name="description" content="Authorization and provenance for AI agents. One policy file, one tamper-evident ledger, any agent.">
+<meta name="description" content="A safety floor your AI agents can't get under: one policy for Claude Code, Codex, Gemini, Cursor and MCP, judged by what each call will run, backstopped by the kernel, with a tamper-evident signed record.">
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="icon" href="assets/icon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <meta name="theme-color" content="#0b0f14">
 <meta property="og:title" content="writ — Nothing runs without a writ">
-<meta property="og:description" content="Authorization and provenance for AI agents. One policy file, one tamper-evident ledger, any agent.">
+<meta property="og:description" content="A safety floor your AI agents can't get under: one policy for every agent, judged by what each call will run, backstopped by the kernel, with a signed record.">
 <meta property="og:image" content="https://writ-omega.vercel.app/assets/social-preview.png">
 <meta property="og:url" content="https://writ-omega.vercel.app">
 <meta name="twitter:card" content="summary_large_image">
@@ -155,12 +155,12 @@
 
 <header class="hero">
   <div class="wrap">
-    <h1>Nothing runs<br>without a <span class="verdict">writ</span>.</h1>
-    <p class="sub">Your agent asks. Your policy decides. The ledger remembers.</p>
-    <div class="install"><span class="prompt">$</span><span>cargo install --path crates/writ-cli && writ run -- claude</span></div>
+    <h1>A safety floor your<br>AI agents <span class="verdict">can't get under</span>.</h1>
+    <p class="sub">One policy for Claude Code, Codex, Gemini CLI, Cursor, Windsurf and your MCP servers. Checked before every tool call, judged by what the call will actually run, backstopped by the kernel, recorded in a ledger you can verify.</p>
+    <div class="install"><span class="prompt">$</span><span>pip install writ-cli && writ scan && writ init</span></div>
     <figure class="demo">
-      <img src="assets/demo-gate.svg" alt="A writ-governed session: two calls allowed, one redacted, one held for a human and denied, one egress call refused with its rule and reason">
-      <figcaption>A session under writ: every call decided before it runs, every decision recorded after.</figcaption>
+      <img src="assets/demo-88462.svg" alt="claude-code#88462 replayed: writ denies writing a cleanup script whose trap runs rm -rf $HOME, denies running it by reading the script, and when the delete is obfuscated past every rule the kernel boundary refuses it and the home directory stays intact">
+      <figcaption><a href="https://github.com/anthropics/claude-code/issues/88462">claude-code#88462</a>, replayed: refused when written, refused when run, and stopped by the kernel when obfuscated past every rule.</figcaption>
     </figure>
   </div>
 </header>
@@ -231,14 +231,18 @@
     <div class="kicker">Surface</div>
     <h2>Commands</h2>
     <table>
-      <tr><td class="c">writ run -- <agent></td><td class="d">wrap an agent process under policy</td></tr>
+      <tr><td class="c">writ scan</td><td class="d">what would writ have caught in your agents' last 30 days (reads transcripts, installs nothing)</td></tr>
+      <tr><td class="c">writ init</td><td class="d">a starter policy (the disaster floor + secrets guard) and hooks for every agent found</td></tr>
+      <tr><td class="c">writ test "rm -rf ~"</td><td class="d">one call through the policy; nothing runs</td></tr>
+      <tr><td class="c">writ run -- <agent></td><td class="d">launch an agent inside the kernel write boundary, hooks wired</td></tr>
       <tr><td class="c">writ proxy --mcp --server <name> -- <cmd></td><td class="d">govern every call to an MCP server</td></tr>
       <tr><td class="c">writ log · writ show <call-id></td><td class="d">what did my agent actually do last night</td></tr>
       <tr><td class="c">writ verify</td><td class="d">is this ledger still the one that was written</td></tr>
       <tr><td class="c">writ replay <session> --candidate <file></td><td class="d">what would this policy have done to last week's run</td></tr>
       <tr><td class="c">writ policy test</td><td class="d">unit-test rules against recorded fixtures</td></tr>
       <tr><td class="c">writ doctor</td><td class="d">what is governed, and what is blind</td></tr>
-      <tr><td class="c">writ report</td><td class="d">one self-contained HTML file to hand to someone else</td></tr>
+      <tr><td class="c">writ report --since 12h --sign key.pem</td><td class="d">what was stopped, what needed you, a timeline, with a receipt anyone can verify</td></tr>
+      <tr><td class="c">writ mcp pins</td><td class="d">MCP tool definitions pinned on first use; a changed one is held until you accept it</td></tr>
     </table>
   </div>
 </section>
@@ -250,7 +254,8 @@
     <p class="lead">Writ governs actions, not reasoning. The threat model is public: <a href="https://github.com/writ-agent/writ/blob/main/docs/THREAT_MODEL.md">docs/THREAT_MODEL.md</a>.</p>
     <ul class="honest">
       <li><b>It does not stop prompt injection.</b> It shrinks the blast radius: least privilege, egress allow-lists, a human gate on irreversible calls.</li>
-      <li><b>The ledger is tamper-evident, not tamper-proof.</b> Editing a record breaks the chain and is caught; transparency-log anchoring, on the roadmap, is what closes the deletion gap.</li>
+      <li><b>The ledger is tamper-evident, not tamper-proof.</b> Editing a record breaks the chain and is caught; a signed receipt anchored in the Sigstore Rekor log is what makes deleting records after it detectable.</li>
+      <li><b>Command rules read text.</b> writ also reads the scripts a call runs or writes, but obfuscated commands get past any parser; that is what the kernel boundary under <code>writ run</code> is for.</li>
       <li><b>MCP-proxy-only mode is partial coverage.</b> The agent's own shell, file writes and direct HTTP go around it — <code>writ doctor</code> says this out loud.</li>
       <li><b>It does not reverse side effects.</b> A denied call never ran; an approved one is yours.</li>
     </ul>

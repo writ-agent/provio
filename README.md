@@ -13,6 +13,10 @@ Your agent asks. Your policy decides. The ledger remembers.
 
 [Website](https://writ-omega.vercel.app) · [**Playground**](https://writ-omega.vercel.app/playground.html) · [Docs](docs/README.md) · [Threat model](docs/THREAT_MODEL.md) · [Changelog](CHANGELOG.md)
 
+**Watch it catch what command checks miss.** [claude-code#88462](https://github.com/anthropics/claude-code/issues/88462): an agent's cleanup script ran `rm -rf "$HOME"`. writ refuses the script when it is written, refuses `bash cleanup.sh` by reading the script, and when the delete is obfuscated past every rule, the kernel boundary refuses it anyway. Reproduce it: [examples/incident-88462](examples/incident-88462/).
+
+<img src="docs/assets/demo-88462.svg" alt="claude-code#88462 replayed: writ denies writing cleanup.sh because line 3 runs trap rm -rf $HOME; denies bash cleanup.sh by reading the script; the base64-obfuscated delete is allowed by the rules but the kernel write boundary refuses it with Permission denied and the home directory stays intact" width="900">
+
 <img src="docs/assets/demo-gate.svg" alt="writ run -- claude: a session where two calls are allowed, one is redacted, one waits for a human and is denied, and one egress call is refused with its rule and reason" width="900">
 
 **See it block an injected agent.** A poisoned README tells the agent to read an SSH key, send it to `attacker.example` and `rm -rf` a directory; writ denies all three and the ledger proves it. Reproduce it offline: [examples/attack-demo](examples/attack-demo/) (scripted tool calls, real writ output).
