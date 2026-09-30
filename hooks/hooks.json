@@ -1,0 +1,32 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "provio",
+            "command": "provio --policy \"${workspacePath}${/}provio.yaml\" check --format gemini --ask defer --if-no-policy starter",
+            "timeout": 600000,
+            "description": "provio: policy decision and ledger record for this tool call"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "provio",
+            "command": "provio --policy \"${workspacePath}${/}provio.yaml\" check --format gemini --ask defer --if-no-policy starter",
+            "timeout": 600000,
+            "description": "provio: policy decision and ledger record for this tool call"
+          }
+        ]
+      }
+    ]
+  }
+}

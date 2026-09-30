@@ -89,3 +89,23 @@ Caller: `agent = "gemini-cli"`.
 - `/hooks disable-all` in an interactive session disables hooks for that
   session.
 - Redacted results reach the model marked as a blocked tool result.
+
+## The extension
+
+Instead of wiring each project, install provio as a Gemini CLI extension
+(the provio binary must be on `PATH`: `pip install provio` or
+`npm install -g provio`):
+
+```bash
+gemini extensions install https://github.com/writ-agent/provio
+```
+
+Its `hooks/hooks.json` runs `provio check --format gemini --ask defer` before
+and after every tool call. The workspace's `provio.yaml` decides when there
+is one (ledger: `.provio/ledger.jsonl` in the directory Gemini runs the hook
+from); otherwise `--if-no-policy starter` judges with the starter floor and
+records to `~/.provio/ledger.jsonl`. Unlike the Claude Code plugin there is
+no launcher script (Gemini runs hook commands through PowerShell on Windows
+and a POSIX shell elsewhere), so if `provio` is not on `PATH` the hook fails
+and Gemini CLI decides what a failed hook means; install the binary first.
+Use either the extension or `provio integrate gemini`, not both.

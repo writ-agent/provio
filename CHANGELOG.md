@@ -42,6 +42,10 @@ and `provio init` recognise and replace hooks written by `writ`, and the
   starter floor; fails closed without the binary; `/provio:scan` and
   `/provio:report` commands. `provio check --if-no-policy starter` is the
   flag behind it.
+- **Gemini CLI extension** (`gemini extensions install
+  https://github.com/writ-agent/provio`): BeforeTool/AfterTool hooks that run
+  `provio check --format gemini`, with the workspace's provio.yaml or the
+  starter floor.
 - **Look back** screen in `provio ui`: the `provio scan` scorecard for the
   last 7, 30 or 90 days, judged by the policy or every bundled pack.
 - **`provio scan`**: replays what your agents already did (Claude Code, Codex
