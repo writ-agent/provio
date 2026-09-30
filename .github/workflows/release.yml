@@ -265,12 +265,10 @@ jobs:
         run: |
           version=$(node -p "require('./packaging/npm/cli/package.json').version")
           node packaging/npm/make_platform_packages.mjs bins npm-out "$version"
-      - name: build provio-sdk
-        working-directory: adapters/typescript
-        run: npm ci && npm run build && npm test
-      # Platform packages first, then the launcher that depends on them, then
-      # the SDK. Versions already on the registry are skipped (re-runs).
-      - name: publish
+      # Platform packages first, then the launcher that depends on them; the
+      # SDK is built and tested against those published packages, then
+      # published. Versions already on the registry are skipped (re-runs).
+      - name: publish the binary packages and the provio launcher
         shell: bash
         run: |
           set -euo pipefail
@@ -286,4 +284,22 @@ jobs:
           }
           for d in npm-out/*/; do publish "${d%/}"; done
           publish packaging/npm/cli
-          publish adapters/typescript
+      - name: build and test provio-sdk
+        working-directory: adapters/typescript
+        run: |
+          # `npm ci` needs the launcher on the registry (a dry run has not
+          # published it, so fall back to installing without it).
+          npm ci || npm install --no-audit --no-fund --omit=optional
+          npm run build && npm test
+      - name: publish provio-sdk
+        shell: bash
+        run: |
+          set -euo pipefail
+          flag="--dry-run"; [ "$PUBLISH" = "true" ] && flag="--provenance"
+          name=$(node -p "require('./adapters/typescript/package.json').name")
+          ver=$(node -p "require('./adapters/typescript/package.json').version")
+          if npm view "$name@$ver" version >/dev/null 2>&1; then
+            echo "skip $name@$ver (already published)"
+          else
+            (cd adapters/typescript && npm publish --access public $flag)
+          fi
