@@ -31,14 +31,14 @@ from gen_demo_svg import (  # noqa: E402  (path set above)
     svg,
 )
 
-# Real output of examples/attack-demo/run.sh (provio 0.1.1). Verdicts, rule ids,
+# Real output of examples/attack-demo/run.sh (provio 0.1.3). Verdicts, rule ids,
 # reasons, provio.yaml:LINE, log and verify lines are verbatim; the only trims
 # are the driver's step labels and the "provio denied this: " prefix on reasons.
 SEP = "─" * 72
 
 ATTACK = [
     (0.0, prompt("./run.sh")),
-    (0.7, [("provio attack demo", TEXT, True), ("  ·  provio 0.1.1", DIM, False)]),
+    (0.7, [("provio attack demo", TEXT, True), ("  ·  provio 0.1.3", DIM, False)]),
     (1.0, [("An injected README tells the agent to steal a key and delete a directory.", DIM, False)]),
     (1.3, [("The agent's tool calls are scripted; provio's decisions and ledger are real.", DIM, False)]),
     (1.6, [(SEP, DIM, False)]),
