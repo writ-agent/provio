@@ -2,6 +2,7 @@
 
 | Document | What it covers |
 |---|---|
+| [comparison.md](comparison.md) | provio next to dcg, nah, cc-safety-net, the built-in agent sandboxes and Microsoft's Agent Governance Toolkit, including what provio does worse |
 | [first-run.md](first-run.md) | `provio scan` (what would provio have caught?), `provio init` (a policy and hooks for every agent), `provio test` (one call, nothing run) |
 | [inspection.md](inspection.md) | How a call is judged by what it runs: scripts, heredocs, `npm run`, shell inside code; and what that misses |
 | [policy-reference.md](policy-reference.md) | The `provio.yaml` language: rules, conditions, verdicts, defaults, packs |

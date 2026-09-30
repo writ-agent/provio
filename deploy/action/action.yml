@@ -1,73 +1,105 @@
 name: provio
 description: >-
-  Govern an agent run in CI: enforce provio.yaml headless, fail closed on
-  unanswered asks, and publish the ledger + signed run receipt as artifacts.
+  A safety floor for AI agents in CI: install provio, wire it into the
+  agents the job runs (Claude Code, Codex, Gemini CLI, …), and put what they
+  did (what was stopped, what needed a human, the ledger's integrity) in the
+  job summary, with the ledger uploaded as an artifact.
 author: writ-agent
 branding:
   icon: shield
-  color: blue
+  color: green
 
 inputs:
+  version:
+    description: provio release to install (a tag like v0.1.3, or latest).
+    default: latest
+  agents:
+    description: >-
+      Agents to wire, comma-separated (claude-code, codex, gemini, cursor,
+      windsurf). Their hooks are written into this workspace.
+    default: claude-code
   policy:
-    description: Path to the policy file, committed to the repo.
+    description: >-
+      Policy file. When it does not exist, the starter policy (the floor and
+      secrets-guard packs, default allow) is written there.
     default: provio.yaml
   command:
-    description: The agent command to wrap (e.g. "claude -p 'fix the tests'").
-    required: true
-  yolo:
-    description: Flip the policy default to allow. Dangerous; for demos only.
-    default: "false"
-  approver-webhook:
     description: >-
-      Out-of-band approver URL for `ask` verdicts (POSTs the AskView, expects
-      {"decision": "allow"|"deny"}). Without it, asks fail closed on timeout.
+      Optional agent command to run after wiring (e.g. claude -p "fix the
+      failing test"). Leave empty to run the agent in a later step yourself.
     required: false
-  ledger-path:
-    description: Where the run's ledger is written.
-    default: .provio/ledger.jsonl
+  fail-on-deny:
+    description: Fail the job if provio denied any call (after the command ran).
+    default: "false"
+  artifact-name:
+    description: Name of the uploaded ledger artifact (empty to skip the upload).
+    default: provio-ledger
+
+outputs:
+  denied:
+    description: Number of calls provio denied (set by the report step).
+    value: ${{ steps.report.outputs.denied }}
+  asked:
+    description: Number of calls that needed a human.
+    value: ${{ steps.report.outputs.asked }}
 
 runs:
   using: composite
   steps:
-    - name: Install provio
+    - name: Install provio (checksum-verified release binary)
       shell: bash
       env:
-        # Until the first GitHub Release exists, build from the checked-out
-        # source. Release users can unset this and download signed artifacts.
-        PROVIO_FROM_SOURCE: "1"
+        PROVIO_VERSION: ${{ inputs.version }}
       run: |
         curl -fsSL https://raw.githubusercontent.com/writ-agent/provio/main/scripts/install.sh | sh
         echo "$HOME/.provio/bin" >> "$GITHUB_PATH"
 
-    - name: Verify install (cosign)
+    - name: Wire provio into the agents
       shell: bash
       run: |
-        cosign verify-blob --bundle "$HOME/.provio/bin/provio.cosign-bundle" \
-          --certificate-identity-regexp "github.com/writ-agent/provio" \
-          --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-          "$HOME/.provio/bin/provio" || echo "::warning::unsigned local build (pre-release)"
+        export PATH="$HOME/.provio/bin:$PATH"
+        provio --policy "${{ inputs.policy }}" init --agent "${{ inputs.agents }}"
 
-    - name: Governed run (headless, fail-closed)
+    - name: Run the agent under provio
+      if: ${{ inputs.command != '' }}
       shell: bash
-      env:
-        PROVIO_HEADLESS: "1"
-        PROVIO_APPROVER_WEBHOOK: ${{ inputs.approver-webhook }}
       run: |
-        FLAGS=""
-        [ "${{ inputs.yolo }}" = "true" ] && FLAGS="--yolo"
-        provio run $FLAGS --policy "${{ inputs.policy }}" --ledger "${{ inputs.ledger-path }}" -- ${{ inputs.command }}
+        export PATH="$HOME/.provio/bin:$PATH"
+        ${{ inputs.command }}
 
-    - name: Verify the ledger
-      if: always()
+    - name: Report (job summary)
+      id: report
+      if: ${{ always() }}
       shell: bash
-      run: provio verify --ledger "${{ inputs.ledger-path }}"
+      run: |
+        export PATH="$HOME/.provio/bin:$PATH"
+        if [ ! -f .provio/ledger.jsonl ]; then
+          echo "provio: no decisions recorded in this job." >> "$GITHUB_STEP_SUMMARY"
+          echo "denied=0" >> "$GITHUB_OUTPUT"; echo "asked=0" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        provio report --format markdown --out - >> "$GITHUB_STEP_SUMMARY"
+        provio report --format json --out provio-report.json
+        python3 - <<'PY' >> "$GITHUB_OUTPUT"
+        import json
+        t = json.load(open("provio-report.json"))["totals"]
+        print(f"denied={t['stopped']}")
+        print(f"asked={t['asked']}")
+        PY
+        provio verify
 
-    - name: Upload evidence
-      if: always()
+    - name: Upload the ledger
+      if: ${{ always() && inputs.artifact-name != '' && hashFiles('.provio/ledger.jsonl') != '' }}
       uses: actions/upload-artifact@v4
       with:
-        name: provio-evidence-${{ github.run_id }}
+        name: ${{ inputs.artifact-name }}
         path: |
-          ${{ inputs.ledger-path }}
-          .provio/receipt*.json
-        retention-days: 90
+          .provio/ledger.jsonl
+          provio-report.json
+
+    - name: Fail on denials
+      if: ${{ inputs.fail-on-deny == 'true' && steps.report.outputs.denied != '0' && steps.report.outputs.denied != '' }}
+      shell: bash
+      run: |
+        echo "::error::provio denied ${{ steps.report.outputs.denied }} call(s); see the job summary."
+        exit 1

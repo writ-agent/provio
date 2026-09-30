@@ -11,7 +11,7 @@ Your agent asks. Your policy decides. The ledger remembers.
 [![PyPI](https://img.shields.io/pypi/v/provio-sdk?label=pypi%20provio-sdk&color=4ec9a5)](https://pypi.org/project/provio-sdk/)
 [![npm](https://img.shields.io/npm/v/provio-sdk?label=npm%20provio-sdk&color=4ec9a5)](https://www.npmjs.com/package/provio-sdk)
 
-[Website](https://getprovio.vercel.app) · [**Playground**](https://getprovio.vercel.app/playground.html) · [Docs](docs/README.md) · [Threat model](docs/THREAT_MODEL.md) · [Changelog](CHANGELOG.md)
+[Website](https://getprovio.vercel.app) · [**Playground**](https://getprovio.vercel.app/playground.html) · [Docs](docs/README.md) · [Compare](docs/comparison.md) · [Threat model](docs/THREAT_MODEL.md) · [Changelog](CHANGELOG.md)
 
 **Watch it catch what command checks miss.** [claude-code#88462](https://github.com/anthropics/claude-code/issues/88462): an agent's cleanup script ran `rm -rf "$HOME"`. provio refuses the script when it is written, refuses `bash cleanup.sh` by reading the script, and when the delete is obfuscated past every rule, the kernel boundary refuses it anyway. Reproduce it: [examples/incident-88462](examples/incident-88462/).
 
