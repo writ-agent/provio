@@ -35,7 +35,7 @@ before the read-only allow can see them.
   exposure, `ec2 stop-instances`, `s3 cp` uploads) have no rule here, so
   they get your policy's `default`. With the recommended `default: ask` they
   ask.
-- **Which account or region.** writ sees the command text, not the
+- **Which account or region.** provio sees the command text, not the
   credentials it resolves to. `--profile prod` is not treated differently
   from `--profile dev`; add your own rule if you need that.
 - **SDK calls and scripts.** `python deploy.py` that calls boto3, or a
@@ -49,16 +49,16 @@ before the read-only allow can see them.
 
 ## Use it
 
-Packs are rules you merge into your own `writ.yaml`; writ does not load
-`.writ/packs/` automatically.
+Packs are rules you merge into your own `provio.yaml`; provio does not load
+`.provio/packs/` automatically.
 
 ```bash
-writ policy add aws-safety      # run from a checkout that contains packs/
-                                # copies to .writ/packs/aws-safety.yaml and prints its sha256
+provio policy add aws-safety      # run from a checkout that contains packs/
+                                # copies to .provio/packs/aws-safety.yaml and prints its sha256
 ```
 
-Then paste the entries under `rules:` in `.writ/packs/aws-safety.yaml` into
-the `rules:` list of your `writ.yaml`:
+Then paste the entries under `rules:` in `.provio/packs/aws-safety.yaml` into
+the `rules:` list of your `provio.yaml`:
 
 - put the **deny and ask** rules above any broad allow of your own (for
   example an "allow all bash in CI" rule), or those allows win first;
@@ -68,8 +68,8 @@ the `rules:` list of your `writ.yaml`:
 Check the merged policy compiles and still behaves the way you expect:
 
 ```bash
-writ doctor --policy writ.yaml
-writ policy test --policy writ.yaml --fixtures packs/aws-safety/fixtures
+provio doctor --policy provio.yaml
+provio policy test --policy provio.yaml --fixtures packs/aws-safety/fixtures
 ```
 
 The pack's fixtures assume `default: ask`; cases that expect

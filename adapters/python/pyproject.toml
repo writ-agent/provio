@@ -3,9 +3,9 @@ requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [project]
-name = "writ-sdk"
-version = "0.1.2"
-description = "Policy-gated tool calls for Python agents: every tool call is checked against writ.yaml and recorded to writ's hash-chained ledger."
+name = "provio-sdk"
+version = "0.1.3"
+description = "Policy-gated tool calls for Python agents: every tool call is checked against provio.yaml and recorded to provio's hash-chained ledger."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -21,10 +21,10 @@ classifiers = [
     "Topic :: Security",
     "Typing :: Typed",
 ]
-# One runtime dependency: writ-cli, whose platform wheels carry the prebuilt
-# `writ` binary this package drives over stdin/stdout. Framework integrations
+# One runtime dependency: provio, whose platform wheels carry the prebuilt
+# `provio` binary this package drives over stdin/stdout. Framework integrations
 # import their framework lazily.
-dependencies = ["writ-cli==0.1.2"]
+dependencies = ["provio==0.1.3"]
 
 [project.optional-dependencies]
 langgraph = ["langgraph>=1.0", "langchain-core>=1.0"]
@@ -40,11 +40,11 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/writ-agent/writ"
-Source = "https://github.com/writ-agent/writ/tree/main/adapters/python"
+Homepage = "https://github.com/writ-agent/provio"
+Source = "https://github.com/writ-agent/provio/tree/main/adapters/python"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/writ_sdk"]
+packages = ["src/provio_sdk"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

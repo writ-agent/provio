@@ -23,7 +23,7 @@ rules:
       and not tool matches "(?i)(sql|query|queries)$"
       and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|lookup|retrieve|inspect)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|lookup|retrieve|inspect)[A-Z]"
     verdict: ask
-    reason: "MCP tool that runs a shell command or process on the server's machine. Shell rules in writ packs match `tool == \x22bash\x22`, so this command passes none of them: read the full command before approving."
+    reason: "MCP tool that runs a shell command or process on the server's machine. Shell rules in provio packs match `tool == \x22bash\x22`, so this command passes none of them: read the full command before approving."
 
   - id: mcp-sharing-permission-asks
     when: >-

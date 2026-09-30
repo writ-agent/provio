@@ -8,6 +8,32 @@ The ledger record schema is versioned separately (`schema_version`, see
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-09-30
+
+### Renamed: writ is now **provio**
+
+The old name collided with other projects in the same category (a Claude
+Code governance tool called Writ, the `writ-agent` package on PyPI, the
+`writ`/`writ-cli` crates). provio is free on GitHub, PyPI, npm and
+crates.io.
+
+| Before | Now |
+|---|---|
+| `writ` binary | `provio` |
+| `writ.yaml`, `.writ/` | `provio.yaml`, `.provio/` (the old paths are still found, with a notice, when the new ones do not exist) |
+| PyPI `writ-cli`, `writ-sdk` (`import writ_sdk`) | `provio`, `provio-sdk` (`import provio_sdk`) |
+| npm `@writ-agent/cli`, `@writ-agent/sdk` | `provio` (`npx provio scan`), `provio-sdk` |
+| `WRIT_*` environment variables | `PROVIO_*` |
+| GitHub `writ-agent/writ` | `writ-agent/provio` (old URLs redirect) |
+| Postgres default schema `writ`, `writ_schema=`/`writ_table=` | `provio`, `provio_schema=`/`provio_table=` (the old parameter names still work; pass `provio_schema=writ` to keep an existing ledger) |
+
+Unchanged on purpose: ledgers and their hashes, and the wire-format ids
+inside signed receipts, proofs and anchor lines (`writ.receipt/v1`, …), so
+every receipt issued before the rename still verifies. `provio integrate`
+and `provio init` recognise and replace hooks written by `writ`, and the
+`floor` pack guards both `.provio/` and `.writ/`, `provio.yaml` and
+`writ.yaml`.
+
 ### Added
 
 - **`writ scan`**: replays what your agents already did (Claude Code, Codex

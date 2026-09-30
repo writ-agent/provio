@@ -5,7 +5,7 @@ description: Denies live-mode Stripe writes from the shell; asks before money mo
 # pipeline segment.
 #
 # The Stripe CLI runs against whatever key it resolves (`stripe login`,
-# STRIPE_API_KEY, --api-key), so writ cannot tell test mode from live mode
+# STRIPE_API_KEY, --api-key), so provio cannot tell test mode from live mode
 # unless the command says `--live` or carries an sk_live_/rk_live_ key.
 # Live-mode writes are denied; everything else that moves money or changes
 # a subscription asks, in test mode too. `stripe trigger`, `listen`,

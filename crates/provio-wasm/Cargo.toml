@@ -1,0 +1,25 @@
+[package]
+name = "provio-wasm"
+description = "The provio policy engine compiled to WebAssembly for the browser playground."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+provio-core.workspace = true
+provio-policy.workspace = true
+provio-replay.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+regex.workspace = true
+# Pinned exactly: the generated JS glue in site/assets/playground/ is only
+# valid for the wasm-bindgen-cli of the same version (scripts/build_playground.sh).
+wasm-bindgen = "=0.2.128"
+
+[dev-dependencies]
+provio-ledger.workspace = true

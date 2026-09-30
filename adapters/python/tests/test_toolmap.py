@@ -1,6 +1,6 @@
-"""The shared Claude tool mapping; mirrors the cases in crates/writ-cli/src/hook.rs."""
+"""The shared Claude tool mapping; mirrors the cases in crates/provio-cli/src/hook.rs."""
 
-from writ_sdk import map_claude_tool
+from provio_sdk import map_claude_tool
 
 
 def m(name, inp):
@@ -42,7 +42,7 @@ def test_base_package_imports_no_framework():
     import sys
 
     code = (
-        "import sys, writ_sdk; "
+        "import sys, provio_sdk; "
         "bad=[m for m in ('langgraph','langchain_core','agents','claude_agent_sdk') if m in sys.modules]; "
         "sys.exit(1 if bad else 0)"
     )

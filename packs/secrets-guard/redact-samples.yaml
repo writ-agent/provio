@@ -2,7 +2,7 @@
 # so the raw file does not look like a real token to secret-scanning push
 # protection; YAML decodes them back to the literal test strings.
 # Masking proofs for packs/secrets-guard. scripts/validate_packs.py drives
-# each sample through the real gateway (`writ check`: decide, then complete
+# each sample through the real gateway (`provio check`: decide, then complete
 # with `output`) and asserts every `masked` string is gone from the result
 # the model would see and every `kept` string survived.
 # All token values are fake: AWS's documented example keys and low-entropy

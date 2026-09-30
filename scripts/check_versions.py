@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Fail unless every released artifact carries the same version.
 
-Checks the Rust workspace (writ-cli wheel and binaries), the writ-sdk Python
-package and its writ-cli pin, the @writ-agent/sdk npm package and its
-@writ-agent/cli pin, and @writ-agent/cli with its platform-package pins.
+Checks the Rust workspace (provio-cli wheel and binaries), the provio-sdk Python
+package and its provio-cli pin, the provio-sdk npm package and its
+provio pin, and provio with its platform-package pins.
 
 Usage: python3 scripts/check_versions.py [vX.Y.Z]   (tag optional)
 """
@@ -26,17 +26,17 @@ def main(argv):
 
     found = {
         "Cargo.toml workspace.package.version": rust,
-        "writ-sdk version": py["project"]["version"],
-        "@writ-agent/sdk version": sdk["version"],
-        "@writ-agent/cli version": cli["version"],
+        "provio-sdk (PyPI) version": py["project"]["version"],
+        "provio-sdk (npm) version": sdk["version"],
+        "provio version": cli["version"],
     }
     for dep in py["project"].get("dependencies", []):
-        m = re.fullmatch(r"writ-cli==(\S+)", dep.replace(" ", ""))
+        m = re.fullmatch(r"provio==(\S+)", dep.replace(" ", ""))
         if m:
-            found["writ-sdk -> writ-cli pin"] = m.group(1)
-    found["@writ-agent/sdk -> @writ-agent/cli pin"] = sdk.get("optionalDependencies", {}).get("@writ-agent/cli")
+            found["provio-sdk (PyPI) -> provio pin"] = m.group(1)
+    found["provio-sdk (npm) -> provio pin"] = sdk.get("optionalDependencies", {}).get("provio")
     for name, ver in cli.get("optionalDependencies", {}).items():
-        found[f"@writ-agent/cli -> {name} pin"] = ver
+        found[f"provio -> {name} pin"] = ver
     if len(argv) > 0:
         found["git tag"] = argv[0].removeprefix("refs/tags/").removeprefix("v")
 

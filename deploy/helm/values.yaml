@@ -2,12 +2,12 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/writ-agent/writ
+  repository: ghcr.io/writ-agent/provio
   tag: "wave3-stub"
   pullPolicy: IfNotPresent
 
 serviceAccount:
-  name: writ
+  name: provio
   annotations: {}
 
 service:
@@ -24,10 +24,10 @@ policy:
 ledger:
   backend: postgres-object-store
   postgres:
-    existingSecret: writ-postgres
+    existingSecret: provio-postgres
     urlKey: database-url
   objectStore:
-    existingSecret: writ-object-store
+    existingSecret: provio-object-store
     bucketKey: bucket
     endpointKey: endpoint
     regionKey: region
@@ -36,16 +36,16 @@ enterprise:
   sso:
     enabled: false
     provider: oidc
-    existingSecret: writ-sso
+    existingSecret: provio-sso
   siem:
     enabled: false
-    existingSecret: writ-siem
+    existingSecret: provio-siem
   vault:
     enabled: false
-    existingSecret: writ-vault
+    existingSecret: provio-vault
   kms:
     enabled: false
-    existingSecret: writ-kms
+    existingSecret: provio-kms
 
 networkPolicy:
   enabled: true

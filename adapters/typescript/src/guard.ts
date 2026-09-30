@@ -1,11 +1,11 @@
-import { shouldDispatch, type Approver, type WritClient } from "./client.js";
-import { WritBlockedError, WritError } from "./errors.js";
+import { shouldDispatch, type Approver, type ProvioClient } from "./client.js";
+import { ProvioBlockedError, ProvioError } from "./errors.js";
 import { fromRedacted, outputText } from "./output.js";
 import type { CallerIdentity, ServerIdentity, ToolCallInput, TrustVerdict } from "./protocol.js";
 
 export interface GuardOptions<A extends unknown[]> {
-  client: WritClient;
-  /** Tool name as writ policies see it, e.g. `bash`, `fs.read`, `postgres.query`. */
+  client: ProvioClient;
+  /** Tool name as provio policies see it, e.g. `bash`, `fs.read`, `postgres.query`. */
   tool: string;
   /**
    * Build the policy-visible `args` from the call's parameters. Default: the
@@ -13,7 +13,7 @@ export interface GuardOptions<A extends unknown[]> {
    * Never include credentials.
    */
   args?: (...params: A) => Record<string, unknown>;
-  /** Stable id for this call (default: writ generates one). */
+  /** Stable id for this call (default: provio generates one). */
   callId?: (...params: A) => string | undefined;
   /** Default: the client's session id. */
   sessionId?: string;
@@ -34,13 +34,13 @@ function defaultArgs(params: unknown[]): Record<string, unknown> {
 }
 
 /**
- * Wrap a tool function so every invocation is decided by writ first and its
+ * Wrap a tool function so every invocation is decided by provio first and its
  * execution recorded afterwards.
  *
- * - deny, rejected or unresolved ask: throws `WritBlockedError`; `fn` never runs.
- * - any gateway failure before dispatch: throws `WritError`; `fn` never runs.
- * - redact: returns writ's redacted output instead of the raw result.
- * - `complete` failure after `fn` ran: throws `WritError` (the result is withheld).
+ * - deny, rejected or unresolved ask: throws `ProvioBlockedError`; `fn` never runs.
+ * - any gateway failure before dispatch: throws `ProvioError`; `fn` never runs.
+ * - redact: returns provio's redacted output instead of the raw result.
+ * - `complete` failure after `fn` ran: throws `ProvioError` (the result is withheld).
  */
 export function guard<A extends unknown[], R>(
   fn: (...params: A) => R | Promise<R>,
@@ -64,9 +64,9 @@ export function guard<A extends unknown[], R>(
       ...(options.approvalTimeoutMs !== undefined ? { approvalTimeoutMs: options.approvalTimeoutMs } : {}),
     };
     const decision = await client.authorize(call, authorizeOptions);
-    if (!shouldDispatch(decision)) throw new WritBlockedError(decision, tool);
+    if (!shouldDispatch(decision)) throw new ProvioBlockedError(decision, tool);
     const ref = decision.ref;
-    if (ref === undefined) throw new WritError("protocol", "dispatching decision is missing ref");
+    if (ref === undefined) throw new ProvioError("protocol", "dispatching decision is missing ref");
 
     let result: Awaited<R>;
     try {
@@ -82,7 +82,7 @@ export function guard<A extends unknown[], R>(
     if (decision.decision === "redact") {
       if (text === undefined) return result;
       if (recorded.output === undefined) {
-        throw new WritError("redaction_missing", `writ: redact verdict for '${tool}' but no redacted output was returned; result withheld`);
+        throw new ProvioError("redaction_missing", `provio: redact verdict for '${tool}' but no redacted output was returned; result withheld`);
       }
       return fromRedacted(recorded.output, result) as Awaited<R>;
     }
@@ -97,8 +97,8 @@ export interface ExecutableTool {
 }
 
 export interface GuardToolsOptions {
-  client: WritClient;
-  /** Map a tool key to the writ tool name (default: the key itself). */
+  client: ProvioClient;
+  /** Map a tool key to the provio tool name (default: the key itself). */
   toolName?: (key: string) => string;
   /** Build policy-visible args from the tool's first parameter (default: the parameter itself). */
   args?: (key: string, input: unknown) => Record<string, unknown>;
@@ -112,7 +112,7 @@ export interface GuardToolsOptions {
  * Wrap the `execute` of every tool in a record of tool objects (for example
  * Vercel AI SDK `tools`). Tools without `execute` are returned unchanged.
  * Extra `execute` parameters (e.g. the AI SDK's `{ toolCallId }`) are passed
- * through, and `toolCallId` becomes writ's `call_id` when present.
+ * through, and `toolCallId` becomes provio's `call_id` when present.
  */
 export function guardTools<T extends Record<string, ExecutableTool>>(tools: T, options: GuardToolsOptions): T {
   const out: Record<string, ExecutableTool> = {};

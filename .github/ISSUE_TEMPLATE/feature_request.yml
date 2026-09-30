@@ -13,7 +13,7 @@ body:
     id: proposal
     attributes:
       label: The proposal
-      placeholder: What should writ do? Which verdict/mode/backend does it touch?
+      placeholder: What should provio do? Which verdict/mode/backend does it touch?
     validations:
       required: true
   - type: checkboxes

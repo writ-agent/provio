@@ -3,8 +3,8 @@
 
 The casts are self-contained SVG (no script, no external refs, no web fonts)
 so GitHub's image proxy renders and animates them. Every line of output is
-copied from the real CLI renderers -- writ_tui::render_call_line,
-writ_tui::gate, writ_cli::cmds::{log,verify,doctor} -- so the README never
+copied from the real CLI renderers -- provio_tui::render_call_line,
+provio_tui::gate, provio_cli::cmds::{log,verify,doctor} -- so the README never
 shows a screen the binary cannot produce.
 
     python scripts/gen_demo_svg.py
@@ -120,20 +120,20 @@ def prompt(cmd: str):
 GATE_PROMPT = "  [a]llow  [d]eny  [e]dit  [!] always allow > "
 
 GATE = [
-    (0.0, prompt("writ run -- claude")),
-    (0.7, [("  writ · 5 rules loaded from writ.yaml · ledger: .writ/ledger.jsonl", DIM, False)]),
-    (1.0, [("  mode: process wrap · backend: local-os · coverage: run `writ doctor`", DIM, False)]),
+    (0.0, prompt("provio run -- claude")),
+    (0.7, [("  provio · 5 rules loaded from provio.yaml · ledger: .provio/ledger.jsonl", DIM, False)]),
+    (1.0, [("  mode: process wrap · backend: local-os · coverage: run `provio doctor`", DIM, False)]),
     (1.3, [("", TEXT, False)]),
     (1.9, [("✓ ", GREEN, True), ("read    ", TEXT, False), ("src/api/handlers.rs", BLUE, False)]),
     (2.6, [("✓ ", GREEN, True), ("bash    ", TEXT, False), ("cargo test --lib", BLUE, False)]),
     (3.4, [("◆ ", CYAN, True), ("postgres", TEXT, False),
            ("  SELECT email, ssn FROM users LIMIT 20", BLUE, False), ("  [redact]", CYAN, False)]),
-    (3.7, [("  rule: mask-pii (writ.yaml:24) — 2 fields masked before the model sees them",
+    (3.7, [("  rule: mask-pii (provio.yaml:24) — 2 fields masked before the model sees them",
             MUTED, False)]),
     (4.4, [("", TEXT, False)]),
-    (4.9, [("⚠ writ asks: ", YELLOW, True), ("bash rm -rf ./build/../../", TEXT, False),
+    (4.9, [("⚠ provio asks: ", YELLOW, True), ("bash rm -rf ./build/../../", TEXT, False),
            ("  [ask]", YELLOW, False)]),
-    (5.2, [("  rule: block-destructive-shell (writ.yaml:6)", MUTED, False)]),
+    (5.2, [("  rule: block-destructive-shell (provio.yaml:6)", MUTED, False)]),
     (5.5, [("  → path resolves outside the workspace root", MUTED, False)]),
     (6.1, [(GATE_PROMPT, TEXT, False)]),
     (7.9, [(GATE_PROMPT, TEXT, False), ("d", YELLOW, True)], 12),
@@ -142,7 +142,7 @@ GATE = [
     (9.1, [("", TEXT, False)]),
     (9.6, [("✗ ", RED, True), ("http    ", TEXT, False),
            ("POST https://paste.ee/api", TEXT, False), ("  [denied]", RED, False)]),
-    (9.9, [("  rule: egress-allowlist (writ.yaml:18)", MUTED, False)]),
+    (9.9, [("  rule: egress-allowlist (provio.yaml:18)", MUTED, False)]),
     (10.2, [("  → host not in hosts.allowed — the refusal goes back to the agent, with the reason",
              MUTED, False)]),
     (11.0, [("", TEXT, False)]),
@@ -150,19 +150,19 @@ GATE = [
 ]
 
 VERIFY = [
-    (0.0, prompt("writ log")),
+    (0.0, prompt("provio log")),
     (0.6, [("3 sessions · 47 records · 2 denied · 1 sessions with your approvals", TEXT, False)]),
     (0.9, [("session                            records   denied  approved", DIM, False)]),
     (1.1, [("run-4821-1758543012                     31        2  yes", TEXT, False)]),
     (1.3, [("proxy-github-1758546640                 11        0  -", TEXT, False)]),
     (1.5, [("ci-pr-2291                               5        0  -", TEXT, False)]),
     (2.1, [("", TEXT, False)]),
-    (2.5, prompt("writ verify")),
+    (2.5, prompt("provio verify")),
     (3.1, [("chain intact · 47 records · no gaps", GREEN, False)]),
     (3.8, [("", TEXT, False)]),
-    (4.3, prompt("sed -i '12s/rm -rf/ls/' .writ/ledger.jsonl") +
+    (4.3, prompt("sed -i '12s/rm -rf/ls/' .provio/ledger.jsonl") +
           [("   # someone edits the evidence", MUTED, False)]),
-    (5.3, prompt("writ verify")),
+    (5.3, prompt("provio verify")),
     (5.9, [("chain BROKEN at record 12 · 11 records verified before the break", RED, False)]),
     (6.2, [("exit 1", MUTED, False)]),
     (7.0, prompt("")),
@@ -173,9 +173,9 @@ def main() -> None:
     out = pathlib.Path(__file__).resolve().parent.parent / "docs" / "assets"
     out.mkdir(parents=True, exist_ok=True)
     (out / "demo-gate.svg").write_text(
-        svg("gate", "writ run -- claude", GATE), encoding="utf-8")
+        svg("gate", "provio run -- claude", GATE), encoding="utf-8")
     (out / "demo-verify.svg").write_text(
-        svg("verify", "writ log · writ verify", VERIFY), encoding="utf-8")
+        svg("verify", "provio log · provio verify", VERIFY), encoding="utf-8")
     print(f"wrote {out}/demo-gate.svg and {out}/demo-verify.svg")
 
 

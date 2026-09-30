@@ -3,14 +3,14 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { WritClient, type WritClientOptions } from "../src/index.js";
+import { ProvioClient, type ProvioClientOptions } from "../src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Compiled tests live in build-test/test/; the fixture stays in test/fixtures/.
-export const FAKE_WRIT = resolve(here, "..", "..", "test", "fixtures", "fake-writ.mjs");
+export const FAKE_PROVIO = resolve(here, "..", "..", "test", "fixtures", "fake-provio.mjs");
 
 export interface FakeHarness {
-  client: WritClient;
+  client: ProvioClient;
   logFile: string;
   /** Every JSON line the fake gateway logged (argv entries and requests). */
   log(): Array<Record<string, unknown>>;
@@ -18,20 +18,20 @@ export interface FakeHarness {
   requests(op?: string): Array<Record<string, unknown>>;
 }
 
-export function tempDir(prefix = "writ-sdk-"): string {
+export function tempDir(prefix = "provio-sdk-"): string {
   return mkdtempSync(join(tmpdir(), prefix));
 }
 
 /**
  * A client wired to the fake gateway through the explicit `command`/`args`
- * override (`node fake-writ.mjs ...`), which also works on Windows.
+ * override (`node fake-provio.mjs ...`), which also works on Windows.
  */
-export function fakeClient(options: WritClientOptions = {}, extraEnv: NodeJS.ProcessEnv = {}): FakeHarness {
+export function fakeClient(options: ProvioClientOptions = {}, extraEnv: NodeJS.ProcessEnv = {}): FakeHarness {
   const logFile = join(tempDir(), "fake.log");
-  const client = new WritClient({
+  const client = new ProvioClient({
     command: process.execPath,
-    args: [FAKE_WRIT],
-    env: { ...process.env, FAKE_WRIT_LOG: logFile, ...extraEnv },
+    args: [FAKE_PROVIO],
+    env: { ...process.env, FAKE_PROVIO_LOG: logFile, ...extraEnv },
     ...options,
   });
   const log = (): Array<Record<string, unknown>> =>

@@ -11,8 +11,8 @@ from langchain_core.tools import tool
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import tools_condition
 
-from writ_sdk import Writ
-from writ_sdk.langgraph import guard_tool, writ_tool_node
+from provio_sdk import Provio
+from provio_sdk.langgraph import guard_tool, provio_tool_node
 
 RAN: list[str] = []
 
@@ -69,9 +69,9 @@ def _reset():
 
 
 def test_graph_allowed_runs_denied_does_not(fake_bin, fake_log):
-    with Writ() as w:
+    with Provio() as w:
         graph = scripted_graph(
-            writ_tool_node([allowed, denied, redacty], w),
+            provio_tool_node([allowed, denied, redacty], w),
             [("allowed", {"path": "a.txt"}), ("denied", {"target": "/"}), ("redacty", {"user": "bob"})],
         )
         out = graph.invoke({"messages": [HumanMessage("go")]}, {"configurable": {"thread_id": "t-42"}})
@@ -79,8 +79,8 @@ def test_graph_allowed_runs_denied_does_not(fake_bin, fake_log):
     assert sorted(RAN) == ["allowed", "redacty"]
     assert msgs["call_0"].content == "contents of a.txt" and msgs["call_0"].status == "success"
     assert msgs["call_1"].status == "error" and "no-rm" in msgs["call_1"].content
-    assert "writ.yaml:12" in msgs["call_1"].content
-    assert msgs["call_2"].content == "bob ssn [redacted-by-writ]"
+    assert "provio.yaml:12" in msgs["call_1"].content
+    assert msgs["call_2"].content == "bob ssn [redacted-by-provio]"
     assert out["messages"][-1].content == "done"  # graph kept going
     decides = [r for r in fake_log() if r["op"] == "decide"]
     assert {r["call"]["session_id"] for r in decides} == {"t-42"}
@@ -89,9 +89,9 @@ def test_graph_allowed_runs_denied_does_not(fake_bin, fake_log):
 
 
 async def test_graph_async_and_gateway_down(monkeypatch, tmp_path):
-    monkeypatch.setenv("WRIT_BIN", str(tmp_path / "missing" / "writ"))
-    with Writ() as w:
-        graph = scripted_graph(writ_tool_node([allowed], w), [("allowed", {"path": "a"})])
+    monkeypatch.setenv("PROVIO_BIN", str(tmp_path / "missing" / "provio"))
+    with Provio() as w:
+        graph = scripted_graph(provio_tool_node([allowed], w), [("allowed", {"path": "a"})])
         out = await graph.ainvoke({"messages": [HumanMessage("go")]})
     msg = tool_messages(out)["call_0"]
     assert RAN == [] and msg.status == "error" and "did not run" in msg.content
@@ -100,7 +100,7 @@ async def test_graph_async_and_gateway_down(monkeypatch, tmp_path):
 def test_guard_tool_direct(fake_bin):
     from langchain_core.tools import ToolException
 
-    with Writ() as w:
+    with Provio() as w:
         g_allowed, g_denied = guard_tool(allowed, w), guard_tool(denied, w)
         assert g_allowed.name == "allowed" and g_allowed.args == allowed.args
         assert g_allowed.invoke({"path": "x"}) == "contents of x"

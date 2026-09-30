@@ -1,6 +1,6 @@
 # Internal build planning
 
-How writ is being built, not how to use it.
+How provio is being built, not how to use it.
 
 - [BUILD_PLAN.md](BUILD_PLAN.md) — the master build plan: decisions, waves,
   crate layout, ownership, and quality gates.

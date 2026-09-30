@@ -1,14 +1,14 @@
-// Run a Claude Agent SDK session with every tool call checked by writ.
-// Requires `writ` on PATH (or WRIT_BIN) and a writ.yaml in the working directory.
+// Run a Claude Agent SDK session with every tool call checked by provio.
+// Requires `provio` on PATH (or PROVIO_BIN) and a provio.yaml in the working directory.
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
-import { WritClient } from "@writ-agent/sdk";
-import { createWritIntegration } from "@writ-agent/sdk/claude-agent-sdk";
+import { ProvioClient } from "provio-sdk";
+import { createProvioIntegration } from "provio-sdk/claude-agent-sdk";
 
 async function main(): Promise<void> {
-  await using writ = new WritClient({ ask: "defer" });
-  const { hooks, canUseTool } = createWritIntegration({
-    client: writ,
+  await using provio = new ProvioClient({ ask: "defer" });
+  const { hooks, canUseTool } = createProvioIntegration({
+    client: provio,
     // Deferred asks come here; return true only for an explicit human yes.
     approver: async ({ call, decision }) => {
       console.error(`approval needed for ${call.tool}: ${decision.reason ?? ""}`);

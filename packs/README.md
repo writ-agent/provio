@@ -1,9 +1,9 @@
 # Policy packs
 
-A pack is a reusable set of `writ.yaml` rules for one risk area. Each pack
+A pack is a reusable set of `provio.yaml` rules for one risk area. Each pack
 directory has a `pack.yaml` (`id`, `version`, `description`, `rules`), a
 `README.md` saying what it covers and what it deliberately does not, and a
-`fixtures/` directory that proves its verdicts with `writ policy test`.
+`fixtures/` directory that proves its verdicts with `provio policy test`.
 
 | Pack | What it does |
 |---|---|
@@ -27,7 +27,7 @@ directory has a `pack.yaml` (`id`, `version`, `description`, `rules`), a
 
 ## Using a pack
 
-Name bundled packs in your `writ.yaml`; every writ build ships them:
+Name bundled packs in your `provio.yaml`; every provio build ships them:
 
 ```yaml
 version: 1
@@ -37,7 +37,7 @@ rules:
   # your own rules
 ```
 
-writ places each pack's rules around yours the way a careful hand-merge
+provio places each pack's rules around yours the way a careful hand-merge
 would, so **placement is not your problem**:
 
 1. The packs' **deny and ask** rules go first, in the order you list the
@@ -62,14 +62,14 @@ packs:
 ```
 
 An unknown pack, a pack listed twice, or a `skip` naming a rule the pack
-does not have is a policy error (writ refuses to load it).
+does not have is a policy error (provio refuses to load it).
 
 To review or fork a pack instead, copy it out and merge its rules by hand
 (then follow the same placement):
 
 ```bash
-writ policy add aws-safety
-# installed pack 'aws-safety' → .writ/packs/aws-safety.yaml
+provio policy add aws-safety
+# installed pack 'aws-safety' → .provio/packs/aws-safety.yaml
 # sha256: …
 ```
 
@@ -86,8 +86,8 @@ to, or which database a URL points at. Each README lists its own gaps.
 Check the merged result:
 
 ```bash
-writ doctor --policy writ.yaml
-writ policy test --policy writ.yaml --fixtures packs/<id>/fixtures
+provio doctor --policy provio.yaml
+provio policy test --policy provio.yaml --fixtures packs/<id>/fixtures
 ```
 
 A pack's fixtures are written against the pack alone under `default: ask`;
@@ -96,11 +96,11 @@ front of them.
 
 ## Validating packs (CI)
 
-`python scripts/validate_packs.py [--writ path/to/writ]` compiles every
+`python scripts/validate_packs.py [--provio path/to/provio]` compiles every
 pack (wrapped in `version: 1` / `default: ask`) and every example policy,
 requires each pack to have a `README.md` and `fixtures/`, runs each pack's
-fixtures with `writ policy test`, and, where a pack ships
-`redact-samples.yaml`, drives sample tool output through `writ check` to
+fixtures with `provio policy test`, and, where a pack ships
+`redact-samples.yaml`, drives sample tool output through `provio check` to
 prove what gets masked. The `packs` CI job runs it on every push.
 
 ## Write your own pack

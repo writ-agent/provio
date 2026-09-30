@@ -20,5 +20,5 @@ site/assets/*.svg linguist-generated=true
 
 # Generated playground build (scripts/build_playground.sh).
 *.wasm binary
-site/assets/playground/writ_wasm*.js linguist-generated=true
+site/assets/playground/provio_wasm*.js linguist-generated=true
 site/assets/playground/presets.js linguist-generated=true

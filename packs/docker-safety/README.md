@@ -33,7 +33,7 @@ anywhere after the binary in that segment, so global flags in front of it
 
 Why the split between deny and ask: a host-root mount or a privileged
 container in the host PID namespace is root on the machine, outside
-`writ run`'s write boundary, and no normal agent task needs it.
+`provio run`'s write boundary, and no normal agent task needs it.
 `--privileged` alone, the Docker socket and host namespaces have real uses
 (Docker-in-Docker, Testcontainers, Portainer, Traefik, node exporters), so
 they ask.

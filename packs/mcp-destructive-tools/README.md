@@ -3,7 +3,7 @@
 Human gates on MCP tools that delete data, share it, change who can reach
 it, revoke credentials, or run shell commands, on any MCP server except
 GitHub (`github-safety` covers GitHub). The rules read only the tool name
-and the server identity, so they work for servers writ has never seen:
+and the server identity, so they work for servers provio has never seen:
 
 ```yaml
 version: 1
@@ -37,7 +37,7 @@ Code the server is the `<server>` in `mcp__<server>__<tool>`.
 ## What it deliberately does not cover
 
 - **Which object a tool touches.** `delete_file` in a scratch directory
-  and in production data ask alike; writ sees `path`, `url`, `query` and
+  and in production data ask alike; provio sees `path`, `url`, `query` and
   `command` arguments, not ids such as `issue_key` or `pageId`.
 - **Tools whose names hide the action.** `update_page` with a "replace
   all content" argument, `batch_modify`, or a generic `make_api_request`
@@ -48,7 +48,7 @@ Code the server is the `<server>` in `mcp__<server>__<tool>`.
   hosted sandbox, `browser_evaluate`, `puppeteer_evaluate`): these run in
   a sandbox or a page, not on the host shell, and gating them would ask on
   nearly every call.
-- **The command inside an exec tool.** Shell rules in writ packs (the
+- **The command inside an exec tool.** Shell rules in provio packs (the
   floor included) match `tool == "bash"`; a command sent through
   `execute_command` is only gated by `mcp-exec-tool-asks`, not checked
   against the shell rules. Write your own rules on `command` without the

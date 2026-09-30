@@ -12,10 +12,10 @@ Wave 3 infrastructure scaffold for the cluster ledger target: Postgres plus obje
 
 Future modules should produce values that can be mapped to the Helm chart Secret refs:
 
-- `database_url` -> Secret `writ-postgres` key `database-url`
-- `object_bucket` -> Secret `writ-object-store` key `bucket`
-- `object_endpoint` -> Secret `writ-object-store` key `endpoint`
-- `object_region` -> Secret `writ-object-store` key `region`
+- `database_url` -> Secret `provio-postgres` key `database-url`
+- `object_bucket` -> Secret `provio-object-store` key `bucket`
+- `object_endpoint` -> Secret `provio-object-store` key `endpoint`
+- `object_region` -> Secret `provio-object-store` key `region`
 - `kms_key_id` -> Secret or config consumed by the Wave 3 KMS integration
 
 ## Security requirements for the future module

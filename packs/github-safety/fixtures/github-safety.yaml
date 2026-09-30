@@ -139,7 +139,7 @@
   expect: { verdict: allow, rule_id: github-git-read-only-allowed }
 
 - name: git -C dir diff --stat allowed
-  ctx: { tool: bash, args: { command: "git -C crates/writ-cli diff --stat HEAD~1" } }
+  ctx: { tool: bash, args: { command: "git -C crates/provio-cli diff --stat HEAD~1" } }
   expect: { verdict: allow, rule_id: github-git-read-only-allowed }
 
 - name: git branch -a allowed

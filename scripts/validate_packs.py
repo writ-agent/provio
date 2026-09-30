@@ -2,21 +2,21 @@
 """Compile every policy pack and example policy, and run each pack's fixtures.
 
 Pack files carry only `rules`, so each is wrapped in a minimal policy header
-(`version: 1`, `default: ask`) before compiling with `writ doctor`. A pack
+(`version: 1`, `default: ask`) before compiling with `provio doctor`. A pack
 that ships a `fixtures/` directory is then tested with
-`writ policy test --fixtures packs/<id>/fixtures` against the same wrapped
+`provio policy test --fixtures packs/<id>/fixtures` against the same wrapped
 policy, so unmatched cases expect `verdict: ask, rule_id: default`.
 
 A pack may also ship `redact-samples.yaml`: each sample is driven through
-the real gateway (`writ check` decide, then complete with a tool output) and
+the real gateway (`provio check` decide, then complete with a tool output) and
 the masked result is checked for strings that must disappear or survive.
 
 Every pack must also carry a README.md and a fixtures/ directory.
 Exits 1 if any file fails to compile, any fixture fails, or a pack is
 missing its README or fixtures.
 
-Usage: python3 scripts/validate_packs.py [--writ PATH]
-Builds `writ` with cargo first unless --writ points at an existing binary.
+Usage: python3 scripts/validate_packs.py [--provio PATH]
+Builds `provio` with cargo first unless --provio points at an existing binary.
 Requires PyYAML.
 """
 
@@ -32,11 +32,11 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
-def writ_binary(argv):
-    if "--writ" in argv:
-        return pathlib.Path(argv[argv.index("--writ") + 1])
-    subprocess.run(["cargo", "build", "-q", "-p", "writ-cli"], cwd=ROOT, check=True)
-    exe = ROOT / "target" / "debug" / "writ"
+def provio_binary(argv):
+    if "--provio" in argv:
+        return pathlib.Path(argv[argv.index("--provio") + 1])
+    subprocess.run(["cargo", "build", "-q", "-p", "provio-cli"], cwd=ROOT, check=True)
+    exe = ROOT / "target" / "debug" / "provio"
     return exe.with_suffix(".exe") if sys.platform == "win32" else exe
 
 
@@ -54,12 +54,12 @@ def run(cmd, **kwargs):
 
 
 def check_redact_samples(exe, policy_text, samples_path, tmp):
-    """Drive each redact sample through the real gateway (`writ check`
+    """Drive each redact sample through the real gateway (`provio check`
     decide, then complete with the sample output) and assert the masking.
     Returns a list of failure strings (empty = all good)."""
     project = tmp / f"redact-{samples_path.parent.name}"
     project.mkdir(exist_ok=True)
-    (project / "writ.yaml").write_text(policy_text, encoding="utf-8")
+    (project / "provio.yaml").write_text(policy_text, encoding="utf-8")
     samples = yaml.safe_load(samples_path.read_text(encoding="utf-8")) or []
     failures = []
 
@@ -95,10 +95,10 @@ def check_redact_samples(exe, policy_text, samples_path, tmp):
 
 
 def main(argv):
-    exe = writ_binary(argv)
+    exe = provio_binary(argv)
     targets = sorted(ROOT.glob("packs/*/pack.yaml")) + sorted(ROOT.glob("examples/*.yaml"))
     ok = True
-    with tempfile.TemporaryDirectory(prefix="writ-packval-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="provio-packval-") as tmp:
         tmp = pathlib.Path(tmp)
         for path in targets:
             rel = path.relative_to(ROOT).as_posix()

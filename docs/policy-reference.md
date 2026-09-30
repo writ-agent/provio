@@ -1,4 +1,4 @@
-# Policy Reference — the native `writ.yaml` DSL
+# Policy Reference — the native `provio.yaml` DSL
 
 One file, committed to your repository, hot-reloadable, unit-testable,
 shareable. The policy file is the product's centre of gravity.
@@ -56,7 +56,7 @@ Wildcard list entries: `*.internal.example.com` matches
 
 ## Packs
 
-`packs:` names bundled policy packs ([packs/](../packs/)); every writ build
+`packs:` names bundled policy packs ([packs/](../packs/)); every provio build
 ships them, so the policy stays one short file:
 
 ```yaml
@@ -67,29 +67,29 @@ packs:
     skip: [github-pr-merge-asks]  # decide this one yourself
 ```
 
-writ composes them with your `rules:` the way a careful hand-merge would:
+provio composes them with your `rules:` the way a careful hand-merge would:
 the packs' **deny and ask** rules first (in the order listed, so a broad
 allow of yours cannot open them), then **your rules**, then the packs'
 **allow** rules (your denies still win), then their **redact** rules (redact
 dispatches, so it goes last). A pack rule's location is `pack:<id>@<version>`,
 in the ledger and in the agent's refusal. An unknown pack, a pack listed
 twice, or a `skip` naming a rule the pack does not have is a policy error:
-writ refuses to load the policy. `packs:` works the same with the Rego and
-Cedar engines, which compile the same `writ.yaml`.
+provio refuses to load the policy. `packs:` works the same with the Rego and
+Cedar engines, which compile the same `provio.yaml`.
 
-To see the composed result for a call: `writ test "<command>"`.
+To see the composed result for a call: `provio test "<command>"`.
 
 ## The four verdicts
 
 | Verdict | Behaviour |
 |---|---|
 | `allow` | Dispatch to the sandbox/backend. Recorded. |
-| `deny` | Structured refusal to the agent with rule id + reason + `writ.yaml:LINE`, so the model can self-correct. Recorded. |
+| `deny` | Structured refusal to the agent with rule id + reason + `provio.yaml:LINE`, so the model can self-correct. Recorded. |
 | `ask` | Suspend, render the exact planned action, wait for a human (`[a]llow [d]eny [e]dit [!] always allow`). Headless: out-of-band approver or fail closed on timeout. Recorded with approver identity. |
 | `redact` | Execute, but mask `patterns` in the result before it re-enters the model's context. Recorded with a hash of the original. |
 
 Unmatched calls get `default`. Ship `default: ask` (fail-closed);
-`writ run --yolo` flips it to `allow` (demos only — it prints a loud warning).
+`provio run --yolo` flips it to `allow` (demos only — it prints a loud warning).
 
 Deny and ask verdicts also apply to the commands hidden behind a call (the
 lines of a script it runs or writes, a heredoc fed to a shell, the
@@ -100,14 +100,14 @@ lines of a script it runs or writes, a heredoc fed to a shell, the
 Try one call without running it (exit 0 allow, 2 deny, 3 ask):
 
 ```bash
-writ test "git push --force origin main"
-writ test --tool fs.read --path .env
+provio test "git push --force origin main"
+provio test --tool fs.read --path .env
 ```
 
 Or replay a whole recorded suite:
 
 ```bash
-writ policy test --policy writ.yaml --fixtures crates/writ-policy/fixtures
+provio policy test --policy provio.yaml --fixtures crates/provio-policy/fixtures
 ```
 
 Fixtures are YAML cases: a context (tool/command/path/…) plus the expected
@@ -141,6 +141,6 @@ outcome fails the run — prove the change before you ship it.
   patterns: ["[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"]
 ```
 
-More: [examples/writ.yaml](../examples/writ.yaml) (full tour),
+More: [examples/provio.yaml](../examples/provio.yaml) (full tour),
 [ci.yaml](../examples/ci.yaml) (headless), [strict.yaml](../examples/strict.yaml)
 (default-deny posture).

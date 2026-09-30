@@ -1,10 +1,10 @@
 name: release
 
-# A `vX.Y.Z` tag builds the writ binary for every supported platform and
+# A `vX.Y.Z` tag builds the provio binary for every supported platform and
 # publishes it everywhere users install from:
 #   - GitHub Release: signed binaries, checksums, SBOMs, build provenance
-#   - PyPI: writ-cli (platform wheels carrying the binary), then writ-sdk
-#   - npm:  @writ-agent/cli-<os>-<cpu>, then @writ-agent/cli, then @writ-agent/sdk
+#   - PyPI: provio (platform wheels carrying the binary), then provio-sdk
+#   - npm:  provio-cli-<os>-<cpu>, then provio, then provio-sdk
 # Run it manually (workflow_dispatch) for a dry run: everything is built and
 # checked, nothing is published unless `publish` is ticked.
 
@@ -74,21 +74,21 @@ jobs:
         env:
           CC_x86_64_unknown_linux_musl: musl-gcc
           CC_aarch64_unknown_linux_musl: musl-gcc
-        run: cargo build --release --locked -p writ-cli --target ${{ matrix.target }}
+        run: cargo build --release --locked -p provio-cli --target ${{ matrix.target }}
       - name: stage
         shell: bash
         run: |
           mkdir -p dist
           ext=""; [ "${{ runner.os }}" = "Windows" ] && ext=".exe"
-          cp "target/${{ matrix.target }}/release/writ$ext" "dist/writ-${{ matrix.target }}$ext"
+          cp "target/${{ matrix.target }}/release/provio$ext" "dist/provio-${{ matrix.target }}$ext"
           ls -l dist
       - name: smoke test
         if: matrix.run
         shell: bash
         run: |
           ext=""; [ "${{ runner.os }}" = "Windows" ] && ext=".exe"
-          "dist/writ-${{ matrix.target }}$ext" --version
-          echo '{}' | "dist/writ-${{ matrix.target }}$ext" check --format claude-code && exit 1 || [ $? -eq 2 ]
+          "dist/provio-${{ matrix.target }}$ext" --version
+          echo '{}' | "dist/provio-${{ matrix.target }}$ext" check --format claude-code && exit 1 || [ $? -eq 2 ]
       - uses: actions/upload-artifact@v7
         with:
           name: bin-${{ matrix.target }}
@@ -119,13 +119,13 @@ jobs:
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
-          args: --release --locked --out dist -m crates/writ-cli/Cargo.toml
-      - name: smoke test (install the wheel, run writ)
+          args: --release --locked --out dist -m crates/provio-cli/Cargo.toml
+      - name: smoke test (install the wheel, run provio)
         if: matrix.run
         shell: bash
         run: |
-          python -m pip install --no-index --find-links dist writ-cli
-          writ --version
+          python -m pip install --no-index --find-links dist provio
+          provio --version
       - uses: actions/upload-artifact@v7
         with:
           name: wheel-${{ matrix.platform }}
@@ -140,7 +140,7 @@ jobs:
       - uses: PyO3/maturin-action@v1
         with:
           command: sdist
-          args: --out dist -m crates/writ-cli/Cargo.toml
+          args: --out dist -m crates/provio-cli/Cargo.toml
       - uses: actions/upload-artifact@v7
         with:
           name: wheel-sdist
@@ -157,8 +157,8 @@ jobs:
         run: |
           cargo install cargo-cyclonedx --locked
           cargo cyclonedx --format json --all
-          cp crates/writ-cli/writ-cli.cdx.json sbom-cyclonedx.json 2>/dev/null \
-            || find . -name '*.cdx.json' -path '*writ-cli*' -exec cp {} sbom-cyclonedx.json \;
+          cp crates/provio-cli/provio-cli.cdx.json sbom-cyclonedx.json 2>/dev/null \
+            || find . -name '*.cdx.json' -path '*provio-cli*' -exec cp {} sbom-cyclonedx.json \;
       - name: SPDX SBOM (syft)
         uses: anchore/sbom-action@v0
         with:
@@ -197,7 +197,7 @@ jobs:
           cd .. && cosign sign-blob --yes --bundle checksums.txt.cosign-bundle checksums.txt
       - uses: actions/attest-build-provenance@v4
         with:
-          subject-path: dist/writ-*
+          subject-path: dist/provio-*
       - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
@@ -220,21 +220,21 @@ jobs:
           pattern: wheel-*
           merge-multiple: true
           path: dist-cli
-      - name: build writ-sdk
+      - name: build provio-sdk
         run: |
           python -m pip install --quiet build twine
           python -m build --outdir dist-sdk adapters/python
           python -m twine check dist-cli/* dist-sdk/*
           ls -l dist-cli dist-sdk
-      # writ-cli first: writ-sdk pins it exactly.
-      - name: publish writ-cli
+      # provio first: provio-sdk pins it exactly.
+      - name: publish provio
         if: env.PUBLISH == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           packages-dir: dist-cli
           skip-existing: true
-      - name: publish writ-sdk
+      - name: publish provio-sdk
         if: env.PUBLISH == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -265,7 +265,7 @@ jobs:
         run: |
           version=$(node -p "require('./packaging/npm/cli/package.json').version")
           node packaging/npm/make_platform_packages.mjs bins npm-out "$version"
-      - name: build @writ-agent/sdk
+      - name: build provio-sdk
         working-directory: adapters/typescript
         run: npm ci && npm run build && npm test
       # Platform packages first, then the launcher that depends on them, then

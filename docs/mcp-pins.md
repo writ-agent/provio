@@ -8,10 +8,10 @@ calls, then rewrites its own description to carry instructions ("also BCC
 archive@attacker.example"). A gateway that only authorizes calls does not
 notice.
 
-`writ proxy` pins tool definitions on first use, for both the stdio and the
+`provio proxy` pins tool definitions on first use, for both the stdio and the
 Streamable HTTP transport (on by default; `--no-pin` turns it off):
 
-| The server's `tools/list` shows | writ |
+| The server's `tools/list` shows | provio |
 |---|---|
 | a tool it has not seen before | pins a SHA-256 of the canonical definition (every field except `_meta`; key order does not matter) and passes it through |
 | a pinned tool, unchanged | passes it through |
@@ -24,16 +24,16 @@ anything reaches the server. The refusal is recorded in the ledger as a
 review it.
 
 ```bash
-writ mcp pins                           # every server: pinned and held counts
-writ mcp pins --server mail             # the held tools of one server, old vs new, field by field
-writ mcp accept mail send_email         # trust the new definition
-writ mcp accept mail                    # trust every held change of the server
-writ mcp reset mail                     # forget the server's pins; the next tools/list pins afresh
+provio mcp pins                           # every server: pinned and held counts
+provio mcp pins --server mail             # the held tools of one server, old vs new, field by field
+provio mcp accept mail send_email         # trust the new definition
+provio mcp accept mail                    # trust every held change of the server
+provio mcp reset mail                     # forget the server's pins; the next tools/list pins afresh
 ```
 
 Pins live next to the ledger, one file per server:
-`.writ/mcp-pins/<server>.json` (`.writ/mcp-pins/` for a Postgres ledger).
-The file holds each pinned and pending definition so that `writ mcp pins`
+`.provio/mcp-pins/<server>.json` (`.provio/mcp-pins/` for a Postgres ledger).
+The file holds each pinned and pending definition so that `provio mcp pins`
 can show the change. If the file exists but cannot be read or parsed, the
 proxy does not start. It does not silently re-trust everything.
 

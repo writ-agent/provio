@@ -25,7 +25,7 @@ packs: [floor, payments-guard]
 | `pay-mcp-crypto-transfer-asks` | ask, irreversible | wallet MCP tools `send_transaction`, `send_eth`, `transfer_tokens`, `sign_and_send_transaction`, `sendRawTransaction`; bare `transfer`/`trade`/`swap` only on a wallet server (coinbase, agentkit, wallet, solana, ethereum, evm, …) |
 
 **Test mode vs live mode.** The Stripe CLI and API use whatever key they
-resolve (`stripe login`, `STRIPE_API_KEY`, `--api-key`). writ sees only
+resolve (`stripe login`, `STRIPE_API_KEY`, `--api-key`). provio sees only
 the command line, so it denies what is visibly live (`--live`,
 `sk_live_`) and asks for everything else, test mode included. If your
 agent only ever holds test keys, skip `pay-stripe-money-movement-asks`
@@ -42,14 +42,14 @@ and are not matched.
   customer data but move no money; `secrets-guard` and `pii-redaction`
   are the places for that.
 - **Keys held in variables.** `curl … -u "$STRIPE_KEY:"` against the live
-  API asks instead of being denied, because writ cannot tell the mode.
+  API asks instead of being denied, because provio cannot tell the mode.
 - **Generic API tools on payment servers** (Square MCP's
   `make_api_request`, a raw `stripe_api` tool): the action is in an
-  argument writ does not expose.
+  argument provio does not expose.
 - **Other chains' CLIs and custodial exchanges** (`near send`,
   `aptos move run`, exchange APIs): add rules for the ones you use.
 - **Scripts.** `node scripts/refund-all.js` is not matched by these
-  regexes (only SDK calls written inline in the command are); writ's
+  regexes (only SDK calls written inline in the command are); provio's
   script inspection reads scripts the agent writes and runs.
 
 ## Tests

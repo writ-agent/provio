@@ -1,15 +1,15 @@
-// End-to-end against the real `writ` binary. Skipped unless WRIT_E2E=1.
-// Uses WRIT_BIN (or `writ` on PATH).
+// End-to-end against the real `provio` binary. Skipped unless PROVIO_E2E=1.
+// Uses PROVIO_BIN (or `provio` on PATH).
 import * as assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
-import { WritBlockedError, WritClient, guard, locateWrit } from "../src/index.js";
+import { ProvioBlockedError, ProvioClient, guard, locateProvio } from "../src/index.js";
 import { tempDir } from "./helpers.js";
 
-const enabled = process.env.WRIT_E2E === "1";
+const enabled = process.env.PROVIO_E2E === "1";
 
 const POLICY = `version: 1
 default: ask
@@ -36,22 +36,22 @@ rules:
       - "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,}"
 `;
 
-describe("e2e: real writ check --stdio", { skip: enabled ? false : "set WRIT_E2E=1 (and WRIT_BIN) to run" }, () => {
-  it("allow / deny / redact / default-ask, then writ verify", async () => {
-    const dir = tempDir("writ-e2e-");
-    const policy = join(dir, "writ.yaml");
+describe("e2e: real provio check --stdio", { skip: enabled ? false : "set PROVIO_E2E=1 (and PROVIO_BIN) to run" }, () => {
+  it("allow / deny / redact / default-ask, then provio verify", async () => {
+    const dir = tempDir("provio-e2e-");
+    const policy = join(dir, "provio.yaml");
     const ledger = join(dir, "ledger.jsonl");
     writeFileSync(policy, POLICY);
 
-    const client = new WritClient({ policy, ledger, cwd: dir, caller: { agent: "writ-sdk-e2e" } });
+    const client = new ProvioClient({ policy, ledger, cwd: dir, caller: { agent: "provio-sdk-e2e" } });
     try {
       const bash = guard((input: { command: string }) => `ran: ${input.command}`, { client, tool: "bash" });
       assert.equal(await bash({ command: "ls -la" }), "ran: ls -la");
 
       await assert.rejects(bash({ command: "rm -rf /" }), (e: unknown) => {
-        assert.ok(e instanceof WritBlockedError);
+        assert.ok(e instanceof ProvioBlockedError);
         assert.equal(e.decision.rule_id, "no-rm");
-        assert.match(e.decision.location ?? "", /writ\.yaml:\d+/);
+        assert.match(e.decision.location ?? "", /provio\.yaml:\d+/);
         return true;
       });
 
@@ -62,13 +62,13 @@ describe("e2e: real writ check --stdio", { skip: enabled ? false : "set WRIT_E2E
       assert.match(redacted, /42/);
 
       // Unmatched -> policy default ask -> `--ask deny` -> blocked.
-      await assert.rejects(guard((_input: { path: string }) => "never", { client, tool: "fs.write" })({ path: "x" }), WritBlockedError);
+      await assert.rejects(guard((_input: { path: string }) => "never", { client, tool: "fs.write" })({ path: "x" }), ProvioBlockedError);
     } finally {
       await client.close();
     }
 
     // Deferred asks: approve one, reject one; completes use the resolve's ref.
-    const deferred = new WritClient({ policy, ledger, cwd: dir, ask: "defer" });
+    const deferred = new ProvioClient({ policy, ledger, cwd: dir, ask: "defer" });
     try {
       const deploy = (approved: boolean) =>
         guard((input: { command: string }) => `deployed: ${input.command}`, {
@@ -77,13 +77,13 @@ describe("e2e: real writ check --stdio", { skip: enabled ? false : "set WRIT_E2E
           approver: () => ({ approved, approver: "human:e2e" }),
         });
       assert.equal(await deploy(true)({ command: "deploy web" }), "deployed: deploy web");
-      await assert.rejects(deploy(false)({ command: "deploy db" }), WritBlockedError);
+      await assert.rejects(deploy(false)({ command: "deploy db" }), ProvioBlockedError);
     } finally {
       await deferred.close();
     }
 
-    const launch = locateWrit();
+    const launch = locateProvio();
     const verify = spawnSync(launch.command, [...launch.args, "--ledger", ledger, "verify"], { cwd: dir, encoding: "utf8" });
-    assert.equal(verify.status, 0, `writ verify failed:\n${verify.stdout}\n${verify.stderr}`);
+    assert.equal(verify.status, 0, `provio verify failed:\n${verify.stdout}\n${verify.stderr}`);
   });
 });

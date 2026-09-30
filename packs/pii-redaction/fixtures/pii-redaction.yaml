@@ -28,5 +28,5 @@
   expect: { verdict: redact, rule_id: redact-ssn-like }
 
 - name: web.search in processwrap mode is not matched
-  ctx: { tool: web.search, mode: processwrap, args: { query: "writ policy" } }
+  ctx: { tool: web.search, mode: processwrap, args: { query: "provio policy" } }
   expect: { verdict: ask, rule_id: default }

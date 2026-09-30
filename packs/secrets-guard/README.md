@@ -34,7 +34,7 @@ pattern is bounded and runs on Rust's linear-time regex engine.
 `redact` means **run the call, then mask the result**. A redact rule
 therefore also lets every call it matches through without a prompt. So:
 
-- merge the **deny** rules near the **top** of your `writ.yaml`, above any
+- merge the **deny** rules near the **top** of your `provio.yaml`, above any
   rule that could allow a read;
 - merge the two **redact** rules at the very **end**, after all of your own
   rules and other packs. Placed earlier, `secrets-redact-file-reads` would
@@ -48,7 +48,7 @@ therefore also lets every call it matches through without a prompt. So:
 - **Arbitrary programs.** `python script.py` that opens `~/.aws/credentials`
   itself, or a build tool that prints a token, is invisible to command-text
   rules. The redact rules mask known token formats only in output of the
-  commands they match. Pair this pack with `writ run` confinement and keep
+  commands they match. Pair this pack with `provio run` confinement and keep
   long-lived credentials out of the agent's environment.
 - **Search tools.** Claude Code's `Grep`/`Glob` carry the search root as
   `path`; a recursive search from `~` is not denied by these path rules
@@ -62,11 +62,11 @@ therefore also lets every call it matches through without a prompt. So:
 
 ## Use it
 
-Packs are rules you merge into your own `writ.yaml`; writ does not load
-`.writ/packs/` automatically.
+Packs are rules you merge into your own `provio.yaml`; provio does not load
+`.provio/packs/` automatically.
 
 ```bash
-writ policy add secrets-guard   # bundled with writ (a local ./packs/<id> wins); prints the sha256
+provio policy add secrets-guard   # bundled with provio (a local ./packs/<id> wins); prints the sha256
 ```
 
 Paste the deny rules at the top of `rules:` and the redact rules at the end
@@ -77,13 +77,13 @@ is also denied by `github-safety`; `gcloud`/`az` token printing is asked
 (not denied) by `gcp-azure-safety`, and whichever rule comes first wins.
 
 ```bash
-writ doctor --policy writ.yaml
-writ policy test --policy writ.yaml --fixtures packs/secrets-guard/fixtures
+provio doctor --policy provio.yaml
+provio policy test --policy provio.yaml --fixtures packs/secrets-guard/fixtures
 ```
 
 Fixtures: `fixtures/secrets-guard.yaml` (61 cases, Windows paths and
 PowerShell included, plus near misses such as `id_ed25519.pub`,
 `environment.ts`, `grep process.env`, `env NODE_ENV=test npm test` and
 `set -euo pipefail`). `redact-samples.yaml` (9 samples) drives real tool
-output through `writ check` and asserts which strings are masked and which
+output through `provio check` and asserts which strings are masked and which
 survive; `scripts/validate_packs.py` runs both.

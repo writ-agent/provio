@@ -1,0 +1,27 @@
+[package]
+name = "provio-receipts"
+description = "Signed receipts over the provio ledger and external anchoring."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+provio-core.workspace = true
+provio-ledger.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true
+# Ed25519 / Ed25519ph (RFC 8032) signing, PKCS#8 + SPKI PEM keys. Pure Rust.
+ed25519-dalek = { version = "3", default-features = false, features = ["fast", "zeroize", "digest", "pem", "pkcs8"] }
+# ECDSA P-256 verification of Rekor's signed entry timestamps and checkpoints.
+p256 = { version = "0.14", default-features = false, features = ["std", "ecdsa", "pem"] }
+# OS randomness for key generation.
+getrandom = "0.4"
+base64 = "0.23"
+# HTTP client for Rekor: rustls with the ring provider, webpki roots.
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+

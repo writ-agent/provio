@@ -1,10 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 120" role="img" aria-label="writ">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 396 124" role="img" aria-label="provio">
   <g fill="none" stroke="#dbe4ec" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 42 L32 98 L55 58 L78 98 L98 42"/>
-    <path d="M124 98 V42 M124 66 C124 50 136 42 154 42"/>
-    <path d="M178 98 V42"/>
-    <path d="M214 22 V82 Q214 98 230 98 M200 44 H232"/>
+    <path d="M12 42 V116"/>
+    <circle cx="40" cy="70" r="28"/>
+    <path d="M92 98 V42 M92 66 C92 50 104 42 122 42"/>
+    <circle cx="162" cy="70" r="28"/>
+    <path d="M208 42 L230 98 L252 42"/>
+    <path d="M276 98 V42"/>
+    <circle cx="324" cy="70" r="28"/>
   </g>
-  <circle cx="178" cy="18" r="7.5" fill="#dbe4ec"/>
-  <circle cx="260" cy="91" r="10" fill="#4ec9a5"/>
+  <circle cx="276" cy="18" r="7.5" fill="#dbe4ec"/>
+  <circle cx="374" cy="91" r="10" fill="#4ec9a5"/>
 </svg>

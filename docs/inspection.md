@@ -7,8 +7,8 @@ the command was `bash cleanup.sh`; line 3 of the script the agent had
 written was `trap 'rm -rf "$HOME"' EXIT`. A rule that reads the command
 string cannot see that.
 
-So before writ records a decision (in `writ check`, for every agent hook
-format and the SDKs, and in `writ test` and `writ scan`), it also finds the commands **hidden behind the
+So before provio records a decision (in `provio check`, for every agent hook
+format and the SDKs, and in `provio test` and `provio scan`), it also finds the commands **hidden behind the
 call** and judges each one as a `bash` call against the same policy:
 
 | The call | What else is judged |
@@ -43,7 +43,7 @@ which are judged as `rm -rf ~`.
    command with heredoc bodies taken out; each body is judged by what
    consumes it (the table above). A Markdown file written with
    `cat > notes.md <<EOF`, or a Python program that mentions `rm -rf ~` in a
-   string it prints, is text, not shell. `writ scan` over a month of real
+   string it prints, is text, not shell. `provio scan` over a month of real
    Claude Code sessions (16,000 tool calls) found that heredoc text was the
    largest single source of false positives before this rule.
 
@@ -58,7 +58,7 @@ DENY  floor-rm-home-or-root-denied  (pack:floor@0.1.0)
 
 The ledger records the call as the agent sent it, with that verdict.
 
-The MCP proxy (`writ proxy`) does not inspect: MCP tools take structured
+The MCP proxy (`provio proxy`) does not inspect: MCP tools take structured
 arguments, not shell.
 
 ## What it does not see
@@ -77,8 +77,8 @@ Inspection reads files and text; it does not execute anything. It misses:
 - **Files it cannot read**: over 1 MiB, unreadable, or not on this machine.
   The call is then decided by its own verdict alone.
 
-This is why writ also has a second, independent layer. An agent launched
-with `writ run` sits inside a **kernel write boundary** (Landlock + seccomp,
+This is why provio also has a second, independent layer. An agent launched
+with `provio run` sits inside a **kernel write boundary** (Landlock + seccomp,
 Seatbelt, a Windows low-integrity token): whatever a script does, it cannot
 write outside the workspace and its own state directories. Inspection makes
 the policy smarter; the kernel boundary does not depend on it. See

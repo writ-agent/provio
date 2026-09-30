@@ -23,7 +23,7 @@ Paste this block into each issue under its own criteria.
       `version: 1` / `default: ask`, so unmatched cases expect
       `rule_id: default`.
 - [ ] `packs/<id>/README.md`: what it covers (a rule table), what it
-      deliberately does not cover, where the rules go in `writ.yaml`.
+      deliberately does not cover, where the rules go in `provio.yaml`.
 - [ ] A line for the pack in `packs/README.md`.
 - [ ] `python scripts/validate_packs.py` passes locally (CI runs it too).
 - [ ] `python scripts/claim_lint.py` is clean.
@@ -206,7 +206,7 @@ browser profile that is already signed in. That combines untrusted input
 **Acceptance.** The shared criteria, plus fixtures for an allowed host, a
 disallowed host, and an upload of `~/.ssh/id_rsa`.
 
-**Copy from.** `packs/secrets-guard` (path patterns) and `examples/writ.yaml`
+**Copy from.** `packs/secrets-guard` (path patterns) and `examples/provio.yaml`
 (`egress-allowlist` with `url.host in hosts.allowed`).
 
 ## 8. Pack: `filesystem-outside-repo`

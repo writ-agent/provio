@@ -187,7 +187,7 @@
   expect: { verdict: ask, rule_id: comms-social-post-cli-asks }
 
 - name: "near miss: xurl search is a read"
-  ctx: { tool: bash, args: { command: "xurl /2/tweets/search/recent?query=writ" } }
+  ctx: { tool: bash, args: { command: "xurl /2/tweets/search/recent?query=provio" } }
   expect: { verdict: ask, rule_id: default }
 
 

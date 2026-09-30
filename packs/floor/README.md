@@ -26,10 +26,10 @@ differently, leave it out and write your own:
 | `floor-force-push-main-denied` | deny | `--force`, `-f`, `--force-with-lease`, `+main` pushes to `main`/`master` |
 | `floor-private-keys-denied` | deny | reading SSH private keys, `~/.aws/credentials`, gcloud credentials (file tools, and `cat`/`cp`/`curl`/`scp`/… of them); `*.pub` stays readable |
 | `floor-reverse-shell-denied` | deny | `/dev/tcp/…`, `nc -e`, `socat exec:`, Python socket + subprocess, PowerShell `TCPClient` |
-| `floor-guard-config-write-denied` | deny | writes to `.writ/` (ledger, state) and to the agent hook configuration: `.claude/settings*.json`, `.codex/config.toml` and `hooks.json`, `.gemini/settings.json`, `.cursor/hooks.json`, Windsurf `hooks.json` |
+| `floor-guard-config-write-denied` | deny | writes to `.provio/` (ledger, state) and to the agent hook configuration: `.claude/settings*.json`, `.codex/config.toml` and `hooks.json`, `.gemini/settings.json`, `.cursor/hooks.json`, Windsurf `hooks.json` |
 | `floor-agent-bypass-flags-denied` | deny | launching an agent with its checks off: `--dangerously-skip-permissions`, `--dangerously-bypass-approvals-and-sandbox`, `--yolo`, `--trust-all-tools`, `--approval-mode yolo`, `--permission-mode bypassPermissions` (how the s1ngularity/Nx malware recruited local AI CLIs) |
 | `floor-authorized-keys-write-denied` | deny | adding keys to `~/.ssh/authorized_keys` |
-| `floor-policy-edit-asks` | ask | the agent editing a `writ.yaml` |
+| `floor-policy-edit-asks` | ask | the agent editing a `provio.yaml` |
 | `floor-rm-workspace-asks` | ask, irreversible | `rm -rf .`, `..`, `*`, `.git`, `$PWD` |
 | `floor-discard-uncommitted-work-asks` | ask, irreversible | `git reset --hard`, `clean -f`, `checkout -- .`, `restore .`, `stash drop/clear` |
 | `floor-database-drop-asks` | ask, irreversible | `DROP DATABASE/SCHEMA` (shell or SQL MCP tools), `dropdb`, Redis `FLUSHALL`, Mongo `dropDatabase()`, `prisma migrate reset`, `rails db:drop`, `supabase db reset` |
@@ -42,8 +42,8 @@ differently, leave it out and write your own:
 
 - **What a script does once it runs.** The floor reads the command line. A
   script that deletes your home directory (`bash cleanup.sh`) is caught by
-  writ's script inspection (the gateway reads scripts the agent runs and
-  writes) and, under `writ run`, by the kernel write boundary, not by these
+  provio's script inspection (the gateway reads scripts the agent runs and
+  writes) and, under `provio run`, by the kernel write boundary, not by these
   regexes alone. See [docs/THREAT_MODEL.md](../../docs/THREAT_MODEL.md).
 - **Everything that is merely risky.** Package publishes, IAM changes,
   `DROP TABLE`, secret files such as `.env`: add `package-publish-guard`,

@@ -1,16 +1,16 @@
-# writ documentation
+# provio documentation
 
 | Document | What it covers |
 |---|---|
-| [first-run.md](first-run.md) | `writ scan` (what would writ have caught?), `writ init` (a policy and hooks for every agent), `writ test` (one call, nothing run) |
+| [first-run.md](first-run.md) | `provio scan` (what would provio have caught?), `provio init` (a policy and hooks for every agent), `provio test` (one call, nothing run) |
 | [inspection.md](inspection.md) | How a call is judged by what it runs: scripts, heredocs, `npm run`, shell inside code; and what that misses |
-| [policy-reference.md](policy-reference.md) | The `writ.yaml` language: rules, conditions, verdicts, defaults, packs |
+| [policy-reference.md](policy-reference.md) | The `provio.yaml` language: rules, conditions, verdicts, defaults, packs |
 | [INTERFACES.md](INTERFACES.md) | The frozen contracts between crates: call context, verdict IR, ledger record schema, sandbox backend, CLI surface |
-| [THREAT_MODEL.md](THREAT_MODEL.md) | What writ defends against, what it does not, and where each boundary sits |
+| [THREAT_MODEL.md](THREAT_MODEL.md) | What provio defends against, what it does not, and where each boundary sits |
 | [SECURITY.md](SECURITY.md) | How to report a vulnerability, and the supported versions |
 | [DECISIONS.md](DECISIONS.md) | Architecture decision records (ADRs) |
 | [BRAND.md](BRAND.md) | Name, voice, and claim discipline |
-| [ui.md](ui.md) | `writ ui`: the local console, its security model, and `writ check --ask ui` |
+| [ui.md](ui.md) | `provio ui`: the local console, its security model, and `provio check --ask ui` |
 | [receipts.md](receipts.md) | Signed receipts, inclusion proofs and anchoring (Contract 7), with their threat model |
 | [ledger-postgres.md](ledger-postgres.md) | The Postgres ledger store: setup, roles, schema, concurrency, TLS |
 | [mcp-pins.md](mcp-pins.md) | MCP tool pinning: changed tool definitions (rug pulls) are held until you accept them |

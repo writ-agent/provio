@@ -1,9 +1,9 @@
 ﻿apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "{{ .Release.Name }}-writ-policy"
+  name: "{{ .Release.Name }}-provio-policy"
   labels:
-    app.kubernetes.io/name: writ
+    app.kubernetes.io/name: provio
 data:
-  writ.yaml: "{{ .Values.policy.content | b64enc }}"
+  provio.yaml: "{{ .Values.policy.content | b64enc }}"
   README: "policy is base64-encoded in this Wave 3 scaffold so this template remains YAML-parseable before helm rendering"

@@ -1,15 +1,15 @@
-# `writ ui` — the local console
+# `provio ui` — the local console
 
 ```bash
-writ ui                  # serves on 127.0.0.1, opens the browser
-writ ui --port 7300      # fixed port (default: a free one)
-writ ui --no-open        # print the URL, open nothing
+provio ui                  # serves on 127.0.0.1, opens the browser
+provio ui --port 7300      # fixed port (default: a free one)
+provio ui --no-open        # print the URL, open nothing
 ```
 
 `--policy` and `--ledger` work as for every command. The console is one
 process with no daemon behind it and no account. It makes no external
 requests and sends no telemetry. Every asset (HTML, CSS, JS, the wordmark)
-is compiled into the `writ` binary.
+is compiled into the `provio` binary.
 
 ## Screens
 
@@ -17,18 +17,18 @@ is compiled into the `writ` binary.
 
 <img src="assets/ui/connect.png" alt="Connect screen: cards for Claude Code, Python, TypeScript, MCP and CLI agents, each with a filled-in snippet and a live status line" width="900">
 
-There is one card for each integration: Claude Code, Python (`writ-sdk`
+There is one card for each integration: Claude Code, Python (`provio-sdk`
 for LangGraph, the OpenAI Agents SDK and the Claude Agent SDK), TypeScript
-(`@writ-agent/sdk`), any MCP server (`writ proxy`) and any CLI agent
-(`writ run -- <agent>`). Each snippet already has this machine's absolute
-paths for the `writ` binary, the policy and the ledger, and uses PowerShell
+(`provio-sdk`), any MCP server (`provio proxy`) and any CLI agent
+(`provio run -- <agent>`). Each snippet already has this machine's absolute
+paths for the `provio` binary, the policy and the ledger, and uses PowerShell
 syntax on Windows.
 
-- **Add writ hooks to this project** runs the same code as
-  `writ integrate claude-code`. It merges writ's hooks into
+- **Add provio hooks to this project** runs the same code as
+  `provio integrate claude-code`. It merges provio's hooks into
   `<cwd>/.claude/settings.json`, keeps every other setting, and writes the
   file atomically.
-- **…and route asks here** writes the same hooks with `--ask ui`. A writ
+- **…and route asks here** writes the same hooks with `--ask ui`. A provio
   `ask` then waits on the Approvals screen instead of Claude Code's own
   prompt.
 - The status line reads the ledger. It says *waiting for your agent's
@@ -47,23 +47,23 @@ recorded through the same `LedgerWriter` path as every other writer. You
 can filter by text, verdict and session. Clicking a row (or pressing Enter
 on it) opens the full record:
 
-- the rule, the reason and `writ.yaml:LINE`, next to that part of the
+- the rule, the reason and `provio.yaml:LINE`, next to that part of the
   current policy file;
 - the call's arguments, agent, mode, session and MCP server;
 - the approver;
 - the execution record: backend, exit status and output hash;
 - `input_hash`, `prev_hash` and `record_hash`.
 
-<img src="assets/ui/live-detail.png" alt="Record detail: verdict, rule and writ.yaml excerpt, call arguments, approval, execution and hashes" width="900">
+<img src="assets/ui/live-detail.png" alt="Record detail: verdict, rule and provio.yaml excerpt, call arguments, approval, execution and hashes" width="900">
 
-**Verify chain** runs the same check as `writ verify`. It reports either
+**Verify chain** runs the same check as `provio verify`. It reports either
 *chain intact · N records* or the record where the chain breaks.
 
 ### Approvals
 
 <img src="assets/ui/approvals.png" alt="Approvals screen: a pending ask with its rule, reason, arguments, a countdown and Approve/Deny buttons" width="900">
 
-This screen shows asks from `writ check --ask ui` (see [below](#writ-check---ask-ui)).
+This screen shows asks from `provio check --ask ui` (see [below](#provio-check---ask-ui)).
 Each ask shows the rule, the reason, the location, the arguments exactly as
 the ledger recorded them, an irreversible warning where it applies, and a
 countdown. **Approve once** or **Deny**. If you do nothing, the ask is
@@ -71,15 +71,15 @@ denied when the countdown ends.
 
 ### Policy
 
-<img src="assets/ui/policy.png" alt="Policy screen: writ.yaml editor with line numbers, validation, rule list, the tool-call tester and policy packs" width="900">
+<img src="assets/ui/policy.png" alt="Policy screen: provio.yaml editor with line numbers, validation, rule list, the tool-call tester and policy packs" width="900">
 
-- Edit `writ.yaml`. The native engine compiles the draft as you type.
+- Edit `provio.yaml`. The native engine compiles the draft as you type.
   Errors show their line, and **Go to line** takes you there. The rule list
   jumps to each rule.
 - **Save** (Ctrl+S) writes only the configured policy file. The draft must
   compile. The file on disk must still be the version the editor loaded
   (otherwise you get `409` and a reload prompt). The previous version is
-  kept as `writ.yaml.bak`, and both writes are atomic (temp file, then
+  kept as `provio.yaml.bak`, and both writes are atomic (temp file, then
   rename).
 - **Try a tool call** evaluates a `bash`, `fs.read`, `fs.write`, `http`,
   MCP server/tool or custom call against the *editor draft*. It shows the
@@ -121,8 +121,8 @@ by the policy and recorded:
 
 | Demo | What it does | Expected result |
 |---|---|---|
-| Write a file outside the workspace | `echo escaped> %USERPROFILE%\writ-sandbox-escape-<pid>.txt` (`~/…` on Unix) | `Access is denied.` (Windows) / `Permission denied` (Linux Landlock). The console then checks that the file does not exist, and deletes it if it does. |
-| Open a network connection | runs `writ ui --probe tcp` against a loopback listener owned by the console (on Windows, from a copy of `writ` in the workspace, because an AppContainer can only execute images it can read) | the probe prints exactly what the OS returned: on Linux `Operation not permitted (os error 1)` (seccomp denies `socket()`); on Windows the AppContainer filter drops the packets, so the connect times out with no error code. The console checks that its listener accepted nothing. No external traffic is attempted. |
+| Write a file outside the workspace | `echo escaped> %USERPROFILE%\provio-sandbox-escape-<pid>.txt` (`~/…` on Unix) | `Access is denied.` (Windows) / `Permission denied` (Linux Landlock). The console then checks that the file does not exist, and deletes it if it does. |
+| Open a network connection | runs `provio ui --probe tcp` against a loopback listener owned by the console (on Windows, from a copy of `provio` in the workspace, because an AppContainer can only execute images it can read) | the probe prints exactly what the OS returned: on Linux `Operation not permitted (os error 1)` (seccomp denies `socket()`); on Windows the AppContainer filter drops the packets, so the connect times out with no error code. The console checks that its listener accepted nothing. No external traffic is attempted. |
 | List the workspace | `cd` + `for %%f in (*) …` (Windows; `dir` itself is denied inside an AppContainer because it reads outside the workspace) / `pwd && ls -la` | the throwaway workspace and nothing else |
 
 <img src="assets/ui/sandbox-network.png" alt="Network escape demo: the policy asked, the console user approved, and the kernel boundary blocked the connection" width="900">
@@ -141,7 +141,7 @@ sandbox, so it is protected like any other local control plane.
   URL carries it in the fragment (`/#token=…`). A browser never sends a
   fragment to a server or includes it in a `Referer`. The page moves the
   token to `sessionStorage`, removes it from the address bar, and sends it
-  as `X-Writ-Token` on every API call. The server compares it in constant
+  as `X-Provio-Token` on every API call. The server compares it in constant
   time. Static assets need no token and contain no secrets.
 - **DNS-rebinding defence.** `Host` must be exactly `127.0.0.1:<port>` or
   `localhost:<port>`; anything else gets `421`.
@@ -166,19 +166,19 @@ sandbox, so it is protected like any other local control plane.
 Residual risks:
 
 - The token appears once on the command line of the browser process that
-  `writ ui` starts. Other processes of the same user can read that command
+  `provio ui` starts. Other processes of the same user can read that command
   line. Any process running as you can also read your policy and ledger,
   which is inside the threat model's operator boundary.
 - The console is as trusted as the user running it. A malicious local
   operator is out of scope ([THREAT_MODEL.md](THREAT_MODEL.md)).
 
-## `writ check --ask ui`
+## `provio check --ask ui`
 
 `--ask` takes `deny` (default, fail closed), `defer` (the agent's own UI
 asks) or `ui` (the web console asks).
 
 ```
-agent ──decide──▶ writ check --ask ui
+agent ──decide──▶ provio check --ask ui
                     1. evaluate; write the Decision record (verdict ask, no approver)
                     2. console heartbeat fresh?            no → deny now
                     3. write <ledger dir>/pending/<id>.json (atomic)
@@ -193,13 +193,13 @@ agent ──complete(ref)──▶ Execution record, approver {kind: tui, id: "w
 - `<id>` is `<decision index>-<first 16 hex of its record_hash>`.
 - **Where the answers live.** The console writes its heartbeat and its
   decisions to a per-user state directory:
-  `%LOCALAPPDATA%\writ\ui\<key>\` on Windows,
-  `$XDG_STATE_HOME/writ/ui/<key>/` (or `~/.local/state/writ/ui/<key>/`)
+  `%LOCALAPPDATA%\provio\ui\<key>\` on Windows,
+  `$XDG_STATE_HOME/provio/ui/<key>/` (or `~/.local/state/provio/ui/<key>/`)
   elsewhere, where `<key>` comes from a SHA-256 of the canonical ledger
-  path. It does not write next to the ledger. The reason is that `writ run`
+  path. It does not write next to the ledger. The reason is that `provio run`
   makes the ledger directory writable by the agent, because hooks run
   inside the boundary and append there. If answers lived next to the
-  ledger, a confined agent could approve its own asks. `writ run` never
+  ledger, a confined agent could approve its own asks. `provio run` never
   grants the state directory. The gateway only reads it, and refuses a
   state directory inside its ledger directory or working directory.
 - **What the console shows.** The request file only names a ledger record
@@ -223,14 +223,14 @@ agent ──complete(ref)──▶ Execution record, approver {kind: tui, id: "w
   `approval: "required"`. An approval returns `decision: "allow"`,
   `dispatch: true`, an `approver` field and a ref for `complete`. A denial
   returns `decision: "deny"`, `verdict: "ask"` and the reason (for
-  example `denied in the writ ui web console by web-console:alice`,
-  `no decision from the writ ui console within 30000ms`,
-  `no writ ui console is running for this ledger`). `resolve` is
+  example `denied in the provio ui web console by web-console:alice`,
+  `no decision from the provio ui console within 30000ms`,
+  `no provio ui console is running for this ledger`). `resolve` is
   `invalid_state` under `--ask ui`.
 - **Claude Code** (`--format claude-code --ask ui`). An approval returns
   `permissionDecision: "allow"`; everything else returns `"deny"` with exit
   code 2. The wait is capped at 55 s. Claude Code does not block a tool
-  when a hook times out, so writ must answer first. The `PostToolUse` hook
+  when a hook times out, so provio must answer first. The `PostToolUse` hook
   records the console's approver, and refuses to record a tool that ran
   without that approval.
 - **Blocking.** A `--stdio` gateway answers requests in order, so a waiting

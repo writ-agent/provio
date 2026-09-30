@@ -3,7 +3,7 @@ version: 0.1.0
 description: Human gates for an agent making this machine, a service or data reachable from the internet - public tunnels (ngrok, cloudflared, localtunnel, Tailscale Funnel, ssh -R), servers listening on all interfaces, database ports published by Docker, host firewall openings, world-open cloud ingress rules and public storage shares. All ask - these are sometimes exactly what you want.
 # Every rule is `ask`: a tunnel or an open port is often the task itself
 # (show a client the dev build, reach a VM), so the point is that a human
-# sees it happen, not that it never happens. Use it in writ.yaml as
+# sees it happen, not that it never happens. Use it in provio.yaml as
 #
 #   version: 1
 #   default: ask

@@ -8,7 +8,7 @@
   expect: { verdict: allow, rule_id: publish-dry-run-allowed }
 
 - name: cargo publish -p crate --dry-run allowed
-  ctx: { tool: bash, args: { command: "cargo publish -p writ-core --dry-run" } }
+  ctx: { tool: bash, args: { command: "cargo publish -p provio-core --dry-run" } }
   expect: { verdict: allow, rule_id: publish-dry-run-allowed }
 
 # --- deny -----------------------------------------------------------------
@@ -78,11 +78,11 @@
   expect: { verdict: ask, rule_id: publish-python-asks }
 
 - name: cargo publish asks
-  ctx: { tool: bash, args: { command: "cargo publish -p writ-cli" } }
+  ctx: { tool: bash, args: { command: "cargo publish -p provio-cli" } }
   expect: { verdict: ask, rule_id: publish-cargo-asks }
 
 - name: cargo yank asks
-  ctx: { tool: bash, args: { command: "cargo yank --version 0.1.0 writ-core" } }
+  ctx: { tool: bash, args: { command: "cargo yank --version 0.1.0 provio-core" } }
   expect: { verdict: ask, rule_id: publish-yank-asks }
 
 - name: gem push asks

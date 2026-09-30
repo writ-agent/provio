@@ -1,4 +1,4 @@
-# writ.yaml — strict posture demonstration.
+# provio.yaml — strict posture demonstration.
 # default: deny means EVERYTHING not explicitly allowed is refused.
 # This will block most real work; it exists to demonstrate the posture and
 # as a starting point for high-assurance environments. Expect to grow the

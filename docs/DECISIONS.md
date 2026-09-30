@@ -1,12 +1,12 @@
 # DECISIONS.md — Architecture Decision Records (append-only)
 
 ## ADR-001: Interception, not orchestration
-Writ wraps agents; it does not own the agent loop. Adoption friction is the
+Provio wraps agents; it does not own the agent loop. Adoption friction is the
 primary architectural constraint (spec §5). Consequence: three interception
 modes (MCP proxy, process wrap, SDK hooks), never a runtime users must adopt.
 
 ## ADR-002: Ledger schema v1 is frozen
-`writ verify` must verify every historical ledger version forever (plan §2 Q3).
+`provio verify` must verify every historical ledger version forever (plan §2 Q3).
 Changes are additive-only under `schema_version`. Golden fixtures committed.
 
 ## ADR-003: Two-phase ledger records
@@ -15,14 +15,14 @@ one linked `Execution` record at completion (`decision_index`). Records are
 never mutated; mutation would void tamper-evidence.
 
 ## ADR-004: Pluggable policy engines behind one IR
-Native DSL (default), Rego, Cedar — all compile to `writ_core::Verdict` and
+Native DSL (default), Rego, Cedar — all compile to `provio_core::Verdict` and
 must agree on the shared fixture corpus. Enterprise teams keep their language;
 developers get ergonomics (spec §7).
 
 ## ADR-005: Default ledger store is JSONL; SQLite is a feature
 `FileLedgerStore` (append-only JSONL) works on every platform with zero native
 dependencies. `SqliteLedgerStore` (WAL mode, spec §9) ships behind the
-`sqlite` cargo feature (writ-cli: `--features sqlite`, bundled SQLite, so a C
+`sqlite` cargo feature (provio-cli: `--features sqlite`, bundled SQLite, so a C
 compiler is needed at build time) and can become the default workstation
 store once release packaging builds with it. Both stores pass the same
 generic suite and `verify_chain`, and a SQLite row is the exact JSONL line —
@@ -41,7 +41,7 @@ so they are kept rather than churned.
 The reference GNU toolchain's bundled dlltool cannot spawn an assembler, so
 any crate needing raw-dylib import libs (chrono→windows-link,
 windows-sys via clap-color/tracing-ansi, tempfile) fails to build here.
-Consequences: writ-core ships its own RFC 3339 `Timestamp` (fully tested);
+Consequences: provio-core ships its own RFC 3339 `Timestamp` (fully tested);
 clap and tracing-subscriber run with color/ansi default features disabled;
 tests use a std-only temp-dir helper. CI on native runners may relax this.
 

@@ -1,6 +1,6 @@
 ﻿apiVersion: v2
-name: writ
+name: provio
 version: 0.1.0
 appVersion: "0.1.0"
-description: "Wave 3 scaffold for Writ cluster sidecar/gateway deployment. Not production-complete."
+description: "Wave 3 scaffold for Provio cluster sidecar/gateway deployment. Not production-complete."
 type: application

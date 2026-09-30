@@ -1,0 +1,48 @@
+[package]
+name = "provio-cli"
+description = "The provio binary: run, proxy, log, show, verify, replay, policy test/add, doctor, report."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "provio"
+path = "src/main.rs"
+
+[dependencies]
+provio-core.workspace = true
+provio-policy.workspace = true
+provio-ledger.workspace = true
+provio-mcp.workspace = true
+provio-sandbox.workspace = true
+provio-replay.workspace = true
+provio-otel.workspace = true
+provio-tui.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+regex.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+# Signed receipts, inclusion proofs, Rekor / file anchoring (`provio receipt`).
+provio-receipts.workspace = true
+# Format-preserving edits of Codex's config.toml (`provio integrate codex`).
+toml_edit = "0.25"
+
+[dev-dependencies]
+# Mock Rekor log in tests/receipt_anchor.rs (signs SETs and checkpoints).
+p256 = { version = "0.14", default-features = false, features = ["std", "ecdsa", "pem"] }
+sha2.workspace = true
+hex.workspace = true
+base64 = "0.23"
+# Fake MCP agent client in tests/proxy_http_*.rs.
+ureq = { version = "3", default-features = false }
+
+[features]
+default = []
+# SQLite ledger store (WAL); compiles the bundled SQLite C sources.
+sqlite = ["provio-ledger/sqlite"]
+postgres = ["provio-ledger/postgres"]

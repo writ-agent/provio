@@ -1,0 +1,11 @@
+[package]
+name = "provio-tui"
+description = "Terminal interface: approval gate, live call tree with verdict badges, cost/token meter."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+provio-core.workspace = true
+serde_json.workspace = true

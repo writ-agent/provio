@@ -10,10 +10,10 @@ on:
   pull_request:
     paths:
       - 'fuzz/**'
-      - 'crates/writ-core/**'
-      - 'crates/writ-policy/**'
-      - 'crates/writ-ledger/**'
-      - 'crates/writ-mcp/**'
+      - 'crates/provio-core/**'
+      - 'crates/provio-policy/**'
+      - 'crates/provio-ledger/**'
+      - 'crates/provio-mcp/**'
 
 permissions:
   contents: read

@@ -40,19 +40,19 @@ is usually right.
 
 ## Use it
 
-Packs are rules you merge into your own `writ.yaml`; writ does not load
-`.writ/packs/` automatically.
+Packs are rules you merge into your own `provio.yaml`; provio does not load
+`.provio/packs/` automatically.
 
 ```bash
-writ policy add package-publish-guard   # bundled with writ (a local ./packs/<id> wins); prints the sha256
+provio policy add package-publish-guard   # bundled with provio (a local ./packs/<id> wins); prints the sha256
 ```
 
-Paste the `rules:` entries into your `writ.yaml` above any broad allow of
+Paste the `rules:` entries into your `provio.yaml` above any broad allow of
 your own (for example "allow npm in CI"). Ids are prefixed `publish-`.
 
 ```bash
-writ doctor --policy writ.yaml
-writ policy test --policy writ.yaml --fixtures packs/package-publish-guard/fixtures
+provio doctor --policy provio.yaml
+provio policy test --policy provio.yaml --fixtures packs/package-publish-guard/fixtures
 ```
 
 Fixtures: `fixtures/package-publish-guard.yaml` (38 cases, with near misses

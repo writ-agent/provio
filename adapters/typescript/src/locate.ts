@@ -2,7 +2,7 @@ import { statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { delimiter, extname, isAbsolute, join, resolve } from "node:path";
 
-import { WritUnavailableError } from "./errors.js";
+import { ProvioUnavailableError } from "./errors.js";
 import { selfUrl } from "./self.js";
 
 /** A resolved program + leading arguments to spawn. */
@@ -29,7 +29,7 @@ function isFile(p: string): boolean {
 export function launchFor(bin: string): Launch {
   const full = isAbsolute(bin) ? bin : resolve(bin);
   if (!isFile(full)) {
-    throw new WritUnavailableError(`writ binary not found at '${full}' (fail closed: no tool call will run)`);
+    throw new ProvioUnavailableError(`provio binary not found at '${full}' (fail closed: no tool call will run)`);
   }
   if (SCRIPT_EXTENSIONS.has(extname(full).toLowerCase())) {
     return { command: process.execPath, args: [full] };
@@ -37,9 +37,9 @@ export function launchFor(bin: string): Launch {
   return { command: full, args: [] };
 }
 
-/** Search PATH for `writ` (`writ.exe` / `writ.com` on Windows). */
+/** Search PATH for `provio` (`provio.exe` / `provio.com` on Windows). */
 export function findOnPath(
-  name = "writ",
+  name = "provio",
   env: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
 ): string | undefined {
@@ -58,14 +58,14 @@ export function findOnPath(
 }
 
 /**
- * The prebuilt binary from the optional `@writ-agent/cli` dependency, if it
+ * The prebuilt binary from the optional `provio` dependency, if it
  * is installed next to this SDK and ships a binary for this platform.
  */
-export function bundledWrit(from: string | undefined = selfUrl): string | undefined {
+export function bundledProvio(from: string | undefined = selfUrl): string | undefined {
   if (from === undefined) return undefined;
   try {
     const req = createRequire(from);
-    const cli = req("@writ-agent/cli") as { binaryPath?: () => string };
+    const cli = req("provio") as { binaryPath?: () => string };
     const path = typeof cli.binaryPath === "function" ? cli.binaryPath() : undefined;
     return path !== undefined && isFile(path) ? path : undefined;
   } catch {
@@ -74,18 +74,18 @@ export function bundledWrit(from: string | undefined = selfUrl): string | undefi
 }
 
 /**
- * Locate writ: explicit `bin`, then `WRIT_BIN`, then the binary bundled by
- * `@writ-agent/cli`, then PATH. Throws `WritUnavailableError` when nothing is
+ * Locate provio: explicit `bin`, then `PROVIO_BIN`, then the binary bundled by
+ * `provio`, then PATH. Throws `ProvioUnavailableError` when nothing is
  * found.
  */
-export function locateWrit(bin?: string, env: NodeJS.ProcessEnv = process.env): Launch {
+export function locateProvio(bin?: string, env: NodeJS.ProcessEnv = process.env): Launch {
   if (bin !== undefined && bin !== "") return launchFor(bin);
-  const fromEnv = env.WRIT_BIN;
+  const fromEnv = env.PROVIO_BIN;
   if (fromEnv !== undefined && fromEnv !== "") return launchFor(fromEnv);
-  const found = bundledWrit() ?? findOnPath("writ", env);
+  const found = bundledProvio() ?? findOnPath("provio", env);
   if (found === undefined) {
-    throw new WritUnavailableError(
-      "writ binary not found: install @writ-agent/cli, set WRIT_BIN, or put writ on PATH " +
+    throw new ProvioUnavailableError(
+      "provio binary not found: install provio, set PROVIO_BIN, or put provio on PATH " +
         "(fail closed: no tool call will run)",
     );
   }

@@ -16,10 +16,10 @@ pytest.importorskip("claude_agent_sdk")
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, ResultMessage
 from claude_agent_sdk._internal.transport import Transport
 
-from writ_sdk import Approval, Writ
-from writ_sdk.claude_agent_sdk import WritClaudeHooks
+from provio_sdk import Approval, Provio
+from provio_sdk.claude_agent_sdk import ProvioClaudeHooks
 
-MASK = "[redacted-by-writ]"
+MASK = "[redacted-by-provio]"
 
 
 class FakeClaudeCLI(Transport):
@@ -147,9 +147,9 @@ class FakeClaudeCLI(Transport):
         )
 
 
-async def run(writ: Writ, script) -> FakeClaudeCLI:
+async def run(provio: Provio, script) -> FakeClaudeCLI:
     cli = FakeClaudeCLI(script)
-    options = ClaudeAgentOptions(hooks=WritClaudeHooks(writ).hooks())
+    options = ClaudeAgentOptions(hooks=ProvioClaudeHooks(provio).hooks())
     async with ClaudeSDKClient(options, transport=cli) as client:
         await client.query("go")
         async for msg in client.receive_response():
@@ -159,7 +159,7 @@ async def run(writ: Writ, script) -> FakeClaudeCLI:
 
 
 async def test_hooks_gate_claude_tools(fake_bin, fake_log):
-    async with Writ() as w:
+    async with Provio() as w:
         cli = await run(
             w,
             [
@@ -189,22 +189,22 @@ async def test_hooks_gate_claude_tools(fake_bin, fake_log):
 
 
 async def test_ask_uses_approver(fake_bin):
-    async with Writ(approver=lambda req: Approval(req.call.args.get("ok") is True, "human:bob")) as w:
+    async with Provio(approver=lambda req: Approval(req.call.args.get("ok") is True, "human:bob")) as w:
         cli = await run(w, [("asky", {"ok": True}, "fine"), ("asky", {"ok": False}, "never")])
     assert cli.ran == ["asky"] and cli.model_saw["toolu_1"][0] == "denied"
 
 
 async def test_gateway_down_denies_everything(monkeypatch, tmp_path):
-    monkeypatch.setenv("WRIT_BIN", str(tmp_path / "missing" / "writ"))
-    async with Writ() as w:
+    monkeypatch.setenv("PROVIO_BIN", str(tmp_path / "missing" / "provio"))
+    async with Provio() as w:
         cli = await run(w, [("Read", {"file_path": "/a"}, "x"), ("Bash", {"command": "ls"}, "y")])
     assert cli.ran == []
     assert all(v[0] == "denied" and "did not run" in v[1] for v in cli.model_saw.values())
 
 
 def test_redact_masks_everything_on_doubt(fake_bin):
-    with Writ() as w:
-        hooks = WritClaudeHooks(w)
+    with Provio() as w:
+        hooks = ProvioClaudeHooks(w)
         assert hooks._redacted_output({"a": "x", "b": [1, "y"]}, None) == {"a": MASK, "b": [1, MASK]}
         assert hooks._redacted_output({"a": "x"}, "not json") == {"a": MASK}
         assert hooks._redacted_output({"a": "x"}, '{"b": "x"}') == {"a": MASK}

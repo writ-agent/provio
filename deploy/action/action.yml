@@ -1,6 +1,6 @@
-name: writ
+name: provio
 description: >-
-  Govern an agent run in CI: enforce writ.yaml headless, fail closed on
+  Govern an agent run in CI: enforce provio.yaml headless, fail closed on
   unanswered asks, and publish the ledger + signed run receipt as artifacts.
 author: writ-agent
 branding:
@@ -10,7 +10,7 @@ branding:
 inputs:
   policy:
     description: Path to the policy file, committed to the repo.
-    default: writ.yaml
+    default: provio.yaml
   command:
     description: The agent command to wrap (e.g. "claude -p 'fix the tests'").
     required: true
@@ -24,50 +24,50 @@ inputs:
     required: false
   ledger-path:
     description: Where the run's ledger is written.
-    default: .writ/ledger.jsonl
+    default: .provio/ledger.jsonl
 
 runs:
   using: composite
   steps:
-    - name: Install writ
+    - name: Install provio
       shell: bash
       env:
         # Until the first GitHub Release exists, build from the checked-out
         # source. Release users can unset this and download signed artifacts.
-        WRIT_FROM_SOURCE: "1"
+        PROVIO_FROM_SOURCE: "1"
       run: |
-        curl -fsSL https://raw.githubusercontent.com/writ-agent/writ/main/scripts/install.sh | sh
-        echo "$HOME/.writ/bin" >> "$GITHUB_PATH"
+        curl -fsSL https://raw.githubusercontent.com/writ-agent/provio/main/scripts/install.sh | sh
+        echo "$HOME/.provio/bin" >> "$GITHUB_PATH"
 
     - name: Verify install (cosign)
       shell: bash
       run: |
-        cosign verify-blob --bundle "$HOME/.writ/bin/writ.cosign-bundle" \
-          --certificate-identity-regexp "github.com/writ-agent/writ" \
+        cosign verify-blob --bundle "$HOME/.provio/bin/provio.cosign-bundle" \
+          --certificate-identity-regexp "github.com/writ-agent/provio" \
           --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-          "$HOME/.writ/bin/writ" || echo "::warning::unsigned local build (pre-release)"
+          "$HOME/.provio/bin/provio" || echo "::warning::unsigned local build (pre-release)"
 
     - name: Governed run (headless, fail-closed)
       shell: bash
       env:
-        WRIT_HEADLESS: "1"
-        WRIT_APPROVER_WEBHOOK: ${{ inputs.approver-webhook }}
+        PROVIO_HEADLESS: "1"
+        PROVIO_APPROVER_WEBHOOK: ${{ inputs.approver-webhook }}
       run: |
         FLAGS=""
         [ "${{ inputs.yolo }}" = "true" ] && FLAGS="--yolo"
-        writ run $FLAGS --policy "${{ inputs.policy }}" --ledger "${{ inputs.ledger-path }}" -- ${{ inputs.command }}
+        provio run $FLAGS --policy "${{ inputs.policy }}" --ledger "${{ inputs.ledger-path }}" -- ${{ inputs.command }}
 
     - name: Verify the ledger
       if: always()
       shell: bash
-      run: writ verify --ledger "${{ inputs.ledger-path }}"
+      run: provio verify --ledger "${{ inputs.ledger-path }}"
 
     - name: Upload evidence
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: writ-evidence-${{ github.run_id }}
+        name: provio-evidence-${{ github.run_id }}
         path: |
           ${{ inputs.ledger-path }}
-          .writ/receipt*.json
+          .provio/receipt*.json
         retention-days: 90

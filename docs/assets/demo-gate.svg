@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 556" width="900" height="556" role="img" aria-label="writ run -- claude">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 556" width="900" height="556" role="img" aria-label="provio run -- claude">
   <style>
   .t{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono','Courier New',monospace;font-size:14px;white-space:pre}
   .r{opacity:0}
@@ -55,25 +55,25 @@
   <circle cx="22" cy="19" r="5.5" fill="#ff5f56"/>
   <circle cx="42" cy="19" r="5.5" fill="#ffbd2e"/>
   <circle cx="62" cy="19" r="5.5" fill="#27c93f"/>
-  <text class="t" x="86" y="24" fill="#7d8590" font-size="12.5">writ run -- claude</text>
-  <text class="t r l0"><tspan x="26" y="70" fill="#3fb950" font-weight="600">$ </tspan><tspan fill="#d7e0ea">writ run -- claude</tspan></text>
-  <text class="t r l1"><tspan x="26" y="93" fill="#7d8590">  writ · 5 rules loaded from writ.yaml · ledger: .writ/ledger.jsonl</tspan></text>
-  <text class="t r l2"><tspan x="26" y="116" fill="#7d8590">  mode: process wrap · backend: local-os · coverage: run `writ doctor`</tspan></text>
+  <text class="t" x="86" y="24" fill="#7d8590" font-size="12.5">provio run -- claude</text>
+  <text class="t r l0"><tspan x="26" y="70" fill="#3fb950" font-weight="600">$ </tspan><tspan fill="#d7e0ea">provio run -- claude</tspan></text>
+  <text class="t r l1"><tspan x="26" y="93" fill="#7d8590">  provio · 5 rules loaded from provio.yaml · ledger: .provio/ledger.jsonl</tspan></text>
+  <text class="t r l2"><tspan x="26" y="116" fill="#7d8590">  mode: process wrap · backend: local-os · coverage: run `provio doctor`</tspan></text>
   <text class="t r l3"><tspan x="26" y="139" fill="#d7e0ea"></tspan></text>
   <text class="t r l4"><tspan x="26" y="162" fill="#3fb950" font-weight="600">✓ </tspan><tspan fill="#d7e0ea">read    </tspan><tspan fill="#79b8ff">src/api/handlers.rs</tspan></text>
   <text class="t r l5"><tspan x="26" y="185" fill="#3fb950" font-weight="600">✓ </tspan><tspan fill="#d7e0ea">bash    </tspan><tspan fill="#79b8ff">cargo test --lib</tspan></text>
   <text class="t r l6"><tspan x="26" y="208" fill="#39c5cf" font-weight="600">◆ </tspan><tspan fill="#d7e0ea">postgres</tspan><tspan fill="#79b8ff">  SELECT email, ssn FROM users LIMIT 20</tspan><tspan fill="#39c5cf">  [redact]</tspan></text>
-  <text class="t r l7"><tspan x="26" y="231" fill="#79838f">  rule: mask-pii (writ.yaml:24) — 2 fields masked before the model sees them</tspan></text>
+  <text class="t r l7"><tspan x="26" y="231" fill="#79838f">  rule: mask-pii (provio.yaml:24) — 2 fields masked before the model sees them</tspan></text>
   <text class="t r l8"><tspan x="26" y="254" fill="#d7e0ea"></tspan></text>
-  <text class="t r l9"><tspan x="26" y="277" fill="#d29922" font-weight="600">⚠ writ asks: </tspan><tspan fill="#d7e0ea">bash rm -rf ./build/../../</tspan><tspan fill="#d29922">  [ask]</tspan></text>
-  <text class="t r l10"><tspan x="26" y="300" fill="#79838f">  rule: block-destructive-shell (writ.yaml:6)</tspan></text>
+  <text class="t r l9"><tspan x="26" y="277" fill="#d29922" font-weight="600">⚠ provio asks: </tspan><tspan fill="#d7e0ea">bash rm -rf ./build/../../</tspan><tspan fill="#d29922">  [ask]</tspan></text>
+  <text class="t r l10"><tspan x="26" y="300" fill="#79838f">  rule: block-destructive-shell (provio.yaml:6)</tspan></text>
   <text class="t r l11"><tspan x="26" y="323" fill="#79838f">  → path resolves outside the workspace root</tspan></text>
   <text class="t r l12"><tspan x="26" y="346" fill="#d7e0ea">  [a]llow  [d]eny  [e]dit  [!] always allow &gt; </tspan></text>
   <text class="t r l13"><tspan x="26" y="346" fill="#d7e0ea">  [a]llow  [d]eny  [e]dit  [!] always allow &gt; </tspan><tspan fill="#d29922" font-weight="600">d</tspan></text>
   <text class="t r l14"><tspan x="26" y="369" fill="#f85149" font-weight="600">✗ </tspan><tspan fill="#d7e0ea">bash    </tspan><tspan fill="#d7e0ea">rm -rf ./build/../../</tspan><tspan fill="#f85149">  [denied]</tspan></text>
   <text class="t r l15"><tspan x="26" y="392" fill="#d7e0ea"></tspan></text>
   <text class="t r l16"><tspan x="26" y="415" fill="#f85149" font-weight="600">✗ </tspan><tspan fill="#d7e0ea">http    </tspan><tspan fill="#d7e0ea">POST https://paste.ee/api</tspan><tspan fill="#f85149">  [denied]</tspan></text>
-  <text class="t r l17"><tspan x="26" y="438" fill="#79838f">  rule: egress-allowlist (writ.yaml:18)</tspan></text>
+  <text class="t r l17"><tspan x="26" y="438" fill="#79838f">  rule: egress-allowlist (provio.yaml:18)</tspan></text>
   <text class="t r l18"><tspan x="26" y="461" fill="#79838f">  → host not in hosts.allowed — the refusal goes back to the agent, with the reason</tspan></text>
   <text class="t r l19"><tspan x="26" y="484" fill="#d7e0ea"></tspan></text>
   <text class="t r l20"><tspan x="26" y="507" fill="#3fb950" font-weight="600">$ </tspan><tspan fill="#d7e0ea"></tspan></text>

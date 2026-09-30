@@ -15,7 +15,7 @@ re-enter the model's context.
 
 `redact` means **run the call, then mask the result**. These rules match
 broadly (every `fs.*` call, every `bash` call, every MCP call), so wherever
-they sit in your `writ.yaml` they let those calls through **without a
+they sit in your `provio.yaml` they let those calls through **without a
 prompt**, and they pre-empt every rule below them. Merge them at the very
 **end** of your rules, after all deny/ask rules, or narrow the `when`
 clauses to the read-only tools you want masked. `secrets-guard` shows the
@@ -29,9 +29,9 @@ AWS keys as well.
 ## Use it
 
 ```bash
-writ policy add pii-redaction   # bundled with writ (a local ./packs/<id> wins); prints the sha256
+provio policy add pii-redaction   # bundled with provio (a local ./packs/<id> wins); prints the sha256
 ```
 
-Paste the `rules:` entries at the end of your `writ.yaml`, then `writ policy
-test --policy writ.yaml --fixtures packs/pii-redaction/fixtures`. Fixtures:
+Paste the `rules:` entries at the end of your `provio.yaml`, then `provio policy
+test --policy provio.yaml --fixtures packs/pii-redaction/fixtures`. Fixtures:
 `fixtures/pii-redaction.yaml` (7 cases).

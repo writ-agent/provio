@@ -1,0 +1,37 @@
+# provio.yaml — the whole policy surface: four verdicts, fail-closed default.
+version: 1
+default: ask                          # --yolo flips this to allow. Nothing else does.
+
+rules:
+  - id: block-destructive-shell
+    when: tool == "bash" and command matches "rm -rf|mkfs|dd if=|:\(\)\{"
+    verdict: deny
+    reason: "Destructive system command. Narrow the path and retry."
+
+  - id: protect-production-db
+    when: tool startswith "postgres" and query matches "(?i)(DROP|TRUNCATE|ALTER)"
+    verdict: ask
+    irreversible: true                # excluded from automated replay
+    timeout: 5m
+    reason: "Schema change against production. A human signs this one."
+
+  - id: egress-allowlist
+    when: tool == "http" and not url.host in hosts.allowed
+    verdict: deny
+    reason: "Host is not on the egress allow-list."
+
+  # Matched results are masked before they re-enter model context.
+  - id: mask-pii
+    when: tool startswith "postgres"
+    verdict: redact
+    patterns:
+      - "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
+      - "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+
+  - id: never-read-secrets
+    when: path matches "\\.env|id_rsa|\\.pem$|credentials$"
+    verdict: deny
+    reason: "Secrets are masked from the agent by design."
+
+hosts:
+  allowed: [api.github.com, registry.npmjs.org, "*.internal.acme.com"]

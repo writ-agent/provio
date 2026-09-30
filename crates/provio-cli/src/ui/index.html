@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="referrer" content="no-referrer">
+<title>provio console</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/icon-32.png" type="image/png">
+<link rel="stylesheet" href="/app.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="shell">
+  <aside class="side" aria-label="Console navigation">
+    <div class="brand">
+      <picture>
+        <source srcset="/wordmark-light.svg" media="(prefers-color-scheme: dark)">
+        <img src="/wordmark-dark.svg" alt="provio" width="84" height="36">
+      </picture>
+      <span class="brand-tag">console</span>
+    </div>
+    <nav>
+      <ul class="nav" role="list">
+        <li><a href="#/connect" data-route="connect"><span class="ni" data-icon="plug"></span><span>Connect</span></a></li>
+        <li><a href="#/live" data-route="live"><span class="ni" data-icon="pulse"></span><span>Live</span><span class="nav-count" id="nav-live-count" hidden></span></a></li>
+        <li><a href="#/approvals" data-route="approvals"><span class="ni" data-icon="hand"></span><span>Approvals</span><span class="nav-badge" id="nav-pending" hidden></span></a></li>
+        <li><a href="#/policy" data-route="policy"><span class="ni" data-icon="doc"></span><span>Policy</span></a></li>
+        <li><a href="#/sandbox" data-route="sandbox"><span class="ni" data-icon="box"></span><span>Sandbox</span></a></li>
+      </ul>
+    </nav>
+    <div class="side-foot" id="side-foot">
+      <div class="conn" id="conn"><span class="dot" aria-hidden="true"></span><span id="conn-text">connecting…</span></div>
+      <dl class="paths" id="paths"></dl>
+    </div>
+  </aside>
+  <main id="main" tabindex="-1">
+    <div id="view" class="view" aria-live="polite"></div>
+  </main>
+</div>
+<div id="drawer-root"></div>
+<div id="modal-root"></div>
+<div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+</body>
+</html>

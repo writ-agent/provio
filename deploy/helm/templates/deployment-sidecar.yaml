@@ -1,46 +1,46 @@
 ﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "{{ .Release.Name }}-example-agent-with-writ-sidecar"
+  name: "{{ .Release.Name }}-example-agent-with-provio-sidecar"
   labels:
-    app.kubernetes.io/name: writ
+    app.kubernetes.io/name: provio
     app.kubernetes.io/component: sidecar-example
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: writ
+      app.kubernetes.io/name: provio
       app.kubernetes.io/component: sidecar-example
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: writ
+        app.kubernetes.io/name: provio
         app.kubernetes.io/component: sidecar-example
       annotations:
-        writ.dev/scaffold: "wave-3-example-not-installed-by-default"
+        provio.dev/scaffold: "wave-3-example-not-installed-by-default"
     spec:
       serviceAccountName: "{{ .Values.serviceAccount.name }}"
       containers:
         - name: agent
           image: "alpine:3.20"
           command: ["/bin/sh", "-c", "sleep 3600"]
-        - name: writ-sidecar
+        - name: provio-sidecar
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: "{{ .Values.image.pullPolicy }}"
-          args: ["gateway", "--sidecar", "--policy", "/etc/writ/writ.yaml"]
+          args: ["gateway", "--sidecar", "--policy", "/etc/provio/provio.yaml"]
           env:
-            - name: WRIT_LEDGER_BACKEND
+            - name: PROVIO_LEDGER_BACKEND
               value: "{{ .Values.ledger.backend }}"
-            - name: WRIT_DATABASE_URL
+            - name: PROVIO_DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: "{{ .Values.ledger.postgres.existingSecret }}"
                   key: "{{ .Values.ledger.postgres.urlKey }}"
           volumeMounts:
             - name: policy
-              mountPath: /etc/writ
+              mountPath: /etc/provio
               readOnly: true
       volumes:
         - name: policy
           configMap:
-            name: "{{ .Release.Name }}-writ-policy"
+            name: "{{ .Release.Name }}-provio-policy"

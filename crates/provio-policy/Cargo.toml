@@ -1,0 +1,15 @@
+[package]
+name = "provio-policy"
+description = "Native provio.yaml policy engine: parser, evaluator, four verdicts, hot-reload, policy test harness."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+provio-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+thiserror.workspace = true
+regex.workspace = true

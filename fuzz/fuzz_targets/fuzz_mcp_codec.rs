@@ -1,4 +1,4 @@
-//! Fuzz target: the writ-mcp codec entry point (plan §8 fuzzing gate: MCP
+//! Fuzz target: the provio-mcp codec entry point (plan §8 fuzzing gate: MCP
 //! codec).
 //!
 //! The MCP proxy accepts untrusted bytes on this surface: any input may be a
@@ -11,7 +11,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use writ_mcp::jsonrpc::JsonRpcMessage;
+use provio_mcp::jsonrpc::JsonRpcMessage;
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(message) = serde_json::from_slice::<JsonRpcMessage>(data) {

@@ -4,7 +4,7 @@ description: Human gates for destructive SQL (DROP, TRUNCATE, ALTER, DELETE/UPDA
 # Evaluated in order, first match wins.
 #
 # MCP side: postgres/mysql/sqlite/supabase/neon/DBHub-style servers put the
-# SQL in args.sql or args.query, which writ exposes as `query`. Rules skip
+# SQL in args.sql or args.query, which provio exposes as `query`. Rules skip
 # web.search and http, whose `query` is not SQL. Statement keywords are only
 # matched at a statement start, after `^` or `;` plus whitespace and
 # comments, so `SELECT 'DROP TABLE x'` (a string literal) does not match.

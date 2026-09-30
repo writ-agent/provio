@@ -1,56 +1,56 @@
 ﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "{{ .Release.Name }}-writ-gateway"
+  name: "{{ .Release.Name }}-provio-gateway"
   labels:
-    app.kubernetes.io/name: writ
+    app.kubernetes.io/name: provio
     app.kubernetes.io/component: gateway
 spec:
   replicas: "{{ .Values.replicaCount }}"
   selector:
     matchLabels:
-      app.kubernetes.io/name: writ
+      app.kubernetes.io/name: provio
       app.kubernetes.io/component: gateway
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: writ
+        app.kubernetes.io/name: provio
         app.kubernetes.io/component: gateway
     spec:
       serviceAccountName: "{{ .Values.serviceAccount.name }}"
       containers:
-        - name: writ-gateway
+        - name: provio-gateway
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: "{{ .Values.image.pullPolicy }}"
-          args: ["gateway", "--policy", "/etc/writ/writ.yaml"]
+          args: ["gateway", "--policy", "/etc/provio/provio.yaml"]
           ports:
             - name: http
               containerPort: 8080
           env:
-            - name: WRIT_MODE
+            - name: PROVIO_MODE
               value: "{{ .Values.mode }}"
-            - name: WRIT_LEDGER_BACKEND
+            - name: PROVIO_LEDGER_BACKEND
               value: "{{ .Values.ledger.backend }}"
-            - name: WRIT_DATABASE_URL
+            - name: PROVIO_DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: "{{ .Values.ledger.postgres.existingSecret }}"
                   key: "{{ .Values.ledger.postgres.urlKey }}"
-            - name: WRIT_OBJECT_BUCKET
+            - name: PROVIO_OBJECT_BUCKET
               valueFrom:
                 secretKeyRef:
                   name: "{{ .Values.ledger.objectStore.existingSecret }}"
                   key: "{{ .Values.ledger.objectStore.bucketKey }}"
-            - name: WRIT_OBJECT_ENDPOINT
+            - name: PROVIO_OBJECT_ENDPOINT
               valueFrom:
                 secretKeyRef:
                   name: "{{ .Values.ledger.objectStore.existingSecret }}"
                   key: "{{ .Values.ledger.objectStore.endpointKey }}"
           volumeMounts:
             - name: policy
-              mountPath: /etc/writ
+              mountPath: /etc/provio
               readOnly: true
       volumes:
         - name: policy
           configMap:
-            name: "{{ .Release.Name }}-writ-policy"
+            name: "{{ .Release.Name }}-provio-policy"

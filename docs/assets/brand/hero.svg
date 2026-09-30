@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 440" role="img"
-     aria-label="writ — Nothing runs without a writ. A tool call passes a policy gate (allow, deny, ask, redact) and is recorded in a hash-chained ledger.">
+     aria-label="provio: a safety floor your AI agents can't get under. A tool call passes a policy gate (allow, deny, ask, redact) and is recorded in a hash-chained ledger.">
   <defs>
     <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
       <circle cx="2" cy="2" r="1.2" fill="#1e2933"/>
@@ -27,22 +27,25 @@
   <rect x="1" y="1" width="1278" height="438" rx="19" fill="none" stroke="#1e2933" stroke-width="2"/>
 
   <!-- wordmark -->
-  <g transform="translate(72 70) scale(0.62)">
-    <g fill="none" stroke="#dbe4ec" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 42 L32 98 L55 58 L78 98 L98 42"/>
-      <path d="M124 98 V42 M124 66 C124 50 136 42 154 42"/>
-      <path d="M178 98 V42"/>
-      <path d="M214 22 V82 Q214 98 230 98 M200 44 H232"/>
-    </g>
-    <circle cx="178" cy="18" r="7.5" fill="#dbe4ec"/>
-    <circle cx="260" cy="91" r="10" fill="#4ec9a5"/>
+  <g transform="translate(72 64) scale(0.56)">
+  <g fill="none" stroke="#dbe4ec" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 42 V116"/>
+    <circle cx="40" cy="70" r="28"/>
+    <path d="M92 98 V42 M92 66 C92 50 104 42 122 42"/>
+    <circle cx="162" cy="70" r="28"/>
+    <path d="M208 42 L230 98 L252 42"/>
+    <path d="M276 98 V42"/>
+    <circle cx="324" cy="70" r="28"/>
   </g>
-
-  <text x="72" y="222" class="sans" font-size="46" font-weight="700" fill="#dbe4ec">Nothing runs</text>
-  <text x="72" y="276" class="sans" font-size="46" font-weight="700" fill="#dbe4ec">without a writ<tspan fill="#4ec9a5">.</tspan></text>
-  <text x="72" y="326" class="sans" font-size="20" fill="#8a99a8">Authorization and provenance for AI agents.</text>
-  <text x="72" y="354" class="sans" font-size="20" fill="#8a99a8">One policy file. One tamper-evident ledger. Any agent.</text>
-  <text x="72" y="398" class="mono" font-size="15" fill="#5c6b7a">$ writ run -- claude</text>
+  <circle cx="276" cy="18" r="7.5" fill="#dbe4ec"/>
+  <circle cx="374" cy="91" r="10" fill="#4ec9a5"/>
+  </g>
+  <text x="72" y="204" class="sans" font-size="42" font-weight="700" fill="#dbe4ec">A safety floor</text>
+  <text x="72" y="252" class="sans" font-size="42" font-weight="700" fill="#dbe4ec">your AI agents</text>
+  <text x="72" y="300" class="sans" font-size="42" font-weight="700" fill="#dbe4ec">can't get under<tspan fill="#4ec9a5">.</tspan></text>
+  <text x="72" y="342" class="sans" font-size="18" fill="#8a99a8">One policy for every agent, checked before every call.</text>
+  <text x="72" y="366" class="sans" font-size="18" fill="#8a99a8">Kernel backstop. Signed, tamper-evident ledger.</text>
+  <text x="72" y="404" class="mono" font-size="15" fill="#5c6b7a">$ pip install provio &amp;&amp; provio scan</text>
 
   <!-- agent -->
   <g transform="translate(640 176)">
@@ -55,7 +58,7 @@
   <!-- policy gate -->
   <g transform="translate(842 118)">
     <rect width="176" height="204" rx="16" fill="url(#card)" stroke="#4ec9a5" stroke-opacity="0.55" stroke-width="2"/>
-    <text x="88" y="34" class="mono" font-size="15" fill="#dbe4ec" text-anchor="middle">writ.yaml</text>
+    <text x="88" y="34" class="mono" font-size="15" fill="#dbe4ec" text-anchor="middle">provio.yaml</text>
     <g class="mono" font-size="14" text-anchor="middle">
       <rect x="24" y="52" width="128" height="28" rx="14" fill="#3fb950" fill-opacity="0.14" stroke="#3fb950" stroke-opacity="0.6"/>
       <text x="88" y="71" fill="#3fb950">allow</text>

@@ -1,13 +1,13 @@
 ﻿apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: "{{ .Release.Name }}-writ-default-deny-egress"
+  name: "{{ .Release.Name }}-provio-default-deny-egress"
   labels:
-    app.kubernetes.io/name: writ
+    app.kubernetes.io/name: provio
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: writ
+      app.kubernetes.io/name: provio
   policyTypes: ["Ingress", "Egress"]
   ingress:
     - from:

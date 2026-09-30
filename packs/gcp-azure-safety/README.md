@@ -34,7 +34,7 @@ contains the word `list`.
 - **Other mutations** (`create`, `update`, `deploy`, `start/stop`,
   `gcloud run deploy`, `az webapp deploy`) have no rule here and get your
   policy's `default` (ask, with the recommended header).
-- **Project / subscription targeting.** writ sees command text only, not
+- **Project / subscription targeting.** provio sees command text only, not
   which project or subscription the CLI will act on.
 - **Firebase, Terraform, Pulumi, Bicep/ARM deployments** and SDK calls from
   scripts. See `terraform-safety` and the good-first-issue list for pulumi.
@@ -43,20 +43,20 @@ contains the word `list`.
 
 ## Use it
 
-Packs are rules you merge into your own `writ.yaml`; writ does not load
-`.writ/packs/` automatically.
+Packs are rules you merge into your own `provio.yaml`; provio does not load
+`.provio/packs/` automatically.
 
 ```bash
-writ policy add gcp-azure-safety   # bundled with writ (a local ./packs/<id> wins); prints the sha256
+provio policy add gcp-azure-safety   # bundled with provio (a local ./packs/<id> wins); prints the sha256
 ```
 
-Paste the `rules:` entries into your `writ.yaml`: deny/ask rules above your
+Paste the `rules:` entries into your `provio.yaml`: deny/ask rules above your
 own broad allows, the two `*-read-only-allowed` rules below your own denies.
 Ids are prefixed `gcp-` / `az-`.
 
 ```bash
-writ doctor --policy writ.yaml
-writ policy test --policy writ.yaml --fixtures packs/gcp-azure-safety/fixtures
+provio doctor --policy provio.yaml
+provio policy test --policy provio.yaml --fixtures packs/gcp-azure-safety/fixtures
 ```
 
 Fixtures: `fixtures/gcp-azure-safety.yaml` (45 cases, including Windows

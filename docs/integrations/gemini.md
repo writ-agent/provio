@@ -1,6 +1,6 @@
 # Gemini CLI
 
-writ decides every Gemini CLI tool call through its `BeforeTool` /
+provio decides every Gemini CLI tool call through its `BeforeTool` /
 `AfterTool` hooks and records it in the ledger.
 
 Protocol verified against `google-gemini/gemini-cli`: `docs/hooks/reference.md`,
@@ -15,7 +15,7 @@ Protocol verified against `google-gemini/gemini-cli`: `docs/hooks/reference.md`,
 Per project (writes `.gemini/settings.json`):
 
 ```sh
-writ integrate gemini         # --print to preview
+provio integrate gemini         # --print to preview
 ```
 
 Gemini CLI runs hooks **only in a trusted folder**. Project hooks are shown
@@ -24,36 +24,36 @@ to you once as new.
 For one confined session:
 
 ```sh
-writ run -- gemini
+provio run -- gemini
 ```
 
-`writ run` points `GEMINI_CLI_SYSTEM_SETTINGS_PATH` at a writ-owned file
+`provio run` points `GEMINI_CLI_SYSTEM_SETTINGS_PATH` at a provio-owned file
 outside the writable set. That file is a copy of your existing system
-settings plus writ's hooks and `hooksConfig.enabled: true`; system settings
+settings plus provio's hooks and `hooksConfig.enabled: true`; system settings
 override user and workspace settings.
 `GEMINI_CLI_SYSTEM_DEFAULTS_PATH` keeps pointing where it did. The hook gets
 a per-run name, so a `hooksConfig.disabled` entry planted beforehand cannot
 match it. `GEMINI_CLI_TRUST_WORKSPACE=true` is set because Gemini runs **no
 hooks at all** in an untrusted folder; this also means the workspace's
-`.gemini/settings.json` applies. `writ run` refuses when
+`.gemini/settings.json` applies. `provio run` refuses when
 `GEMINI_RESTRICTED_MODE=true` or `GEMINI_CLI_TRUST_WORKSPACE=false`.
 
-## What writ answers
+## What provio answers
 
-| writ verdict | Gemini output | effect |
+| provio verdict | Gemini output | effect |
 |---|---|---|
 | allow / redact | `{"decision":"allow"}`, exit 0 | tool runs |
 | ask (`--ask defer`, which integrate uses) | `{"decision":"ask","systemMessage":…}`, exit 0 | Gemini's own confirmation prompt; an approved call is recorded with approver `{kind: tui, id: "gemini-cli-prompt"}` |
 | ask (default `--ask deny`) | deny | blocked |
-| deny / any writ error | `{"decision":"deny","reason":…}` + **exit 2** + stderr | blocked |
+| deny / any provio error | `{"decision":"deny","reason":…}` + **exit 2** + stderr | blocked |
 | redact, at `AfterTool` | `{"decision":"deny","reason":<masked llmContent>}` | the model sees the masked result, framed by Gemini as "Tool result blocked: …" |
 
 Failure modes (hookRunner.ts): exit 0 = parse stdout JSON; exit 2 = block;
-**exit 1 or other codes with non-JSON output, a timeout (writ sets 600 s;
+**exit 1 or other codes with non-JSON output, a timeout (provio sets 600 s;
 Gemini's default is 60 s), or a spawn error mean the tool runs.** Gemini
-parses stdout JSON whatever the exit code, so writ's deny JSON blocks even
+parses stdout JSON whatever the exit code, so provio's deny JSON blocks even
 if a shell rewrote the exit code. On Windows the hook runs in PowerShell and
-Gemini appends its own `$LASTEXITCODE` propagation; writ quotes the command
+Gemini appends its own `$LASTEXITCODE` propagation; provio quotes the command
 for PowerShell (`& '…'`), and for bash on Unix.
 
 `AfterTool` has no tool-call id. It is correlated to the **newest decision
@@ -64,7 +64,7 @@ once. A post with no open decision, or a ledger error, withholds the output
 
 ## Tool mapping
 
-| Gemini `tool_name` | writ `tool` | policy fields |
+| Gemini `tool_name` | provio `tool` | policy fields |
 |---|---|---|
 | `run_shell_command` | `bash` | `command` |
 | `read_file`, `list_directory`, `glob`, `grep_search`, `search_file_content` | `fs.read` | `path` from `file_path` / `dir_path` / `absolute_path` |
@@ -81,10 +81,10 @@ Caller: `agent = "gemini-cli"`.
 
 - A hook timeout or a crash with non-JSON output lets the tool run.
 - An untrusted folder, `hooksConfig.enabled: false`, or the hook's name in
-  `hooksConfig.disabled` switch writ off after `writ integrate` (`writ run`
+  `hooksConfig.disabled` switch provio off after `provio integrate` (`provio run`
   pins these).
 - Gemini can edit `~/.gemini/settings.json` and `.gemini/settings.json`.
-  Under `writ run` both are protected where the kernel allows (macOS);
+  Under `provio run` both are protected where the kernel allows (macOS);
   elsewhere the banner says so.
 - `/hooks disable-all` in an interactive session disables hooks for that
   session.

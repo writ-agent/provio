@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# One-time remote setup for Writ.
+# One-time remote setup for Provio.
 #
 # GitHub organisations cannot be created with `gh`; create `writ-agent` in the
 # web UI first: https://github.com/organizations/new
 set -euo pipefail
 
-org="${WRIT_ORG:-writ-agent}"
-repo="${WRIT_REPO_NAME:-writ}"
-current_owner="${WRIT_CURRENT_OWNER:-bhaskargurram-ai}"
+org="${PROVIO_ORG:-writ-agent}"
+repo="${PROVIO_REPO_NAME:-provio}"
+current_owner="${PROVIO_CURRENT_OWNER:-bhaskargurram-ai}"
 
 echo "== 1. Org check =="
 if ! gh api "orgs/$org" --jq .login >/dev/null 2>&1; then
@@ -33,7 +33,7 @@ git remote set-url origin "https://github.com/$org/$repo.git"
 echo "== 3. Metadata =="
 gh repo edit "$org/$repo" \
   --description 'Authorization and provenance for AI agents. One policy file, one signed ledger, any agent.' \
-  --homepage 'https://writ-omega.vercel.app' \
+  --homepage 'https://provio.vercel.app' \
   --add-topic ai-agents --add-topic mcp --add-topic policy \
   --add-topic audit --add-topic provenance --add-topic rust --add-topic security
 
@@ -46,9 +46,9 @@ gh api "repos/$org/$repo/branches/main/protection" -X PUT \
 
 cat <<EOF
 == 5. Remaining manual steps ==
-- crates.io: claim/publish the writ crate name
-- npm: claim the writ package name
-- domains: writ.dev / writ.sh
+- crates.io: claim/publish the provio crate name
+- npm: claim the provio package name
+- domains: provio.dev / provio.sh
 - trademark: USPTO/EUIPO software-class search
 
 Done.

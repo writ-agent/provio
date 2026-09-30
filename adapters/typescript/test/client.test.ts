@@ -3,18 +3,18 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 
 import {
-  WritClient,
-  WritError,
-  WritProtocolError,
-  WritTimeoutError,
-  WritUnavailableError,
+  ProvioClient,
+  ProvioError,
+  ProvioProtocolError,
+  ProvioTimeoutError,
+  ProvioUnavailableError,
   findOnPath,
-  locateWrit,
+  locateProvio,
   shouldDispatch,
 } from "../src/index.js";
-import { FAKE_WRIT, call, fakeClient, tempDir } from "./helpers.js";
+import { FAKE_PROVIO, call, fakeClient, tempDir } from "./helpers.js";
 
-describe("WritClient against the fake gateway", () => {
+describe("ProvioClient against the fake gateway", () => {
   it("allow: decides, dispatches and records", async () => {
     const h = fakeClient({ policy: "p.yaml", ledger: "l.jsonl" });
     try {
@@ -48,7 +48,7 @@ describe("WritClient against the fake gateway", () => {
       assert.equal(d.decision, "deny");
       assert.equal(shouldDispatch(d), false);
       assert.equal(d.rule_id, "no-rm");
-      assert.equal(d.location, "writ.yaml:7");
+      assert.equal(d.location, "provio.yaml:7");
       assert.equal(d.reason, "Destructive command.");
     } finally {
       await h.client.close();
@@ -148,7 +148,7 @@ describe("WritClient against the fake gateway", () => {
   it("malformed line fails closed, then a fresh gateway is started", async () => {
     const h = fakeClient();
     try {
-      await assert.rejects(h.client.decide(call("malformed")), WritProtocolError);
+      await assert.rejects(h.client.decide(call("malformed")), ProvioProtocolError);
       const d = await h.client.decide(call("bash", { command: "ls" }));
       assert.equal(d.decision, "allow");
     } finally {
@@ -160,7 +160,7 @@ describe("WritClient against the fake gateway", () => {
   it("timeout fails closed", async () => {
     const h = fakeClient({ timeoutMs: 200 });
     try {
-      await assert.rejects(h.client.decide(call("hang")), WritTimeoutError);
+      await assert.rejects(h.client.decide(call("hang")), ProvioTimeoutError);
     } finally {
       await h.client.close();
     }
@@ -171,17 +171,17 @@ describe("WritClient against the fake gateway", () => {
     try {
       const a = h.client.decide(call("hang"));
       const b = h.client.decide(call("crash"));
-      await assert.rejects(a, (e: unknown) => e instanceof WritProtocolError && /exited \(code 3\)/.test(e.message));
-      await assert.rejects(b, WritProtocolError);
+      await assert.rejects(a, (e: unknown) => e instanceof ProvioProtocolError && /exited \(code 3\)/.test(e.message));
+      await assert.rejects(b, ProvioProtocolError);
     } finally {
       await h.client.close();
     }
   });
 
   it("crash at startup fails closed and includes stderr", async () => {
-    const h = fakeClient({}, { FAKE_WRIT_STARTUP_CRASH: "1" });
+    const h = fakeClient({}, { FAKE_PROVIO_STARTUP_CRASH: "1" });
     try {
-      await assert.rejects(h.client.decide(call("bash")), (e: unknown) => e instanceof WritError && /startup failure/.test(e.message));
+      await assert.rejects(h.client.decide(call("bash")), (e: unknown) => e instanceof ProvioError && /startup failure/.test(e.message));
     } finally {
       await h.client.close();
     }
@@ -190,8 +190,8 @@ describe("WritClient against the fake gateway", () => {
   it("respawn: false keeps a broken client broken", async () => {
     const h = fakeClient({ respawn: false });
     try {
-      await assert.rejects(h.client.decide(call("malformed")), WritProtocolError);
-      await assert.rejects(h.client.decide(call("bash")), WritProtocolError);
+      await assert.rejects(h.client.decide(call("malformed")), ProvioProtocolError);
+      await assert.rejects(h.client.decide(call("bash")), ProvioProtocolError);
     } finally {
       await h.client.close();
     }
@@ -200,7 +200,7 @@ describe("WritClient against the fake gateway", () => {
   it("error response rejects with the gateway code", async () => {
     const h = fakeClient();
     try {
-      await assert.rejects(h.client.decide(call("error")), (e: unknown) => e instanceof WritError && e.code === "policy_error");
+      await assert.rejects(h.client.decide(call("error")), (e: unknown) => e instanceof ProvioError && e.code === "policy_error");
     } finally {
       await h.client.close();
     }
@@ -209,7 +209,7 @@ describe("WritClient against the fake gateway", () => {
   it("response with the wrong id fails closed", async () => {
     const h = fakeClient();
     try {
-      await assert.rejects(h.client.decide(call("wrongid")), WritProtocolError);
+      await assert.rejects(h.client.decide(call("wrongid")), ProvioProtocolError);
     } finally {
       await h.client.close();
     }
@@ -218,8 +218,8 @@ describe("WritClient against the fake gateway", () => {
   it("self-contradicting or ref-less dispatch fails closed", async () => {
     const h = fakeClient();
     try {
-      await assert.rejects(h.client.decide(call("contradict")), WritProtocolError);
-      await assert.rejects(h.client.decide(call("noref")), WritProtocolError);
+      await assert.rejects(h.client.decide(call("contradict")), ProvioProtocolError);
+      await assert.rejects(h.client.decide(call("noref")), ProvioProtocolError);
     } finally {
       await h.client.close();
     }
@@ -247,7 +247,7 @@ describe("WritClient against the fake gateway", () => {
     const h = fakeClient();
     await h.client.decide(call("bash"));
     await h.client[Symbol.asyncDispose]();
-    await assert.rejects(h.client.decide(call("bash")), (e: unknown) => e instanceof WritError && e.code === "closed");
+    await assert.rejects(h.client.decide(call("bash")), (e: unknown) => e instanceof ProvioError && e.code === "closed");
   });
 
   it("an idle client does not keep the process alive", async () => {
@@ -259,38 +259,38 @@ describe("WritClient against the fake gateway", () => {
   });
 });
 
-describe("locating writ", () => {
-  it("missing explicit binary -> WritUnavailableError", async () => {
-    const client = new WritClient({ bin: join(tempDir(), "nope", "writ.exe") });
-    await assert.rejects(client.decide(call("bash")), WritUnavailableError);
+describe("locating provio", () => {
+  it("missing explicit binary -> ProvioUnavailableError", async () => {
+    const client = new ProvioClient({ bin: join(tempDir(), "nope", "provio.exe") });
+    await assert.rejects(client.decide(call("bash")), ProvioUnavailableError);
     await client.close();
   });
 
-  it("WRIT_BIN pointing nowhere -> WritUnavailableError", async () => {
-    const client = new WritClient({ env: { ...process.env, WRIT_BIN: join(tempDir(), "missing") } });
-    await assert.rejects(client.decide(call("bash")), WritUnavailableError);
+  it("PROVIO_BIN pointing nowhere -> ProvioUnavailableError", async () => {
+    const client = new ProvioClient({ env: { ...process.env, PROVIO_BIN: join(tempDir(), "missing") } });
+    await assert.rejects(client.decide(call("bash")), ProvioUnavailableError);
     await client.close();
   });
 
-  it("no WRIT_BIN and nothing on PATH -> WritUnavailableError", async () => {
+  it("no PROVIO_BIN and nothing on PATH -> ProvioUnavailableError", async () => {
     const env: NodeJS.ProcessEnv = { PATH: tempDir() };
-    assert.throws(() => locateWrit(undefined, env), WritUnavailableError);
-    const client = new WritClient({ env });
-    await assert.rejects(client.decide(call("bash")), WritUnavailableError);
+    assert.throws(() => locateProvio(undefined, env), ProvioUnavailableError);
+    const client = new ProvioClient({ env });
+    await assert.rejects(client.decide(call("bash")), ProvioUnavailableError);
     await client.close();
   });
 
-  it("explicit command that does not exist -> WritUnavailableError", async () => {
-    const client = new WritClient({ command: join(tempDir(), "definitely-not-writ") });
-    await assert.rejects(client.decide(call("bash")), WritUnavailableError);
+  it("explicit command that does not exist -> ProvioUnavailableError", async () => {
+    const client = new ProvioClient({ command: join(tempDir(), "definitely-not-provio") });
+    await assert.rejects(client.decide(call("bash")), ProvioUnavailableError);
     await client.close();
   });
 
-  it("WRIT_BIN may point at a .mjs gateway, which runs under node", async () => {
-    const launch = locateWrit(undefined, { WRIT_BIN: FAKE_WRIT });
+  it("PROVIO_BIN may point at a .mjs gateway, which runs under node", async () => {
+    const launch = locateProvio(undefined, { PROVIO_BIN: FAKE_PROVIO });
     assert.equal(launch.command, process.execPath);
-    assert.deepEqual(launch.args, [FAKE_WRIT]);
-    const client = new WritClient({ env: { ...process.env, WRIT_BIN: FAKE_WRIT } });
+    assert.deepEqual(launch.args, [FAKE_PROVIO]);
+    const client = new ProvioClient({ env: { ...process.env, PROVIO_BIN: FAKE_PROVIO } });
     try {
       assert.equal((await client.decide(call("bash"))).decision, "allow");
     } finally {
@@ -298,16 +298,16 @@ describe("locating writ", () => {
     }
   });
 
-  it("finds writ.exe on a Windows PATH and ignores writ.cmd", async () => {
+  it("finds provio.exe on a Windows PATH and ignores provio.cmd", async () => {
     const { writeFileSync } = await import("node:fs");
     const dir = tempDir();
-    writeFileSync(join(dir, "writ.cmd"), "");
-    assert.equal(findOnPath("writ", { PATH: dir }, "win32"), undefined);
-    writeFileSync(join(dir, "writ.exe"), "");
-    assert.equal(findOnPath("writ", { Path: `"${dir}"` }, "win32"), join(dir, "writ.exe"));
+    writeFileSync(join(dir, "provio.cmd"), "");
+    assert.equal(findOnPath("provio", { PATH: dir }, "win32"), undefined);
+    writeFileSync(join(dir, "provio.exe"), "");
+    assert.equal(findOnPath("provio", { Path: `"${dir}"` }, "win32"), join(dir, "provio.exe"));
   });
 
   it("rejects an invalid ask mode", () => {
-    assert.throws(() => new WritClient({ ask: "allow" as "deny" }), WritError);
+    assert.throws(() => new ProvioClient({ ask: "allow" as "deny" }), ProvioError);
   });
 });

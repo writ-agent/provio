@@ -27,9 +27,9 @@ refused; deletes, rollout restarts and `exec` whose command line mentions
 ## Use it
 
 ```bash
-writ policy add k8s-prod   # bundled with writ (a local ./packs/<id> wins); prints the sha256
+provio policy add k8s-prod   # bundled with provio (a local ./packs/<id> wins); prints the sha256
 ```
 
-Paste the `rules:` entries into your `writ.yaml` above any broad allow of
-your own, then `writ policy test --policy writ.yaml --fixtures
+Paste the `rules:` entries into your `provio.yaml` above any broad allow of
+your own, then `provio policy test --policy provio.yaml --fixtures
 packs/k8s-prod/fixtures`. Fixtures: `fixtures/k8s-prod.yaml` (8 cases).

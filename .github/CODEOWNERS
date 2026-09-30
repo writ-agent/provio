@@ -3,16 +3,16 @@
 
 # Security-sensitive paths: the evidence format, the policy decision path,
 # and the sandbox boundary. Changes here need an owner review.
-/crates/writ-core/     @bhaskargurram-ai
-/crates/writ-ledger/   @bhaskargurram-ai
-/crates/writ-policy*/  @bhaskargurram-ai
-/crates/writ-sandbox*/ @bhaskargurram-ai
+/crates/provio-core/     @bhaskargurram-ai
+/crates/provio-ledger/   @bhaskargurram-ai
+/crates/provio-policy*/  @bhaskargurram-ai
+/crates/provio-sandbox*/ @bhaskargurram-ai
 /docs/THREAT_MODEL.md  @bhaskargurram-ai
 /docs/SECURITY.md      @bhaskargurram-ai
 
 # Areas a team can review (either the owner or the team approves).
 /adapters/        @bhaskargurram-ai @writ-agent/integrations
-/crates/writ-mcp/ @bhaskargurram-ai @writ-agent/integrations
+/crates/provio-mcp/ @bhaskargurram-ai @writ-agent/integrations
 /docs/            @bhaskargurram-ai @writ-agent/docs
 /site/            @bhaskargurram-ai @writ-agent/docs
 /examples/        @bhaskargurram-ai @writ-agent/docs

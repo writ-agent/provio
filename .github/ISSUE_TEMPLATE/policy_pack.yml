@@ -1,5 +1,5 @@
 name: Policy pack proposal
-description: Propose a pack that teaches writ a new stack (cloud CLI, database, MCP server, …)
+description: Propose a pack that teaches provio a new stack (cloud CLI, database, MCP server, …)
 labels: [policy-pack, needs-triage]
 body:
   - type: markdown

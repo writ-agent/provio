@@ -3,33 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>writ playground — try your policy on your agent's calls</title>
-<meta name="description" content="The writ policy engine and ledger, compiled to WebAssembly and running in your browser. Bring your own writ.yaml, try your agent's tool calls, tamper with the ledger and watch verify catch it.">
+<title>provio playground — try your policy on your agent's calls</title>
+<meta name="description" content="The provio policy engine and ledger, compiled to WebAssembly and running in your browser. Bring your own provio.yaml, try your agent's tool calls, tamper with the ledger and watch verify catch it.">
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="icon" href="assets/icon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <meta name="theme-color" content="#0b0f14">
-<meta property="og:title" content="writ playground — try your policy on your agent's calls">
-<meta property="og:description" content="The real writ engine in your browser: policy editor, agent call simulator, hash-chained ledger, policy replay. No install.">
-<meta property="og:image" content="https://writ-omega.vercel.app/assets/social-preview.png">
-<meta property="og:url" content="https://writ-omega.vercel.app/playground.html">
+<meta property="og:title" content="provio playground — try your policy on your agent's calls">
+<meta property="og:description" content="The real provio engine in your browser: policy editor, agent call simulator, hash-chained ledger, policy replay. No install.">
+<meta property="og:image" content="https://provio.vercel.app/assets/social-preview.png">
+<meta property="og:url" content="https://provio.vercel.app/playground.html">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="assets/playground/playground.css">
-<link rel="modulepreload" href="assets/playground/writ_wasm.js">
-<link rel="preload" href="assets/playground/writ_wasm_bg.wasm" as="fetch" type="application/wasm" crossorigin>
+<link rel="modulepreload" href="assets/playground/provio_wasm.js">
+<link rel="preload" href="assets/playground/provio_wasm_bg.wasm" as="fetch" type="application/wasm" crossorigin>
 </head>
 <body>
 <a class="skip" href="#policy-panel">Skip to the playground</a>
 
 <nav>
   <div class="wrap">
-    <a class="logo" href="./"><img src="assets/wordmark-light.svg" alt="writ home" width="61" height="26"></a>
+    <a class="logo" href="./"><img src="assets/wordmark-light.svg" alt="provio home" width="61" height="26"></a>
     <div class="links">
       <a href="./#policy">Policy</a>
       <a href="./#ledger">Ledger</a>
       <a href="./#commands">Commands</a>
       <a href="playground.html" aria-current="page">Playground</a>
-      <a href="https://github.com/writ-agent/writ">GitHub</a>
+      <a href="https://github.com/writ-agent/provio">GitHub</a>
     </div>
   </div>
 </nav>
@@ -38,7 +38,7 @@
   <div class="wrap">
     <div class="kicker">Playground</div>
     <h1>Bring your own policy.<br>Try your agent's calls.</h1>
-    <p class="sub">This is the real writ engine, compiled to WebAssembly and running in this tab: the same parser, the same four verdicts, the same ledger records and hashes as the <code>writ</code> binary. Nothing you type leaves your browser.</p>
+    <p class="sub">This is the real provio engine, compiled to WebAssembly and running in this tab: the same parser, the same four verdicts, the same ledger records and hashes as the <code>provio</code> binary. Nothing you type leaves your browser.</p>
     <p class="engine" id="engine-status" role="status"><span class="dot" aria-hidden="true"></span><span>loading the engine…</span></p>
   </div>
 </header>
@@ -48,7 +48,7 @@
     <!-- 1. Policy -------------------------------------------------------- -->
     <section class="panel" id="policy-panel" aria-labelledby="policy-h">
       <div class="panel-head">
-        <h2 id="policy-h"><span class="n">1</span> writ.yaml</h2>
+        <h2 id="policy-h"><span class="n">1</span> provio.yaml</h2>
         <div class="head-tools">
           <label class="sr" for="policy-preset">Policy preset</label>
           <select id="policy-preset"></select>
@@ -59,15 +59,15 @@
         <div class="ed-body">
           <pre class="ed-hl" id="ed-hl" aria-hidden="true"></pre>
           <textarea id="ed-src" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"
-            aria-label="Policy source (writ.yaml). Tab indents; press Escape, then Tab, to leave the editor."
+            aria-label="Policy source (provio.yaml). Tab indents; press Escape, then Tab, to leave the editor."
             aria-describedby="compile-status"></textarea>
         </div>
       </div>
       <div class="compile" id="compile-status" role="status" aria-live="polite"></div>
       <div class="rules" id="rule-list" aria-label="Compiled rules, in evaluation order"></div>
       <div class="panel-foot">
-        <span class="hint">First match wins · unmatched calls get <code>default</code> · <a href="https://github.com/writ-agent/writ/blob/main/docs/policy-reference.md">policy reference</a></span>
-        <button type="button" class="btn ghost" id="policy-download">Download writ.yaml</button>
+        <span class="hint">First match wins · unmatched calls get <code>default</code> · <a href="https://github.com/writ-agent/provio/blob/main/docs/policy-reference.md">policy reference</a></span>
+        <button type="button" class="btn ghost" id="policy-download">Download provio.yaml</button>
       </div>
     </section>
 
@@ -119,12 +119,12 @@
           </div>
         </details>
         <div class="run-row">
-          <button type="submit" class="btn primary" id="run-btn" disabled>Run through writ</button>
+          <button type="submit" class="btn primary" id="run-btn" disabled>Run through provio</button>
           <span class="hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs from anywhere</span>
         </div>
       </form>
       <div id="verdict" class="verdict-area" aria-live="polite">
-        <p class="placeholder">Pick a call and press <b>Run</b>. writ normalises it the way that agent's integration does, evaluates it against the policy on the left, and records the decision.</p>
+        <p class="placeholder">Pick a call and press <b>Run</b>. provio normalises it the way that agent's integration does, evaluates it against the policy on the left, and records the decision.</p>
       </div>
     </section>
   </div>
@@ -133,10 +133,10 @@
   <section class="panel" id="ledger-panel" aria-labelledby="ledger-h">
     <div class="panel-head">
       <h2 id="ledger-h"><span class="n">3</span> Ledger</h2>
-      <p class="head-note">Every decision is appended to a hash chain: the same <code>LedgerRecord</code> v1 format and SHA-256 hashing as <code>.writ/ledger.jsonl</code>. Edit a record and <code>writ verify</code> names the index where the chain broke.</p>
+      <p class="head-note">Every decision is appended to a hash chain: the same <code>LedgerRecord</code> v1 format and SHA-256 hashing as <code>.provio/ledger.jsonl</code>. Edit a record and <code>provio verify</code> names the index where the chain broke.</p>
     </div>
     <div class="ledger-tools">
-      <button type="button" class="btn primary" id="verify-btn">writ verify</button>
+      <button type="button" class="btn primary" id="verify-btn">provio verify</button>
       <div class="tamper">
         <label class="sr" for="tamper-mode">Tamper mode</label>
         <select id="tamper-mode">
@@ -150,7 +150,7 @@
       <button type="button" class="btn ghost" id="ledger-download" disabled>Download ledger.jsonl</button>
       <button type="button" class="btn ghost" id="ledger-reset" disabled>Clear</button>
     </div>
-    <div class="term" id="verify-out" role="status" aria-live="polite"><span class="prompt">$</span> writ verify <span class="dim">— run a few calls first</span></div>
+    <div class="term" id="verify-out" role="status" aria-live="polite"><span class="prompt">$</span> provio verify <span class="dim">— run a few calls first</span></div>
     <div class="chain-wrap">
       <ol class="chain" id="chain" aria-label="Ledger records, oldest first"></ol>
     </div>
@@ -164,7 +164,7 @@
   <section class="panel" id="replay-panel" aria-labelledby="replay-h">
     <div class="panel-head">
       <h2 id="replay-h"><span class="n">4</span> Policy replay</h2>
-      <p class="head-note">Before you ship a policy change, run it over recorded sessions: <code>writ replay &lt;session&gt; --candidate &lt;file&gt;</code>. Which calls that went through would the new policy have stopped?</p>
+      <p class="head-note">Before you ship a policy change, run it over recorded sessions: <code>provio replay &lt;session&gt; --candidate &lt;file&gt;</code>. Which calls that went through would the new policy have stopped?</p>
     </div>
     <div class="replay-form">
       <label>Recorded session
@@ -189,31 +189,31 @@
   <section class="real" id="real" aria-labelledby="real-h">
     <div class="kicker">Now run it for real</div>
     <h2 id="real-h">Same engine, your agent, your repo</h2>
-    <p class="lead">Both packages ship the <code>writ</code> binary. Drop your policy next to your code as <code>writ.yaml</code> and every tool call goes through it, with the ledger in <code>.writ/ledger.jsonl</code>.</p>
+    <p class="lead">Both packages ship the <code>provio</code> binary. Drop your policy next to your code as <code>provio.yaml</code> and every tool call goes through it, with the ledger in <code>.provio/ledger.jsonl</code>.</p>
     <div class="real-grid">
-      <div class="cmd-card"><span class="n">Python</span><div class="cmd"><code>pip install writ-sdk</code><button type="button" class="copy" data-copy="pip install writ-sdk" aria-label="Copy pip install writ-sdk">copy</button></div><p>LangGraph, OpenAI Agents SDK and Claude Agent SDK adapters.</p></div>
-      <div class="cmd-card"><span class="n">TypeScript</span><div class="cmd"><code>npm install @writ-agent/sdk</code><button type="button" class="copy" data-copy="npm install @writ-agent/sdk" aria-label="Copy npm install @writ-agent/sdk">copy</button></div><p>Claude Agent SDK and any Node agent with a tool hook.</p></div>
-      <div class="cmd-card"><span class="n">Claude Code</span><div class="cmd"><code>writ integrate claude-code</code><button type="button" class="copy" data-copy="writ integrate claude-code" aria-label="Copy writ integrate claude-code">copy</button></div><p>Writes the hooks into <code>.claude/settings.json</code>; a writ <code>ask</code> becomes Claude Code's own prompt.</p></div>
-      <div class="cmd-card"><span class="n">Watch it</span><div class="cmd"><code>writ ui</code><button type="button" class="copy" data-copy="writ ui" aria-label="Copy writ ui">copy</button></div><p>Local console: live decisions, approvals, the ledger and <code>writ verify</code>.</p></div>
+      <div class="cmd-card"><span class="n">Python</span><div class="cmd"><code>pip install provio-sdk</code><button type="button" class="copy" data-copy="pip install provio-sdk" aria-label="Copy pip install provio-sdk">copy</button></div><p>LangGraph, OpenAI Agents SDK and Claude Agent SDK adapters.</p></div>
+      <div class="cmd-card"><span class="n">TypeScript</span><div class="cmd"><code>npm install provio-sdk</code><button type="button" class="copy" data-copy="npm install provio-sdk" aria-label="Copy npm install provio-sdk">copy</button></div><p>Claude Agent SDK and any Node agent with a tool hook.</p></div>
+      <div class="cmd-card"><span class="n">Claude Code</span><div class="cmd"><code>provio integrate claude-code</code><button type="button" class="copy" data-copy="provio integrate claude-code" aria-label="Copy provio integrate claude-code">copy</button></div><p>Writes the hooks into <code>.claude/settings.json</code>; a provio <code>ask</code> becomes Claude Code's own prompt.</p></div>
+      <div class="cmd-card"><span class="n">Watch it</span><div class="cmd"><code>provio ui</code><button type="button" class="copy" data-copy="provio ui" aria-label="Copy provio ui">copy</button></div><p>Local console: live decisions, approvals, the ledger and <code>provio verify</code>.</p></div>
     </div>
-    <p class="fine">The ledger you built above downloads as a real <code>ledger.jsonl</code>: <code>writ verify --ledger ledger.jsonl</code> checks it with the same result.</p>
+    <p class="fine">The ledger you built above downloads as a real <code>ledger.jsonl</code>: <code>provio verify --ledger ledger.jsonl</code> checks it with the same result.</p>
   </section>
 </main>
 
 <footer>
   <div class="wrap">
     <div class="cols">
-      <a class="logo" href="./"><img src="assets/wordmark-light.svg" alt="writ home" width="47" height="20" style="height:20px"></a>
-      <a href="https://github.com/writ-agent/writ">GitHub</a>
-      <a href="https://github.com/writ-agent/writ/blob/main/docs/THREAT_MODEL.md">Threat model</a>
-      <a href="https://github.com/writ-agent/writ/blob/main/docs/policy-reference.md">Policy reference</a>
-      <a href="https://github.com/writ-agent/writ/tree/main/crates/writ-wasm">How the playground is built</a>
+      <a class="logo" href="./"><img src="assets/wordmark-light.svg" alt="provio home" width="47" height="20" style="height:20px"></a>
+      <a href="https://github.com/writ-agent/provio">GitHub</a>
+      <a href="https://github.com/writ-agent/provio/blob/main/docs/THREAT_MODEL.md">Threat model</a>
+      <a href="https://github.com/writ-agent/provio/blob/main/docs/policy-reference.md">Policy reference</a>
+      <a href="https://github.com/writ-agent/provio/tree/main/crates/provio-wasm">How the playground is built</a>
     </div>
     <p class="fine">The ledger is tamper-evident, not tamper-proof: an edit is caught, and a rewrite of the newest record together with its hash needs anchoring, which is on the roadmap. <span id="engine-version"></span></p>
   </div>
 </footer>
 
-<noscript><p class="noscript">The playground runs the writ engine as WebAssembly and needs JavaScript.</p></noscript>
+<noscript><p class="noscript">The playground runs the provio engine as WebAssembly and needs JavaScript.</p></noscript>
 <script type="module" src="assets/playground/playground.js"></script>
 </body>
 </html>

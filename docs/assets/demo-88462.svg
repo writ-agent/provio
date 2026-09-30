@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 648" width="980" height="648" role="img" aria-label="claude-code#88462, replayed against writ">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 648" width="980" height="648" role="img" aria-label="claude-code#88462, replayed against provio">
   <style>
   .t{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono','Courier New',monospace;font-size:14px;white-space:pre}
   .r{opacity:0}
@@ -61,7 +61,7 @@
   <circle cx="22" cy="19" r="5.5" fill="#ff5f56"/>
   <circle cx="42" cy="19" r="5.5" fill="#ffbd2e"/>
   <circle cx="62" cy="19" r="5.5" fill="#27c93f"/>
-  <text class="t" x="86" y="24" fill="#7d8590" font-size="12.5">claude-code#88462, replayed against writ</text>
+  <text class="t" x="86" y="24" fill="#7d8590" font-size="12.5">claude-code#88462, replayed against provio</text>
   <text class="t r l0"><tspan x="26" y="70" fill="#3fb950" font-weight="600">$ </tspan><tspan fill="#d7e0ea">./examples/incident-88462/run.sh</tspan></text>
   <text class="t r l1"><tspan x="26" y="93" fill="#d7e0ea" font-weight="600">claude-code#88462, replayed</tspan><tspan fill="#7d8590">  ·  the agent&#x27;s cleanup script ran rm -rf &quot;$HOME&quot;</tspan></text>
   <text class="t r l2"><tspan x="26" y="116" fill="#7d8590">──────────────────────────────────────────────────────────────────────────────</tspan></text>
@@ -77,14 +77,14 @@
   <text class="t r l12"><tspan x="26" y="346" fill="#7d8590">──────────────────────────────────────────────────────────────────────────────</tspan></text>
   <text class="t r l13"><tspan x="26" y="369" fill="#d7e0ea" font-weight="600">Act 3. </tspan><tspan fill="#d7e0ea">The same delete, obfuscated so no text rule can read it:</tspan></text>
   <text class="t r l14"><tspan x="26" y="392" fill="#79838f">    $ eval &quot;$(echo cm0gLXJmICIkSE9NRSI= | base64 -d)&quot;</tspan></text>
-  <text class="t r l15"><tspan x="26" y="415" fill="#3fb950" font-weight="600">  ✓ ALLOW</tspan><tspan fill="#d7e0ea"> writ: allowed by rule &quot;default&quot;</tspan><tspan fill="#d29922">   # the rules miss it, honestly</tspan></text>
-  <text class="t r l16"><tspan x="26" y="438" fill="#d7e0ea">    run it the way writ run runs an agent: inside the kernel write boundary</tspan></text>
+  <text class="t r l15"><tspan x="26" y="415" fill="#3fb950" font-weight="600">  ✓ ALLOW</tspan><tspan fill="#d7e0ea"> provio: allowed by rule &quot;default&quot;</tspan><tspan fill="#d29922">   # the rules miss it, honestly</tspan></text>
+  <text class="t r l16"><tspan x="26" y="438" fill="#d7e0ea">    run it the way provio run runs an agent: inside the kernel write boundary</tspan></text>
   <text class="t r l17"><tspan x="26" y="461" fill="#7d8590">    filesystem : enforced — writes outside the writable paths are denied by the kernel</tspan></text>
   <text class="t r l18"><tspan x="26" y="484" fill="#f85149">    rm: cannot remove &#x27;…/home/.ssh/id_ed25519&#x27;: Permission denied</tspan></text>
   <text class="t r l19"><tspan x="26" y="507" fill="#f85149">    rm: cannot remove &#x27;…/home/Documents/thesis.md&#x27;: Permission denied</tspan></text>
   <text class="t r l20"><tspan x="26" y="530" fill="#3fb950" font-weight="600">  ✓ Home directory intact</tspan><tspan fill="#d7e0ea">  — the kernel refused every write outside the workspace</tspan></text>
   <text class="t r l21"><tspan x="26" y="553" fill="#7d8590">──────────────────────────────────────────────────────────────────────────────</tspan></text>
-  <text class="t r l22"><tspan x="26" y="576" fill="#3fb950">  chain intact · 5 records · no gaps</tspan><tspan fill="#7d8590">   (writ log, writ verify)</tspan></text>
+  <text class="t r l22"><tspan x="26" y="576" fill="#3fb950">  chain intact · 5 records · no gaps</tspan><tspan fill="#7d8590">   (provio log, provio verify)</tspan></text>
   <text class="t r l23"><tspan x="26" y="599" fill="#3fb950" font-weight="600">$ </tspan><tspan fill="#d7e0ea"></tspan></text>
   <rect class="cur" x="44.8" y="587" width="8" height="16" fill="#d7e0ea"/>
 </svg>

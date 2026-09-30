@@ -1,0 +1,16 @@
+[package]
+name = "provio-policy-cedar"
+description = "Cedar policy engine backend for provio: provio.yaml semantics compiled to Cedar policies, producing the shared verdict IR."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+provio-core.workspace = true
+provio-policy.workspace = true
+# Same crate the native engine compiles `matches` patterns with: regex
+# predicates are evaluated host-side (Cedar has no regex) using the very
+# `Regex` values provio-policy compiled.
+regex.workspace = true
+cedar-policy = "4"

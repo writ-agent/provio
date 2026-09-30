@@ -1,7 +1,7 @@
 # Fixtures for packs/aws-safety. Run by scripts/validate_packs.py against the
 # pack wrapped in `version: 1` / `default: ask`, so unmatched calls expect
 # `rule_id: default`. Args are shaped like Claude Code's Bash / PowerShell
-# tool input ({command, description}); both map to writ tool `bash`.
+# tool input ({command, description}); both map to provio tool `bash`.
 
 # --- deny -----------------------------------------------------------------
 - name: cloudtrail stop-logging denied

@@ -1,0 +1,26 @@
+# Final release of the pre-rename `writ-cli` distribution: it installs
+# `provio` (the renamed binary wheel) and keeps a `writ` command that runs
+# `provio` with a rename notice. See CHANGELOG 0.1.3.
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "writ-cli"
+version = "0.1.3"
+description = "Renamed to provio: pip install provio. This package installs provio and keeps a `writ` command that runs it."
+readme = "README.md"
+requires-python = ">=3.8"
+license = "Apache-2.0"
+authors = [{ name = "Bhaskar Gurram", email = "gurrambhaskar.ai@gmail.com" }]
+dependencies = ["provio==0.1.3"]
+classifiers = ["Development Status :: 7 - Inactive"]
+
+[project.urls]
+Source = "https://github.com/writ-agent/provio"
+
+[project.scripts]
+writ = "writ_cli_renamed:main"
+
+[tool.setuptools]
+py-modules = ["writ_cli_renamed"]

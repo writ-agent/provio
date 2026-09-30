@@ -6,26 +6,25 @@ day's delay.
 ## T-3 days: blockers
 
 - [x] **Ship a release that matches the README.** Done: **0.1.2** is on
-      PyPI (`writ-cli`, `writ-sdk`), npm (`@writ-agent/cli`,
-      `@writ-agent/sdk`) and GitHub Releases, with every feature the posts
+      PyPI (`provio`, `provio-sdk`), npm (`provio`,
+      `provio-sdk`) and GitHub Releases, with every feature the posts
       describe. Verified from clean installs on Windows and Linux (pip and
-      npm): `writ ui`, `writ receipt` round trip, all five
-      `writ integrate` targets, bundled `writ policy add`.
+      npm): `provio ui`, `provio receipt` round trip, all five
+      `provio integrate` targets, bundled `provio policy add`.
 - [ ] In a clean VM for each OS (Linux, macOS, Windows), from the published
       packages only:
-      `pip install writ-cli` → `writ --version` → `writ integrate claude-code`
-      → one Claude Code session → `writ log` → `writ verify` → `writ ui`.
+      `pip install provio` → `provio --version` → `provio integrate claude-code`
+      → one Claude Code session → `provio log` → `provio verify` → `provio ui`.
 - [x] Run `examples/attack-demo/run.sh` (Linux/macOS) and `run.ps1`
       (Windows) against the **published** binary. The expected output is in
-      `examples/attack-demo/README.md`. If writ's output changed, update
+      `examples/attack-demo/README.md`. If provio's output changed, update
       the lines in `scripts/gen_attack_svg.py`, re-run it, and re-render
       `docs/launch/demo-attack.png`.
 - [x] `python scripts/claim_lint.py` is clean; CI is green on `main`.
 - [ ] The repo is public; the README renders `demo-attack.svg` (check it on
       GitHub, in light and dark themes); the site and playground load.
-- [ ] Decide what to do about the crates.io name collision: `writ-cli` on
-      crates.io is a different project. At least never tell people to
-      `cargo install writ-cli`.
+- [x] Name collision: renamed writ → provio (2026-09-30); the name is free
+      on GitHub, PyPI, npm and crates.io.
 - [ ] `SECURITY.md` has a working private reporting channel (GitHub private
       vulnerability reporting turned on). Launch day brings bypass reports.
 

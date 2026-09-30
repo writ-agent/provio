@@ -1,0 +1,32 @@
+# PyPI distribution of the `provio` binary (maturin, bin bindings): one wheel
+# per platform carrying the compiled executable, so `pip install provio`
+# (or `pip install provio-sdk`, which depends on it) needs no Rust toolchain.
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "provio"
+dynamic = ["version"]
+description = "A safety floor your AI agents can't get under: one policy for Claude Code, Codex, Gemini CLI, Cursor, Windsurf and MCP, judged by what each call will run, with a tamper-evident, signed ledger."
+readme = "README.md"
+requires-python = ">=3.8"
+license = "Apache-2.0"
+authors = [{ name = "Bhaskar Gurram", email = "gurrambhaskar.ai@gmail.com" }]
+keywords = ["ai-agents", "authorization", "policy", "audit", "mcp", "claude-code"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Rust",
+    "Topic :: Security",
+]
+
+[project.urls]
+Homepage = "https://provio.vercel.app"
+Source = "https://github.com/writ-agent/provio"
+Issues = "https://github.com/writ-agent/provio/issues"
+
+[tool.maturin]
+bindings = "bin"
+strip = true

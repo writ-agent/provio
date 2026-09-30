@@ -42,7 +42,7 @@ allow because it writes a file.
 - **Local rebases and amends** are not gated; they only matter once
   force-pushed, which is covered.
 - **MCP write tools** such as `push_files` / `create_or_update_file` get
-  the policy default: writ sees the tool name, not the target branch
+  the policy default: provio sees the tool name, not the target branch
   argument.
 - **Reading untrusted content.** `github-mcp-read-allowed` and `gh issue view`
   let the agent read issue and PR text written by anyone, which is a prompt
@@ -52,23 +52,23 @@ allow because it writes a file.
 
 ## Use it
 
-Packs are rules you merge into your own `writ.yaml`; writ does not load
-`.writ/packs/` automatically.
+Packs are rules you merge into your own `provio.yaml`; provio does not load
+`.provio/packs/` automatically.
 
 ```bash
-writ policy add github-safety   # bundled with writ (a local ./packs/<id> wins); prints the sha256
+provio policy add github-safety   # bundled with provio (a local ./packs/<id> wins); prints the sha256
 ```
 
-Paste the `rules:` entries into your `writ.yaml`: deny/ask rules above your
+Paste the `rules:` entries into your `provio.yaml`: deny/ask rules above your
 own broad allows, the allow rules below your own denies. If you also use
 `secrets-guard`, its `gh auth token` deny overlaps with
 `github-auth-token-denied`; either one is enough. Ids are prefixed `github-`.
-The MCP rules match the server identity writ records, which for Claude Code
+The MCP rules match the server identity provio records, which for Claude Code
 is the `<server>` in `mcp__<server>__<tool>`.
 
 ```bash
-writ doctor --policy writ.yaml
-writ policy test --policy writ.yaml --fixtures packs/github-safety/fixtures
+provio doctor --policy provio.yaml
+provio policy test --policy provio.yaml --fixtures packs/github-safety/fixtures
 ```
 
 Fixtures: `fixtures/github-safety.yaml` (49 cases, including near misses such

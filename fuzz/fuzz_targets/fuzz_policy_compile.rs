@@ -1,4 +1,4 @@
-//! Fuzz target: the writ.yaml DSL entry point `writ_policy::policy_file::compile`
+//! Fuzz target: the provio.yaml DSL entry point `provio_policy::policy_file::compile`
 //! (plan §8 fuzzing gate: DSL parser).
 //!
 //! Arbitrary bytes are decoded lossily to UTF-8 and compiled. Parse and
@@ -10,12 +10,12 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use writ_core::{PolicyEngine, ToolCallContext};
-use writ_policy::NativePolicyEngine;
+use provio_core::{PolicyEngine, ToolCallContext};
+use provio_policy::NativePolicyEngine;
 
 fuzz_target!(|data: &[u8]| {
     let source = String::from_utf8_lossy(data);
-    if let Ok(policy) = writ_policy::policy_file::compile(&source) {
+    if let Ok(policy) = provio_policy::policy_file::compile(&source) {
         let _ = policy; // the full compile result: version, default, rules
         if let Ok(engine) = NativePolicyEngine::from_source(&source) {
             for tool in ["bash", "http", "postgres.query", "fs.read", ""] {

@@ -3,7 +3,7 @@ version: 0.1.0
 description: The disaster floor - the few things an AI agent must never do on its own, whatever mode it runs in. Wiping your home directory or disk, force-pushing over main, reading your SSH and cloud keys, opening a reverse shell, switching off its own guard rails. Irreversible cloud and database deletes ask first.
 # Low-noise by design: every rule here names a disaster, not a style
 # choice, so `packs: [floor]` is safe to turn on everywhere. Use it in
-# writ.yaml as
+# provio.yaml as
 #
 #   version: 1
 #   default: allow          # or ask
@@ -103,19 +103,19 @@ rules:
 
   - id: floor-guard-config-write-denied
     when: >-
-      (path matches "(?i)(^|[/\x5c])(\.writ[/\x5c].+|\.claude[/\x5c]settings(\.local)?\.json|\.codex[/\x5c](config\.toml|hooks\.json)|\.gemini[/\x5c]settings\.json|\.cursor[/\x5c]hooks\.json|\.windsurf[/\x5c]hooks\.json|\.codeium[/\x5c]windsurf[/\x5c]hooks\.json)$"
+      (path matches "(?i)(^|[/\x5c])(\.(provio|writ)[/\x5c].+|\.claude[/\x5c]settings(\.local)?\.json|\.codex[/\x5c](config\.toml|hooks\.json)|\.gemini[/\x5c]settings\.json|\.cursor[/\x5c]hooks\.json|\.windsurf[/\x5c]hooks\.json|\.codeium[/\x5c]windsurf[/\x5c]hooks\.json)$"
        and not tool == "fs.read")
       or (tool == "bash"
-          and command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(rm|mv|cp|truncate|ln|del|erase|move|copy|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Clear-Content)(\.exe)?\s([^;&|\n]*\s)?|\b(sed|perl)\s([^;&|\n]*\s)?-[a-z]*i[^;&|\n]*\s)[\x22']?[^\s;&|<>\x22']*(\.writ([/\x5c][^\s;&|<>\x22']*)?|\.claude[/\x5c]settings(\.local)?\.json|\.codex[/\x5c](config\.toml|hooks\.json)|\.gemini[/\x5c]settings\.json|\.cursor[/\x5c]hooks\.json|windsurf[/\x5c]hooks\.json)[\x22']?\s*($|[;&|)\n]|\s+[0-9]?[<>])")
+          and command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(rm|mv|cp|truncate|ln|del|erase|move|copy|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Clear-Content)(\.exe)?\s([^;&|\n]*\s)?|\b(sed|perl)\s([^;&|\n]*\s)?-[a-z]*i[^;&|\n]*\s)[\x22']?[^\s;&|<>\x22']*(\.(provio|writ)([/\x5c][^\s;&|<>\x22']*)?|\.claude[/\x5c]settings(\.local)?\.json|\.codex[/\x5c](config\.toml|hooks\.json)|\.gemini[/\x5c]settings\.json|\.cursor[/\x5c]hooks\.json|windsurf[/\x5c]hooks\.json)[\x22']?\s*($|[;&|)\n]|\s+[0-9]?[<>])")
     verdict: deny
-    reason: "The agent cannot rewrite its own guard rails: the writ ledger and state (.writ/) and the agent hook configuration are off-limits. Change them yourself, outside the agent."
+    reason: "The agent cannot rewrite its own guard rails: the provio ledger and state (.provio/) and the agent hook configuration are off-limits. Change them yourself, outside the agent."
 
   - id: floor-agent-bypass-flags-denied
     when: >-
       tool == "bash"
       and command matches "(?i)--dangerously-skip-permissions|--allow-dangerously-skip-permissions|--dangerously-bypass-approvals-and-sandbox|--permission-mode[=\s]+bypassPermissions|--approval-mode[=\s]+yolo|--trust-all-tools|(^|\s)--yolo(\s|$)|\bdangerouslyDisableSandbox\b"
     verdict: deny
-    reason: "Launching an agent (or writ) with its safety checks switched off. This is how the s1ngularity/Nx malware recruited local AI CLIs. Run it yourself if you mean it."
+    reason: "Launching an agent (or provio) with its safety checks switched off. This is how the s1ngularity/Nx malware recruited local AI CLIs. Run it yourself if you mean it."
 
   - id: floor-authorized-keys-write-denied
     when: >-
@@ -127,11 +127,11 @@ rules:
   # ------------------------------------------------------------- ASK ---
   - id: floor-policy-edit-asks
     when: >-
-      (path matches "(?i)(^|[/\x5c])writ\.yaml$" and not tool == "fs.read")
+      (path matches "(?i)(^|[/\x5c])(provio|writ)\.yaml$" and not tool == "fs.read")
       or (tool == "bash"
-          and command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(rm|mv|cp|truncate|ln|del|erase|move|copy|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Clear-Content)(\.exe)?\s([^;&|\n]*\s)?|\b(sed|perl)\s([^;&|\n]*\s)?-[a-z]*i[^;&|\n]*\s)[\x22']?[^\s;&|<>\x22']*writ\.yaml[\x22']?\s*($|[;&|)\n]|\s+[0-9]?[<>])")
+          and command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(rm|mv|cp|truncate|ln|del|erase|move|copy|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Clear-Content)(\.exe)?\s([^;&|\n]*\s)?|\b(sed|perl)\s([^;&|\n]*\s)?-[a-z]*i[^;&|\n]*\s)[\x22']?[^\s;&|<>\x22']*(provio|writ)\.yaml[\x22']?\s*($|[;&|)\n]|\s+[0-9]?[<>])")
     verdict: ask
-    reason: "The agent wants to change a writ policy file. You decide whether it may edit its own rules."
+    reason: "The agent wants to change a provio policy file. You decide whether it may edit its own rules."
 
   - id: floor-rm-workspace-asks
     when: >-

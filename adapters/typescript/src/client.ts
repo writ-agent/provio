@@ -1,8 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
-import { WritError, WritProtocolError, WritTimeoutError, WritUnavailableError } from "./errors.js";
-import { launchFor, locateWrit, type Launch } from "./locate.js";
+import { ProvioError, ProvioProtocolError, ProvioTimeoutError, ProvioUnavailableError } from "./errors.js";
+import { launchFor, locateProvio, type Launch } from "./locate.js";
 import {
   PROTOCOL_VERSION,
   type CallerIdentity,
@@ -13,26 +13,26 @@ import {
   type ToolCallInput,
 } from "./protocol.js";
 
-/** What `writ check` does with an `ask` verdict. */
+/** What `provio check` does with an `ask` verdict. */
 export type AskMode = "deny" | "defer" | "ui";
 
-export interface WritClientOptions {
-  /** Path to the writ binary. Default: `WRIT_BIN`, then `writ` on PATH. A `.js`/`.mjs`/`.cjs` path runs under Node. */
+export interface ProvioClientOptions {
+  /** Path to the provio binary. Default: `PROVIO_BIN`, then `provio` on PATH. A `.js`/`.mjs`/`.cjs` path runs under Node. */
   bin?: string;
   /**
-   * Explicit program to spawn instead of locating writ (e.g. `process.execPath`
-   * for a test gateway). `args` are placed before writ's own arguments.
+   * Explicit program to spawn instead of locating provio (e.g. `process.execPath`
+   * for a test gateway). `args` are placed before provio's own arguments.
    */
   command?: string;
   args?: string[];
-  /** `--policy` (default: writ's own default, `./writ.yaml`). */
+  /** `--policy` (default: provio's own default, `./provio.yaml`). */
   policy?: string;
-  /** `--ledger` (default: writ's own default, `.writ/ledger.jsonl`). */
+  /** `--ledger` (default: provio's own default, `.provio/ledger.jsonl`). */
   ledger?: string;
   /**
    * `--ask deny` (default, fail closed); `--ask defer`, which hands the
    * decision to an `approver` callback or the agent's own UI; or `--ask ui`,
-   * where `decide` waits for a human on the `writ ui` Approvals screen (no
+   * where `decide` waits for a human on the `provio ui` Approvals screen (no
    * console, a denial or a timeout all deny).
    */
   ask?: AskMode;
@@ -83,7 +83,7 @@ interface Pending {
   id: string;
   op: string;
   resolve: (value: Json) => void;
-  reject: (error: WritError) => void;
+  reject: (error: ProvioError) => void;
   timer: NodeJS.Timeout;
 }
 
@@ -96,16 +96,16 @@ export function shouldDispatch(decision: Decision): boolean {
 }
 
 /**
- * A long-lived `writ check --stdio` child process speaking protocol v1.
+ * A long-lived `provio check --stdio` child process speaking protocol v1.
  * Every failure (missing binary, crash, timeout, malformed line, `error`
- * response) rejects with a `WritError`; callers must then not run the tool.
+ * response) rejects with a `ProvioError`; callers must then not run the tool.
  */
-export class WritClient implements AsyncDisposable {
+export class ProvioClient implements AsyncDisposable {
   readonly askMode: AskMode;
   readonly sessionId: string;
   readonly caller: CallerIdentity | undefined;
 
-  private readonly options: WritClientOptions;
+  private readonly options: ProvioClientOptions;
   private readonly timeoutMs: number;
   private readonly maxLineBytes: number;
   private proc: ChildProcess | undefined;
@@ -113,14 +113,14 @@ export class WritClient implements AsyncDisposable {
   private buffer = "";
   private seq = 0;
   private closed = false;
-  private broken: WritError | undefined;
+  private broken: ProvioError | undefined;
   private stderrTail = "";
 
-  constructor(options: WritClientOptions = {}) {
+  constructor(options: ProvioClientOptions = {}) {
     this.options = options;
     this.askMode = options.ask ?? "deny";
     if (this.askMode !== "deny" && this.askMode !== "defer" && this.askMode !== "ui") {
-      throw new WritError("bad_option", `ask must be "deny", "defer" or "ui", got ${String(options.ask)}`);
+      throw new ProvioError("bad_option", `ask must be "deny", "defer" or "ui", got ${String(options.ask)}`);
     }
     this.timeoutMs = options.timeoutMs ?? (this.askMode === "ui" ? 180_000 : 30_000);
     this.maxLineBytes = options.maxLineBytes ?? 16 * 1024 * 1024;
@@ -128,7 +128,7 @@ export class WritClient implements AsyncDisposable {
     this.caller = options.caller;
   }
 
-  /** The argv (after the program) passed to writ. */
+  /** The argv (after the program) passed to provio. */
   gatewayArgs(): string[] {
     const args: string[] = [];
     if (this.options.policy !== undefined) args.push("--policy", this.options.policy);
@@ -137,7 +137,7 @@ export class WritClient implements AsyncDisposable {
     return args;
   }
 
-  /** Ask writ for a verdict. Rejects on any gateway failure. */
+  /** Ask provio for a verdict. Rejects on any gateway failure. */
   async decide(call: ToolCallInput): Promise<Decision> {
     const body: Json = {
       op: "decide",
@@ -158,7 +158,7 @@ export class WritClient implements AsyncDisposable {
     if (approver !== undefined) body.approver = approver;
     const decision = parseDecision(await this.request(body), "resolve");
     if (!approved && shouldDispatch(decision)) {
-      throw new WritProtocolError("gateway returned dispatch:true for a rejected ask");
+      throw new ProvioProtocolError("gateway returned dispatch:true for a rejected ask");
     }
     return decision;
   }
@@ -170,10 +170,10 @@ export class WritClient implements AsyncDisposable {
     if (input.output !== undefined) body.output = input.output;
     const res = await this.request(body);
     if (res.recorded !== true) {
-      throw new WritProtocolError("complete response is missing recorded:true");
+      throw new ProvioProtocolError("complete response is missing recorded:true");
     }
     if (res.output !== undefined && typeof res.output !== "string") {
-      throw new WritProtocolError("complete response output is not a string");
+      throw new ProvioProtocolError("complete response output is not a string");
     }
     return typeof res.output === "string" ? { recorded: true, output: res.output } : { recorded: true };
   }
@@ -186,12 +186,12 @@ export class WritClient implements AsyncDisposable {
   async authorize(call: ToolCallInput, options: AuthorizeOptions = {}): Promise<Decision> {
     const decision = await this.decide(call);
     if (decision.decision !== "ask" || decision.approval !== "required") return decision;
-    if (decision.ref === undefined) throw new WritProtocolError("deferred ask is missing ref");
+    if (decision.ref === undefined) throw new ProvioProtocolError("deferred ask is missing ref");
     const { approved, approver } = await runApprover(call, decision, options);
     return this.resolve(decision.ref, approved, approver);
   }
 
-  /** Close stdin, wait briefly for writ to exit, then kill it. Idempotent. */
+  /** Close stdin, wait briefly for provio to exit, then kill it. Idempotent. */
   async close(): Promise<void> {
     this.closed = true;
     const proc = this.proc;
@@ -208,7 +208,7 @@ export class WritClient implements AsyncDisposable {
       });
       proc.stdin?.end();
     });
-    this.failAll(new WritError("closed", "writ client closed"));
+    this.failAll(new ProvioError("closed", "provio client closed"));
     this.proc = undefined;
   }
 
@@ -219,26 +219,26 @@ export class WritClient implements AsyncDisposable {
   // --- transport -----------------------------------------------------------
 
   private request(body: Json): Promise<Json> {
-    if (this.closed) return Promise.reject(new WritError("closed", "writ client is closed"));
+    if (this.closed) return Promise.reject(new ProvioError("closed", "provio client is closed"));
     if (this.broken !== undefined && this.options.respawn === false) return Promise.reject(this.broken);
     let proc: ChildProcess;
     try {
       proc = this.ensureProcess();
     } catch (err) {
-      return Promise.reject(toWritError(err));
+      return Promise.reject(toProvioError(err));
     }
     const id = `r${++this.seq}`;
     const op = String(body.op);
     const line = JSON.stringify({ v: PROTOCOL_VERSION, id, ...body }) + "\n";
     return new Promise<Json>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.poison(new WritTimeoutError(`writ check did not answer ${op} ${id} within ${this.timeoutMs} ms`));
+        this.poison(new ProvioTimeoutError(`provio check did not answer ${op} ${id} within ${this.timeoutMs} ms`));
       }, this.timeoutMs);
       this.queue.push({ id, op, resolve, reject, timer });
       this.setRef(true);
       const stdin = proc.stdin;
       if (stdin === null || !stdin.writable) {
-        this.poison(new WritProtocolError("writ check stdin is not writable"));
+        this.poison(new ProvioProtocolError("provio check stdin is not writable"));
         return;
       }
       stdin.write(line);
@@ -270,15 +270,15 @@ export class WritClient implements AsyncDisposable {
       this.options.onStderr?.(chunk);
     });
     proc.stdin?.on("error", (err) => {
-      if (this.proc === proc) this.poison(new WritProtocolError(`writ check stdin failed: ${err.message}`, { cause: err }));
+      if (this.proc === proc) this.poison(new ProvioProtocolError(`provio check stdin failed: ${err.message}`, { cause: err }));
     });
     proc.on("error", (err) => {
       if (this.proc !== proc) return;
       const code = (err as NodeJS.ErrnoException).code;
       this.poison(
         code === "ENOENT" || code === "EACCES"
-          ? new WritUnavailableError(`cannot start writ (${launch.command}): ${err.message}`, { cause: err })
-          : new WritProtocolError(`writ check failed: ${err.message}`, { cause: err }),
+          ? new ProvioUnavailableError(`cannot start provio (${launch.command}): ${err.message}`, { cause: err })
+          : new ProvioProtocolError(`provio check failed: ${err.message}`, { cause: err }),
       );
     });
     // "close" fires after stdout/stderr are drained, so the stderr tail is complete.
@@ -286,7 +286,7 @@ export class WritClient implements AsyncDisposable {
       if (this.proc !== proc) return;
       const how = signal !== null ? `signal ${signal}` : `code ${String(code)}`;
       const tail = this.stderrTail.trim();
-      this.poison(new WritProtocolError(`writ check exited (${how})${tail ? `: ${tail}` : ""}`));
+      this.poison(new ProvioProtocolError(`provio check exited (${how})${tail ? `: ${tail}` : ""}`));
     });
     return proc;
   }
@@ -295,7 +295,7 @@ export class WritClient implements AsyncDisposable {
     if (this.options.command !== undefined) {
       return { command: this.options.command, args: [...(this.options.args ?? [])] };
     }
-    const launch = this.options.bin !== undefined ? launchFor(this.options.bin) : locateWrit(undefined, this.options.env ?? process.env);
+    const launch = this.options.bin !== undefined ? launchFor(this.options.bin) : locateProvio(undefined, this.options.env ?? process.env);
     return { command: launch.command, args: [...launch.args, ...(this.options.args ?? [])] };
   }
 
@@ -310,7 +310,7 @@ export class WritClient implements AsyncDisposable {
       if (this.proc === undefined) return;
     }
     if (Buffer.byteLength(this.buffer, "utf8") > this.maxLineBytes) {
-      this.poison(new WritProtocolError(`writ check response line exceeds ${this.maxLineBytes} bytes`));
+      this.poison(new ProvioProtocolError(`provio check response line exceeds ${this.maxLineBytes} bytes`));
     }
   }
 
@@ -319,16 +319,16 @@ export class WritClient implements AsyncDisposable {
     try {
       msg = JSON.parse(raw);
     } catch {
-      this.poison(new WritProtocolError(`malformed line from writ check: ${truncate(raw)}`));
+      this.poison(new ProvioProtocolError(`malformed line from provio check: ${truncate(raw)}`));
       return;
     }
     const head = this.queue[0];
     if (head === undefined) {
-      this.poison(new WritProtocolError(`unsolicited line from writ check: ${truncate(raw)}`));
+      this.poison(new ProvioProtocolError(`unsolicited line from provio check: ${truncate(raw)}`));
       return;
     }
     if (!isObject(msg) || msg.v !== PROTOCOL_VERSION || msg.id !== head.id) {
-      this.poison(new WritProtocolError(`unexpected response (wanted v:1 id:${head.id}): ${truncate(raw)}`));
+      this.poison(new ProvioProtocolError(`unexpected response (wanted v:1 id:${head.id}): ${truncate(raw)}`));
       return;
     }
     this.queue.shift();
@@ -337,15 +337,15 @@ export class WritClient implements AsyncDisposable {
     if (msg.error !== undefined) {
       const e = isObject(msg.error) ? msg.error : {};
       const code = typeof e.code === "string" ? e.code : "error";
-      const message = typeof e.message === "string" ? e.message : "writ check returned an error";
-      head.reject(new WritError(code, `writ ${head.op} failed (${code}): ${message}`));
+      const message = typeof e.message === "string" ? e.message : "provio check returned an error";
+      head.reject(new ProvioError(code, `provio ${head.op} failed (${code}): ${message}`));
       return;
     }
     head.resolve(msg);
   }
 
   /** Fail every in-flight request and drop the process (fail closed). */
-  private poison(error: WritError): void {
+  private poison(error: ProvioError): void {
     const proc = this.proc;
     this.proc = undefined;
     this.broken = error;
@@ -356,7 +356,7 @@ export class WritClient implements AsyncDisposable {
     this.failAll(error);
   }
 
-  private failAll(error: WritError): void {
+  private failAll(error: ProvioError): void {
     const pending = this.queue;
     this.queue = [];
     for (const p of pending) {
@@ -418,17 +418,17 @@ async function runApprover(
 function parseDecision(msg: Json, op: "decide" | "resolve"): Decision {
   const kind = msg.decision;
   if (typeof kind !== "string" || !DECISIONS.has(kind)) {
-    throw new WritProtocolError(`${op} response has no valid decision`);
+    throw new ProvioProtocolError(`${op} response has no valid decision`);
   }
   if (typeof msg.dispatch !== "boolean") {
-    throw new WritProtocolError(`${op} response has no boolean dispatch`);
+    throw new ProvioProtocolError(`${op} response has no boolean dispatch`);
   }
   const decision: Decision = { decision: kind as DecisionKind, dispatch: msg.dispatch };
   // A decision that contradicts itself is not trusted.
-  if (kind === "deny" && msg.dispatch) throw new WritProtocolError(`${op}: deny with dispatch:true`);
-  if (op === "decide" && kind === "ask" && msg.dispatch) throw new WritProtocolError("decide: ask with dispatch:true");
+  if (kind === "deny" && msg.dispatch) throw new ProvioProtocolError(`${op}: deny with dispatch:true`);
+  if (op === "decide" && kind === "ask" && msg.dispatch) throw new ProvioProtocolError("decide: ask with dispatch:true");
   if (op === "decide" && (kind === "allow" || kind === "redact") && !msg.dispatch) {
-    throw new WritProtocolError(`decide: ${kind} with dispatch:false`);
+    throw new ProvioProtocolError(`decide: ${kind} with dispatch:false`);
   }
   if (typeof msg.ref === "string") decision.ref = msg.ref;
   if (typeof msg.rule_id === "string") decision.rule_id = msg.rule_id;
@@ -439,7 +439,7 @@ function parseDecision(msg: Json, op: "decide" | "resolve"): Decision {
   if (typeof msg.timeout_ms === "number") decision.timeout_ms = msg.timeout_ms;
   if (Array.isArray(msg.patterns)) decision.patterns = msg.patterns.filter((p): p is string => typeof p === "string");
   if (decision.dispatch && decision.ref === undefined) {
-    throw new WritProtocolError(`${op}: dispatching decision is missing ref`);
+    throw new ProvioProtocolError(`${op}: dispatching decision is missing ref`);
   }
   return decision;
 }
@@ -452,8 +452,8 @@ function truncate(s: string): string {
   return s.length > 200 ? `${s.slice(0, 200)}...` : s;
 }
 
-function toWritError(err: unknown): WritError {
-  if (err instanceof WritError) return err;
+function toProvioError(err: unknown): ProvioError {
+  if (err instanceof ProvioError) return err;
   const message = err instanceof Error ? err.message : String(err);
-  return new WritUnavailableError(`cannot start writ: ${message}`, { cause: err });
+  return new ProvioUnavailableError(`cannot start provio: ${message}`, { cause: err });
 }

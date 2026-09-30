@@ -1,12 +1,12 @@
 /**
- * writ integration for the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`).
+ * provio integration for the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`).
  *
  * Plugs into `query({ options: { hooks, canUseTool } })`:
- * - `PreToolUse` asks writ for a verdict and returns the SDK's
+ * - `PreToolUse` asks provio for a verdict and returns the SDK's
  *   `permissionDecision` (`allow` / `deny` / `ask`).
  * - `PostToolUse` / `PostToolUseFailure` record the execution (`complete`)
  *   and, for a redact verdict, replace the tool output via `updatedToolOutput`.
- * - `canUseTool` resolves writ asks that were routed to the SDK's own
+ * - `canUseTool` resolves provio asks that were routed to the SDK's own
  *   permission flow.
  *
  * Only SDK *types* are imported; this module has no runtime dependency on the SDK.
@@ -24,12 +24,12 @@ import type {
   SyncHookJSONOutput,
 } from "@anthropic-ai/claude-agent-sdk";
 
-import { shouldDispatch, type Approver, type WritClient } from "./client.js";
-import { describeBlock, WritError } from "./errors.js";
+import { shouldDispatch, type Approver, type ProvioClient } from "./client.js";
+import { describeBlock, ProvioError } from "./errors.js";
 import { fromRedacted, outputText, WITHHELD_OUTPUT } from "./output.js";
 import type { CallerIdentity, Decision, ServerIdentity, ToolCallInput } from "./protocol.js";
 
-/** A Claude tool use normalized to writ's vocabulary. */
+/** A Claude tool use normalized to provio's vocabulary. */
 export interface MappedToolCall {
   tool: string;
   args: Record<string, unknown>;
@@ -61,8 +61,8 @@ function firstString(args: Record<string, unknown>, keys: string[]): string | un
 }
 
 /**
- * Map a Claude tool name + input to writ's policy vocabulary. Kept identical
- * to `writ check --format claude-code` (crates/writ-cli/src/hook.rs):
+ * Map a Claude tool name + input to provio's policy vocabulary. Kept identical
+ * to `provio check --format claude-code` (crates/provio-cli/src/hook.rs):
  * - `Bash` / `PowerShell` → `bash` (with `command`)
  * - `Read` / `Glob` / `Grep` / `LS` / `NotebookRead` → `fs.read`; `Write` / `Edit` / `MultiEdit` / `NotebookEdit` → `fs.write` (with `path`)
  * - `WebFetch` → `http` (with `url`); `WebSearch` → `web.search` (with `query`)
@@ -99,8 +99,8 @@ export function mapClaudeTool(toolName: string, input: unknown, mcpServer?: McpP
   return { tool: toolName, args };
 }
 
-export interface WritClaudeOptions {
-  client: WritClient;
+export interface ProvioClaudeOptions {
+  client: ProvioClient;
   /**
    * Decides deferred asks inline, inside the PreToolUse hook (client must use
    * `ask: "defer"`). Takes precedence over `canUseTool`.
@@ -108,9 +108,9 @@ export interface WritClaudeOptions {
   approver?: Approver;
   /**
    * Your own SDK permission callback. With `ask: "defer"` and no `approver`,
-   * writ asks are handed to the SDK's permission flow (`permissionDecision:
-   * "ask"`) and this callback decides them; its answer is sent to writ as
-   * `resolve`. It is also consulted for SDK permission prompts that writ did
+   * provio asks are handed to the SDK's permission flow (`permissionDecision:
+   * "ask"`) and this callback decides them; its answer is sent to provio as
+   * `resolve`. It is also consulted for SDK permission prompts that provio did
    * not raise. Without it, those are denied.
    */
   canUseTool?: CanUseTool;
@@ -125,9 +125,9 @@ export interface WritClaudeOptions {
   approvalTimeoutMs?: number;
   /**
    * What an allow / redact verdict returns to the SDK: `"allow"` (default, as
-   * `writ check --format claude-code`) skips the SDK's own permission prompt;
+   * `provio check --format claude-code`) skips the SDK's own permission prompt;
    * `"passthrough"` returns no decision, so the SDK's permission rules still
-   * apply on top of writ.
+   * apply on top of provio.
    */
   onAllow?: "allow" | "passthrough";
 }
@@ -140,7 +140,7 @@ interface Tracked {
 const MAX_TRACKED = 10_000;
 
 /** The pieces to spread into the SDK's `query({ options })`. */
-export interface WritClaudeIntegration {
+export interface ProvioClaudeIntegration {
   hooks: Partial<Record<HookEvent, HookCallbackMatcher[]>>;
   canUseTool: CanUseTool;
   preToolUse: HookCallback;
@@ -160,14 +160,14 @@ function preOutput(permissionDecision: "allow" | "deny" | "ask", reason: string)
 
 function allowReason(d: Decision): string {
   const rule = d.rule_id ? `rule '${d.rule_id}'` : "policy default";
-  return d.decision === "redact" ? `writ: allowed with redaction by ${rule}` : `writ: allowed by ${rule}`;
+  return d.decision === "redact" ? `provio: allowed with redaction by ${rule}` : `provio: allowed by ${rule}`;
 }
 
 function askReason(d: Decision, tool: string): string {
   const rule = d.rule_id ? `rule '${d.rule_id}'` : "policy default";
   const where = d.location ? ` (${d.location})` : "";
   const why = d.reason ? `: ${d.reason}` : "";
-  return `writ: '${tool}' needs approval by ${rule}${where}${why}`;
+  return `provio: '${tool}' needs approval by ${rule}${where}${why}`;
 }
 
 function errorText(err: unknown): string {
@@ -183,10 +183,10 @@ function sameJson(a: unknown, b: unknown): boolean {
 }
 
 /**
- * Build writ hooks and a `canUseTool` callback for the Claude Agent SDK.
+ * Build provio hooks and a `canUseTool` callback for the Claude Agent SDK.
  * Every failure path denies the tool (fail closed): a hook never throws.
  */
-export function createWritIntegration(options: WritClaudeOptions): WritClaudeIntegration {
+export function createProvioIntegration(options: ProvioClaudeOptions): ProvioClaudeIntegration {
   const { client } = options;
   const caller = options.caller ?? client.caller ?? { agent: "claude-agent-sdk" };
   const mapTool = options.mapTool ?? mapClaudeTool;
@@ -221,7 +221,7 @@ export function createWritIntegration(options: WritClaudeOptions): WritClaudeInt
     if (input.hook_event_name !== "PreToolUse") return {};
     const key = input.tool_use_id || toolUseID || "";
     try {
-      if (signal.aborted) return preOutput("deny", "writ: aborted before a decision (fail closed)");
+      if (signal.aborted) return preOutput("deny", "provio: aborted before a decision (fail closed)");
       const call = buildCall(input, toolUseID);
       let decision: Decision;
       if (options.approver !== undefined) {
@@ -232,7 +232,7 @@ export function createWritIntegration(options: WritClaudeOptions): WritClaudeInt
       } else {
         decision = await client.decide(call);
         if (decision.decision === "ask" && decision.approval === "required") {
-          if (decision.ref === undefined) throw new WritError("protocol", "deferred ask is missing ref");
+          if (decision.ref === undefined) throw new ProvioError("protocol", "deferred ask is missing ref");
           if (options.canUseTool !== undefined && key !== "") {
             track(pendingAsks, key, { ref: decision.ref, decision });
             return preOutput("ask", askReason(decision, input.tool_name));
@@ -244,12 +244,12 @@ export function createWritIntegration(options: WritClaudeOptions): WritClaudeInt
         return preOutput("deny", describeBlock(decision, input.tool_name));
       }
       if (key === "" && decision.decision === "redact") {
-        return preOutput("deny", `writ: redact verdict for '${input.tool_name}' needs a tool_use_id to apply (fail closed)`);
+        return preOutput("deny", `provio: redact verdict for '${input.tool_name}' needs a tool_use_id to apply (fail closed)`);
       }
       if (key !== "") track(dispatched, key, { ref: decision.ref, decision });
       return onAllow === "passthrough" ? {} : preOutput("allow", allowReason(decision));
     } catch (err) {
-      return preOutput("deny", `writ: cannot authorize '${input.tool_name}' (fail closed): ${errorText(err)}`);
+      return preOutput("deny", `provio: cannot authorize '${input.tool_name}' (fail closed): ${errorText(err)}`);
     }
   };
 
@@ -261,12 +261,12 @@ export function createWritIntegration(options: WritClaudeOptions): WritClaudeInt
     if (tracked === undefined) {
       const unresolved = pendingAsks.get(key);
       if (unresolved !== undefined) {
-        // The tool ran although its writ ask was never resolved: record the
+        // The tool ran although its provio ask was never resolved: record the
         // rejection and keep the output away from the model.
         pendingAsks.delete(key);
         await client.resolve(unresolved.ref, false, "adapter:unresolved-ask").catch(() => undefined);
         return {
-          systemMessage: `writ: '${post.tool_name}' ran without a resolved writ approval; output withheld`,
+          systemMessage: `provio: '${post.tool_name}' ran without a resolved provio approval; output withheld`,
           hookSpecificOutput: { hookEventName: "PostToolUse", updatedToolOutput: WITHHELD_OUTPUT },
         };
       }
@@ -280,7 +280,7 @@ export function createWritIntegration(options: WritClaudeOptions): WritClaudeInt
       if (!redact || text === undefined) return {};
       if (recorded.output === undefined) {
         return {
-          systemMessage: "writ: redact verdict but no redacted output was returned; output withheld",
+          systemMessage: "provio: redact verdict but no redacted output was returned; output withheld",
           hookSpecificOutput: { hookEventName: "PostToolUse", updatedToolOutput: WITHHELD_OUTPUT },
         };
       }
@@ -291,7 +291,7 @@ export function createWritIntegration(options: WritClaudeOptions): WritClaudeInt
         },
       };
     } catch (err) {
-      const message = `writ: could not record '${post.tool_name}' execution: ${errorText(err)}`;
+      const message = `provio: could not record '${post.tool_name}' execution: ${errorText(err)}`;
       if (!redact) return { systemMessage: message };
       return {
         systemMessage: `${message}; output withheld`,
@@ -317,18 +317,18 @@ export function createWritIntegration(options: WritClaudeOptions): WritClaudeInt
       if (options.canUseTool !== undefined) {
         try {
           const res = await options.canUseTool(toolName, input, opts);
-          return res ?? { behavior: "deny", message: "writ: permission callback returned no result (fail closed)" };
+          return res ?? { behavior: "deny", message: "provio: permission callback returned no result (fail closed)" };
         } catch (err) {
-          return { behavior: "deny", message: `writ: permission callback failed (fail closed): ${errorText(err)}` };
+          return { behavior: "deny", message: `provio: permission callback failed (fail closed): ${errorText(err)}` };
         }
       }
-      return { behavior: "deny", message: `writ: no approver for '${toolName}' (fail closed)` };
+      return { behavior: "deny", message: `provio: no approver for '${toolName}' (fail closed)` };
     }
     pendingAsks.delete(opts.toolUseID);
     let approved = false;
     try {
       const res = options.canUseTool !== undefined && !opts.signal.aborted ? await options.canUseTool(toolName, input, opts) : null;
-      // writ decided on the original input; an edited input is not what was approved.
+      // provio decided on the original input; an edited input is not what was approved.
       approved = res?.behavior === "allow" && (res.updatedInput === undefined || sameJson(res.updatedInput, input));
     } catch {
       approved = false;
@@ -339,10 +339,10 @@ export function createWritIntegration(options: WritClaudeOptions): WritClaudeInt
         return { behavior: "deny", message: describeBlock({ ...pending.decision, ...decision }, toolName) };
       }
       track(dispatched, opts.toolUseID, { ref: decision.ref ?? pending.ref, decision });
-      // No updatedPermissions: a persistent SDK allow rule would bypass future writ asks.
+      // No updatedPermissions: a persistent SDK allow rule would bypass future provio asks.
       return { behavior: "allow", updatedInput: input };
     } catch (err) {
-      return { behavior: "deny", message: `writ: cannot resolve approval for '${toolName}' (fail closed): ${errorText(err)}` };
+      return { behavior: "deny", message: `provio: cannot resolve approval for '${toolName}' (fail closed): ${errorText(err)}` };
     }
   };
 
@@ -366,13 +366,13 @@ export function createWritIntegration(options: WritClaudeOptions): WritClaudeInt
   };
 }
 
-/** Just the `hooks` option. Deferred asks need `approver` (or use `createWritIntegration` for `canUseTool`). */
-export function writHooks(options: WritClaudeOptions): Partial<Record<HookEvent, HookCallbackMatcher[]>> {
-  return createWritIntegration(options).hooks;
+/** Just the `hooks` option. Deferred asks need `approver` (or use `createProvioIntegration` for `canUseTool`). */
+export function provioHooks(options: ProvioClaudeOptions): Partial<Record<HookEvent, HookCallbackMatcher[]>> {
+  return createProvioIntegration(options).hooks;
 }
 
 /**
- * Merge writ's hooks with your own `hooks` option. writ's matchers come first
+ * Merge provio's hooks with your own `hooks` option. provio's matchers come first
  * for each event; yours are kept.
  */
 export function mergeHooks(

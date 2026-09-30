@@ -1,5 +1,5 @@
 /**
- * Wire types for the writ hook gateway (`writ check --stdio`), protocol v1.
+ * Wire types for the provio hook gateway (`provio check --stdio`), protocol v1.
  * Source of truth: docs/INTERFACES.md, Contract 6 (and Contract 1 for the
  * `call` envelope). Additive-only: unknown response fields are ignored.
  */
@@ -26,11 +26,11 @@ export interface ServerIdentity {
 export type TrustVerdict = "verified" | "unverified" | "malicious";
 
 /**
- * The `call` object of a `decide` request. writ sets `mode = SdkHook` and
+ * The `call` object of a `decide` request. provio sets `mode = SdkHook` and
  * `captured_at` itself. Credentials must never appear in `args`.
  */
 export interface ToolCallInput {
-  /** Optional; writ generates one when omitted. */
+  /** Optional; provio generates one when omitted. */
   call_id?: string;
   session_id: string;
   tool: string;
@@ -57,7 +57,7 @@ export interface Decision {
   approval?: "required";
   irreversible?: boolean;
   timeout_ms?: number;
-  /** Redaction patterns (writ applies them on `complete`). */
+  /** Redaction patterns (provio applies them on `complete`). */
   patterns?: string[];
 }
 

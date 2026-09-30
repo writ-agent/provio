@@ -1,5 +1,5 @@
 name: Bug report
-description: Something writ did that it should not, or failed to do
+description: Something provio did that it should not, or failed to do
 labels: [bug]
 body:
   - type: textarea
@@ -13,14 +13,14 @@ body:
     id: repro
     attributes:
       label: Minimal reproduction
-      placeholder: "writ.yaml + exact command. If ledger-related, include `writ verify` output."
+      placeholder: "provio.yaml + exact command. If ledger-related, include `provio verify` output."
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: writ version + OS
-      placeholder: "writ 0.1.0, macOS arm64"
+      label: provio version + OS
+      placeholder: "provio 0.1.0, macOS arm64"
     validations:
       required: true
   - type: markdown

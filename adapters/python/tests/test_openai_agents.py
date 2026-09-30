@@ -9,8 +9,8 @@ pytest.importorskip("agents")
 from agents import Agent, RunConfig, Runner, WebSearchTool, function_tool
 from agents.testing import ScriptedModel, assistant_message, function_call
 
-from writ_sdk import Writ, WritError
-from writ_sdk.openai_agents import guard_agent, guard_function_tool
+from provio_sdk import Provio, ProvioError
+from provio_sdk.openai_agents import guard_agent, guard_function_tool
 
 RAN: list[str] = []
 
@@ -62,14 +62,14 @@ async def test_runner_allowed_runs_denied_does_not(fake_bin, fake_log):
             [assistant_message("done")],
         ]
     )
-    async with Writ() as w:
+    async with Provio() as w:
         agent = guard_agent(Agent(name="a", model=model, tools=[allowed, denied, redacty]), w)
         result = await Runner.run(agent, "go", run_config=RunConfig(group_id="thread-7", tracing_disabled=True))
     out = outputs(result)
     assert sorted(RAN) == ["allowed", "redacty"]
     assert out["c1"] == "contents of a.txt"
-    assert "no-rm" in out["c2"] and "writ.yaml:12" in out["c2"]
-    assert out["c3"] == "bob ssn [redacted-by-writ]"
+    assert "no-rm" in out["c2"] and "provio.yaml:12" in out["c2"]
+    assert out["c3"] == "bob ssn [redacted-by-provio]"
     assert result.final_output == "done"
     # the model saw the refusal on its second turn
     assert "no-rm" in str(model.last_call)
@@ -80,17 +80,17 @@ async def test_runner_allowed_runs_denied_does_not(fake_bin, fake_log):
 
 
 async def test_gateway_down_blocks(monkeypatch, tmp_path):
-    monkeypatch.setenv("WRIT_BIN", str(tmp_path / "missing" / "writ"))
+    monkeypatch.setenv("PROVIO_BIN", str(tmp_path / "missing" / "provio"))
     model = ScriptedModel([[function_call("allowed", {"path": "a"}, call_id="c1")], [assistant_message("ok")]])
-    async with Writ() as w:
+    async with Provio() as w:
         agent = Agent(name="a", model=model, tools=[guard_function_tool(allowed, w)])
         result = await Runner.run(agent, "go", run_config=RunConfig(tracing_disabled=True))
     assert RAN == [] and "did not run" in outputs(result)["c1"]
 
 
 def test_strict_refuses_ungateable_tools(fake_bin):
-    with Writ() as w:
-        with pytest.raises(WritError):
+    with Provio() as w:
+        with pytest.raises(ProvioError):
             guard_agent(Agent(name="a", tools=[allowed, WebSearchTool()]), w)
         guarded = guard_agent(Agent(name="a", tools=[allowed, WebSearchTool()]), w, strict=False)
         assert len(guarded.tools) == 2

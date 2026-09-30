@@ -5,10 +5,10 @@
     "moduleResolution": "NodeNext",
     "noEmit": true,
     "paths": {
-      "@writ-agent/sdk": [
+      "provio-sdk": [
         "./src/index.ts"
       ],
-      "@writ-agent/sdk/claude-agent-sdk": [
+      "provio-sdk/claude-agent-sdk": [
         "./src/claude-agent-sdk.ts"
       ]
     }

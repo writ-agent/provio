@@ -2,7 +2,7 @@ import * as assert from "node:assert/strict";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
-import { WritBlockedError, WritClient, WritError, guard, guardTools } from "../src/index.js";
+import { ProvioBlockedError, ProvioClient, ProvioError, guard, guardTools } from "../src/index.js";
 import { fakeClient, tempDir } from "./helpers.js";
 
 function counter<A extends unknown[], R>(impl: (...a: A) => R) {
@@ -32,15 +32,15 @@ describe("guard()", () => {
     assert.equal(h.requests("complete")[0]?.ok, true);
   });
 
-  it("deny: throws WritBlockedError naming the rule; the tool never runs", async () => {
+  it("deny: throws ProvioBlockedError naming the rule; the tool never runs", async () => {
     const h = fakeClient();
     const t = counter(() => "should not run");
     try {
       const run = guard(t.fn, { client: h.client, tool: "deny" });
       await assert.rejects(run(), (e: unknown) => {
-        assert.ok(e instanceof WritBlockedError);
+        assert.ok(e instanceof ProvioBlockedError);
         assert.equal(e.decision.rule_id, "no-rm");
-        assert.match(e.message, /no-rm.*writ\.yaml:7.*Destructive command/);
+        assert.match(e.message, /no-rm.*provio\.yaml:7.*Destructive command/);
         return true;
       });
       assert.equal(t.calls.length, 0);
@@ -69,7 +69,7 @@ describe("guard()", () => {
     const t = counter(() => 42);
     try {
       const run = guard(t.fn, { client: h.client, tool: "ask" });
-      await assert.rejects(run(), WritBlockedError);
+      await assert.rejects(run(), ProvioBlockedError);
       assert.equal(t.calls.length, 0);
     } finally {
       await h.client.close();
@@ -81,7 +81,7 @@ describe("guard()", () => {
     const t = counter(() => 42);
     try {
       const run = guard(t.fn, { client: h.client, tool: "ask", approver: async () => ({ approved: false, approver: "human:bob" }) });
-      await assert.rejects(run(), WritBlockedError);
+      await assert.rejects(run(), ProvioBlockedError);
       assert.equal(t.calls.length, 0);
     } finally {
       await h.client.close();
@@ -89,7 +89,7 @@ describe("guard()", () => {
     assert.equal(h.requests("resolve")[0]?.approver, "human:bob");
   });
 
-  it("redact: returns writ's redacted text for string results", async () => {
+  it("redact: returns provio's redacted text for string results", async () => {
     const h = fakeClient();
     try {
       const run = guard(async () => "contact: alice@example.com", { client: h.client, tool: "redact" });
@@ -110,11 +110,11 @@ describe("guard()", () => {
   });
 
   for (const tool of ["malformed", "crash", "error", "wrongid", "contradict"]) {
-    it(`${tool}: fails closed with WritError and never runs`, async () => {
+    it(`${tool}: fails closed with ProvioError and never runs`, async () => {
       const h = fakeClient();
       const t = counter(() => "no");
       try {
-        await assert.rejects(guard(t.fn, { client: h.client, tool })(), WritError);
+        await assert.rejects(guard(t.fn, { client: h.client, tool })(), ProvioError);
         assert.equal(t.calls.length, 0);
       } finally {
         await h.client.close();
@@ -126,7 +126,7 @@ describe("guard()", () => {
     const h = fakeClient({ timeoutMs: 150 });
     const t = counter(() => "no");
     try {
-      await assert.rejects(guard(t.fn, { client: h.client, tool: "hang" })(), WritError);
+      await assert.rejects(guard(t.fn, { client: h.client, tool: "hang" })(), ProvioError);
       assert.equal(t.calls.length, 0);
     } finally {
       await h.client.close();
@@ -134,9 +134,9 @@ describe("guard()", () => {
   });
 
   it("missing binary: fails closed and never runs", async () => {
-    const client = new WritClient({ bin: join(tempDir(), "writ.exe") });
+    const client = new ProvioClient({ bin: join(tempDir(), "provio.exe") });
     const t = counter(() => "no");
-    await assert.rejects(guard(t.fn, { client, tool: "bash" })(), WritError);
+    await assert.rejects(guard(t.fn, { client, tool: "bash" })(), ProvioError);
     assert.equal(t.calls.length, 0);
     await client.close();
   });
@@ -145,7 +145,7 @@ describe("guard()", () => {
     const h = fakeClient();
     const t = counter(() => "secret-ish output");
     try {
-      await assert.rejects(guard(t.fn, { client: h.client, tool: "crash-on-complete" })(), WritError);
+      await assert.rejects(guard(t.fn, { client: h.client, tool: "crash-on-complete" })(), ProvioError);
       assert.equal(t.calls.length, 1);
     } finally {
       await h.client.close();
@@ -186,7 +186,7 @@ describe("guardTools()", () => {
       assert.equal(wrapped.noExec, noExec);
       assert.equal(wrapped.weather.description, "Get the weather");
       assert.equal(await wrapped.weather.execute({ city: "Oslo" }, { toolCallId: "call_9" }), "sunny in Oslo");
-      await assert.rejects(wrapped.deny.execute(), WritBlockedError);
+      await assert.rejects(wrapped.deny.execute(), ProvioBlockedError);
     } finally {
       await h.client.close();
     }

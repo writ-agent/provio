@@ -1,23 +1,23 @@
 #!/usr/bin/env sh
-# Install writ into $HOME/.writ/bin (Linux, macOS; Git Bash on Windows).
+# Install provio into $HOME/.provio/bin (Linux, macOS; Git Bash on Windows).
 #
-#   curl -fsSL https://raw.githubusercontent.com/writ-agent/writ/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/writ-agent/provio/main/scripts/install.sh | sh
 #
 # Downloads the prebuilt binary for this machine from the GitHub release and
 # checks it against the release's checksums.txt before installing. (Each
 # binary also has a Sigstore bundle; see the release notes to verify it with
 # cosign.) Nothing else is touched: no PATH edits, no shell profile changes.
 #
-#   WRIT_VERSION=v0.1.2   a specific release (default: latest)
-#   WRIT_BIN_DIR=DIR      where to install (default: $HOME/.writ/bin)
-#   WRIT_FROM_SOURCE=1    build from this checkout with cargo instead
+#   PROVIO_VERSION=v0.1.2   a specific release (default: latest)
+#   PROVIO_BIN_DIR=DIR      where to install (default: $HOME/.provio/bin)
+#   PROVIO_FROM_SOURCE=1    build from this checkout with cargo instead
 set -eu
 
-BIN_DIR="${WRIT_BIN_DIR:-$HOME/.writ/bin}"
+BIN_DIR="${PROVIO_BIN_DIR:-$HOME/.provio/bin}"
 mkdir -p "$BIN_DIR"
 
-repo="${WRIT_REPO:-writ-agent/writ}"
-version="${WRIT_VERSION:-latest}"
+repo="${PROVIO_REPO:-writ-agent/provio}"
+version="${PROVIO_VERSION:-latest}"
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 arch="$(uname -m)"
 
@@ -33,11 +33,11 @@ case "$os" in
   mingw*|msys*|cygwin*) target="x86_64-pc-windows-msvc"; EXE_SUFFIX=".exe" ;;
   *) echo "unsupported os: $os" >&2; exit 1 ;;
 esac
-exe="writ${EXE_SUFFIX:-}"
+exe="provio${EXE_SUFFIX:-}"
 
-if [ "${WRIT_FROM_SOURCE:-0}" = "1" ]; then
-  echo "building writ from source..." >&2
-  cargo build --release -p writ-cli
+if [ "${PROVIO_FROM_SOURCE:-0}" = "1" ]; then
+  echo "building provio from source..." >&2
+  cargo build --release -p provio-cli
   cp "target/release/$exe" "$BIN_DIR/$exe"
 else
   if [ "$version" = "latest" ]; then
@@ -45,7 +45,7 @@ else
   else
     base="https://github.com/$repo/releases/download/$version"
   fi
-  asset="writ-$target${EXE_SUFFIX:-}"
+  asset="provio-$target${EXE_SUFFIX:-}"
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   fetch() {
@@ -84,4 +84,4 @@ case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
   *) echo "add it to PATH:  export PATH=\"$BIN_DIR:\$PATH\"" ;;
 esac
-echo "next:  writ scan    (what would writ have caught?)   then   writ init"
+echo "next:  provio scan    (what would provio have caught?)   then   provio init"

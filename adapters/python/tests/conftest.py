@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-FAKE = Path(__file__).with_name("fake_writ.py")
+FAKE = Path(__file__).with_name("fake_provio.py")
 
 
 @pytest.fixture
 def fake_log(tmp_path, monkeypatch):
     log = tmp_path / "requests.jsonl"
-    monkeypatch.setenv("FAKE_WRIT_LOG", str(log))
+    monkeypatch.setenv("FAKE_PROVIO_LOG", str(log))
 
     def read() -> list[dict]:
         if not log.exists():
@@ -24,8 +24,8 @@ def fake_log(tmp_path, monkeypatch):
 
 @pytest.fixture
 def fake_bin(monkeypatch, fake_log):
-    """Point WRIT_BIN at the fake gateway (a .py path runs under this interpreter)."""
-    monkeypatch.setenv("WRIT_BIN", str(FAKE))
+    """Point PROVIO_BIN at the fake gateway (a .py path runs under this interpreter)."""
+    monkeypatch.setenv("PROVIO_BIN", str(FAKE))
     return str(FAKE)
 
 

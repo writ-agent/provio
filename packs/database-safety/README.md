@@ -35,11 +35,11 @@ the irreversible rule. The allow never admits more than one statement.
 
 ## What it deliberately does not cover
 
-- **Which database.** writ does not know whether the MCP server or the
+- **Which database.** provio does not know whether the MCP server or the
   `DATABASE_URL` points at production. Scope with your own rule on `server`
   (for example `server == "postgres-prod"`) if you run several.
 - **SQL files and migrations.** `psql -f migrate.sql`, stored procedures and
-  ORM code run SQL writ never sees. The CLI allow list is empty on purpose:
+  ORM code run SQL provio never sees. The CLI allow list is empty on purpose:
   `psql -c "SELECT …"` gets your policy default.
 - **Keywords inside SQL string literals on the CLI side.** The SQL there is
   inside shell quoting, so `psql -c "SELECT 'DROP TABLE x'"` asks. That is a
@@ -49,22 +49,22 @@ the irreversible rule. The allow never admits more than one statement.
 
 ## Use it
 
-Packs are rules you merge into your own `writ.yaml`; writ does not load
-`.writ/packs/` automatically.
+Packs are rules you merge into your own `provio.yaml`; provio does not load
+`.provio/packs/` automatically.
 
 ```bash
-writ policy add database-safety   # bundled with writ (a local ./packs/<id> wins); prints the sha256
+provio policy add database-safety   # bundled with provio (a local ./packs/<id> wins); prints the sha256
 ```
 
-Paste the `rules:` entries into your `writ.yaml`: the ask rules above any
+Paste the `rules:` entries into your `provio.yaml`: the ask rules above any
 broad allow of your own for your database tools, `db-select-allowed` below
-your own denies. Ids are prefixed `db-`. `examples/writ.yaml`'s
+your own denies. Ids are prefixed `db-`. `examples/provio.yaml`'s
 `protect-production-db` rule is a narrower version of `db-drop-asks` /
 `db-truncate-asks` / `db-alter-asks`; keep one or the other.
 
 ```bash
-writ doctor --policy writ.yaml
-writ policy test --policy writ.yaml --fixtures packs/database-safety/fixtures
+provio doctor --policy provio.yaml
+provio policy test --policy provio.yaml --fixtures packs/database-safety/fixtures
 ```
 
 Fixtures: `fixtures/database-safety.yaml` (37 cases across postgres, mysql,

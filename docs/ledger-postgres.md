@@ -1,17 +1,17 @@
 # Postgres ledger store
 
-`PostgresLedgerStore` keeps the WRIT ledger in a PostgreSQL table so that many
-hosts can append to one hash chain: one `writ check` per tool call across a
-fleet of runners, several `writ proxy` instances, CI jobs. It implements the
+`PostgresLedgerStore` keeps the PROVIO ledger in a PostgreSQL table so that many
+hosts can append to one hash chain: one `provio check` per tool call across a
+fleet of runners, several `provio proxy` instances, CI jobs. It implements the
 same `LedgerStore` trait as the JSONL and SQLite stores and stores exactly the
-same bytes, so `writ verify` gives the same answer for a record whichever store
+same bytes, so `provio verify` gives the same answer for a record whichever store
 holds it (Contract 3, ADR-005).
 
-It ships behind the `postgres` cargo feature of `writ-ledger` (and of
-`writ-cli`, which passes it through):
+It ships behind the `postgres` cargo feature of `provio-ledger` (and of
+`provio-cli`, which passes it through):
 
 ```sh
-cargo build --release -p writ-cli --features postgres
+cargo build --release -p provio-cli --features postgres
 ```
 
 No C toolchain beyond what Rust itself needs: TLS is rustls with the `ring`
@@ -28,19 +28,19 @@ server encoding could transcode records, and they must be byte-exact).
 A minimal setup, one role that owns and writes the ledger:
 
 ```sql
-CREATE ROLE writ LOGIN PASSWORD '...';
-CREATE DATABASE writ OWNER writ;
+CREATE ROLE provio LOGIN PASSWORD '...';
+CREATE DATABASE provio OWNER provio;
 ```
 
 ```sh
 export PGPASSWORD='...'          # keeps the password out of argv and configs
-writ --ledger 'postgres://writ@db.internal:5432/writ?sslmode=verify-full' verify
+provio --ledger 'postgres://provio@db.internal:5432/provio?sslmode=verify-full' verify
 ```
 
-The first writer to open the ledger (for example the first `writ check`)
-creates schema `writ` and the objects below. After that, nothing is ever
-created or altered. Read-only commands never create anything, so `writ
-verify` before the first append reports "no WRIT ledger".
+The first writer to open the ledger (for example the first `provio check`)
+creates schema `provio` and the objects below. After that, nothing is ever
+created or altered. Read-only commands never create anything, so `provio
+verify` before the first append reports "no PROVIO ledger".
 
 ### Recommended: separate owner and writer roles
 
@@ -49,27 +49,27 @@ superusers**, who can disable them. Run agents as a writer role that does not
 own the tables:
 
 ```sql
-CREATE ROLE writ_owner LOGIN PASSWORD '...';   -- used once, to create the tables
-CREATE ROLE writ_writer LOGIN PASSWORD '...';  -- what hosts use
-CREATE SCHEMA writ AUTHORIZATION writ_owner;
+CREATE ROLE provio_owner LOGIN PASSWORD '...';   -- used once, to create the tables
+CREATE ROLE provio_writer LOGIN PASSWORD '...';  -- what hosts use
+CREATE SCHEMA provio AUTHORIZATION provio_owner;
 ```
 
-Open the ledger once for writing as `writ_owner` to create the tables. For
-example, run the first `writ check` with the owner's credentials, or call
+Open the ledger once for writing as `provio_owner` to create the tables. For
+example, run the first `provio check` with the owner's credentials, or call
 `PostgresLedgerStore::open` from Rust. Then grant:
 
 ```sql
-GRANT USAGE ON SCHEMA writ TO writ_writer;
-GRANT SELECT, INSERT ON writ.ledger TO writ_writer;
+GRANT USAGE ON SCHEMA provio TO provio_writer;
+GRANT SELECT, INSERT ON provio.ledger TO provio_writer;
 -- UPDATE is needed only for the append lock (SELECT ... FOR UPDATE);
 -- an actual UPDATE of the marker is rejected by its trigger.
-GRANT SELECT, UPDATE ON writ.ledger_meta TO writ_writer;
+GRANT SELECT, UPDATE ON provio.ledger_meta TO provio_writer;
 ```
 
 For auditors, `GRANT USAGE` on the schema plus `SELECT` on both tables is
-enough for `writ verify`, `writ log` and `writ show`.
+enough for `provio verify`, `provio log` and `provio show`.
 
-With this setup, `writ_writer` gets "must be owner" for `ALTER TABLE ...
+With this setup, `provio_writer` gets "must be owner" for `ALTER TABLE ...
 DISABLE TRIGGER` and `DROP TABLE`, "permission denied" for `UPDATE`, `DELETE`
 and `TRUNCATE` on the ledger, and the trigger's "append-only" error for an
 `UPDATE` of the marker. We checked each of these against PostgreSQL 16.
@@ -83,23 +83,23 @@ fails closed, as it does for SQLite without the `sqlite` feature).
 
 | Parameter | Meaning |
 |---|---|
-| `writ_schema` | Schema holding the ledger (default `writ`). `[a-z_][a-z0-9_]*`, not `pg_*`. |
-| `writ_table` | Ledger table name (default `ledger`); up to 50 characters. The other objects are named after it (`<table>_meta`, `<table>_append_guard`, ...). |
+| `provio_schema` | Schema holding the ledger (default `provio`). `[a-z_][a-z0-9_]*`, not `pg_*`. |
+| `provio_table` | Ledger table name (default `ledger`); up to 50 characters. The other objects are named after it (`<table>_meta`, `<table>_append_guard`, ...). |
 | `sslmode` | `disable`, `allow`, `prefer` (default), `require`, `verify-ca`, `verify-full`. See [TLS](#tls). |
 | `sslrootcert` | PEM file of trusted roots, or `system` for the OS store. |
 | anything else | Passed to `tokio-postgres` (`host`, `port`, `user`, `dbname`, `connect_timeout`, `application_name`, `target_session_attrs`, ...). Unknown keys are an error. |
 
 `PGPASSWORD`, `PGSSLMODE` and `PGSSLROOTCERT` are used when the URL does not
 set the value. `connect_timeout` defaults to 10 s, and `application_name` to
-`writ-ledger`. `sslcert`/`sslkey` (client certificates) are not supported yet
+`provio-ledger`. `sslcert`/`sslkey` (client certificates) are not supported yet
 and are rejected rather than ignored.
 
 The store never prints or logs the password. Every error and `Debug`
 output names the ledger with the password replaced by `***`.
-`writ_ledger::display_ledger(path)` does the same for callers.
+`provio_ledger::display_ledger(path)` does the same for callers.
 
-Several ledgers can share a schema (`writ_table=team_a`, `writ_table=team_b`).
-A schema that contains anything other than WRIT ledgers is refused. So is a
+Several ledgers can share a schema (`provio_table=team_a`, `provio_table=team_b`).
+A schema that contains anything other than PROVIO ledgers is refused. So is a
 `<table>` without a marker, a marker from another application, and a marker
 with an unknown store version. The store never adds tables to a schema it
 does not recognise.
@@ -107,19 +107,19 @@ does not recognise.
 ## Schema (store version 1)
 
 ```sql
-CREATE TABLE writ.ledger_meta (             -- marker + append lock
+CREATE TABLE provio.ledger_meta (             -- marker + append lock
     singleton     BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
-    application   TEXT    NOT NULL,         -- 'writ-ledger'
+    application   TEXT    NOT NULL,         -- 'provio-ledger'
     store_version INTEGER NOT NULL,         -- 1
     ledger_table  TEXT    NOT NULL,         -- 'ledger'
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE writ.ledger (
+CREATE TABLE provio.ledger (
     idx    BIGINT PRIMARY KEY CHECK (idx >= 0),
     record TEXT   NOT NULL,                 -- the exact JSONL line
     CONSTRAINT ledger_idx_is_record_index
-        CHECK (idx = (writ.ledger_json_field(record, 'index'))::bigint)
+        CHECK (idx = (provio.ledger_json_field(record, 'index'))::bigint)
 );
 ```
 
@@ -128,7 +128,7 @@ CREATE TABLE writ.ledger (
   reorder keys and change whitespace.) A JSONL → Postgres → JSONL copy produces
   an identical file, and the test suite checks this, including records with
   non-ASCII text and `\u0000` escapes.
-- `writ.ledger_json_field(record, key)` is an `IMMUTABLE` SQL function that
+- `provio.ledger_json_field(record, key)` is an `IMMUTABLE` SQL function that
   returns one top-level field. Postgres' JSON operators reject the escape
   `\u0000` anywhere in a document, and records embed arbitrary tool arguments.
   So the function maps `\u0000` to `\u0001` before parsing. Only `index`,
@@ -140,7 +140,7 @@ CREATE TABLE writ.ledger (
     `prev_hash` to equal the tip's `record_hash` (64 zeros for the genesis
     record).
   - `ledger_no_update`, `ledger_no_delete` and `ledger_no_truncate`
-    (per statement) raise `writ ledger is append-only: ... rejected`. The
+    (per statement) raise `provio ledger is append-only: ... rejected`. The
     same three exist on `ledger_meta`. Statement-level triggers fire even
     when no row matches, and an upsert (`INSERT ... ON CONFLICT DO UPDATE`)
     is rejected by the insert guard before it can update anything.
@@ -152,8 +152,8 @@ CREATE TABLE writ.ledger (
 Many writers on many hosts append to one chain:
 
 1. The writer begins a `READ COMMITTED` transaction and sets
-   `lock_timeout` to `writ_ledger::LOCK_TIMEOUT` (10 s).
-2. It runs `SELECT store_version FROM writ.ledger_meta WHERE singleton
+   `lock_timeout` to `provio_ledger::LOCK_TIMEOUT` (10 s).
+2. It runs `SELECT store_version FROM provio.ledger_meta WHERE singleton
    FOR UPDATE`. This is the append lock. Every appender takes it before
    reading the tip: the store on any host, and the insert trigger for raw
    SQL writers. It also confirms the marker on every append.
@@ -170,9 +170,9 @@ Many writers on many hosts append to one chain:
    `COMMIT`.
 
 A writer whose record was built on a tip that has since moved gets
-`WritError::Ledger("append rejected: record index N but ledger length is M
+`ProvioError::Ledger("append rejected: record index N but ledger length is M
 ...")`. The wording is identical to the JSONL and SQLite stores, so
-`writ_ledger::retry_append` / `is_append_race` rebuild the record on the new
+`provio_ledger::retry_append` / `is_append_race` rebuild the record on the new
 tip and try again. A writer that cannot get the lock within 10 s fails closed.
 
 Raw SQL writers are serialized the same way, because the trigger takes the
@@ -196,7 +196,7 @@ returned to the caller, and the next call reconnects.
 Opening a store checks every link, as the other stores do: index sequence,
 `prev_hash` chain, and that every row parses. It pages through the table
 (512 rows per query) inside one `REPEATABLE READ READ ONLY` snapshot. This is
-linear in ledger size. Full hash verification is `writ verify`
+linear in ledger size. Full hash verification is `provio verify`
 (`verify_postgres`), which also reads one snapshot, never writes, and never
 creates anything: verifying a URL with no ledger behind it is an error.
 
@@ -219,13 +219,13 @@ They do not:
   Event triggers could block some DDL, but they need a superuser to install
   and a superuser can remove them, so the store does not rely on them;
 - check `record_hash` inside the database. Computing the canonical payload
-  hash in SQL would duplicate `writ-core`. The store checks it before
-  inserting, and `writ verify` checks every record;
+  hash in SQL would duplicate `provio-core`. The store checks it before
+  inserting, and `provio verify` checks every record;
 - protect against a compromised writer that appends well-formed but false
   records. That is what policy, approvals and signed receipts are for.
 
 What survives all of this is the hash chain. Edit, delete or reorder any row
-by any means, and `writ verify` reports the exact index where the chain
+by any means, and `provio verify` reports the exact index where the chain
 breaks. Export the ledger (or anchor its receipts) somewhere the database
 owner cannot write, and a rewrite of the whole table becomes detectable too.
 
@@ -252,30 +252,30 @@ it does not prove which server you reached.
 
 ## CLI
 
-With a `writ` built with `--features postgres`:
+With a `provio` built with `--features postgres`:
 
 ```sh
 export PGPASSWORD=...
-L='postgres://writ_writer@db.internal/writ?sslmode=verify-full'
-writ --ledger "$L" verify
-writ --ledger "$L" log
-writ --ledger "$L" show <call_id>
-writ --ledger "$L" check < request.json
+L='postgres://provio_writer@db.internal/provio?sslmode=verify-full'
+provio --ledger "$L" verify
+provio --ledger "$L" log
+provio --ledger "$L" show <call_id>
+provio --ledger "$L" check < request.json
 ```
 
 Status: `show`, `replay`, `check` and `proxy` pass the URL straight to the
-store. `writ ui` is URL-aware. `log`, `verify`, `report` and `doctor` still
+store. `provio ui` is URL-aware. `log`, `verify`, `report` and `doctor` still
 check that `--ledger` exists as a file, so they refuse a URL; this is being
 fixed. `integrate` and `run` write `--ledger` into generated hook
 configuration. Use a URL without a password there, and supply the password
 through `PGPASSWORD` (`~/.pgpass` is not read).
 
-Library callers can always use `writ_ledger::verify(url)`,
+Library callers can always use `provio_ledger::verify(url)`,
 `sessions(url)` and `find_by_call_id(url, id)` directly.
 
 ## Testing
 
-The shared store-generic suite (`crates/writ-ledger/tests/common`) runs
+The shared store-generic suite (`crates/provio-ledger/tests/common`) runs
 against Postgres. So do the Postgres-specific tests in
 `tests/postgres_ledger.rs`, which cover:
 
@@ -293,12 +293,12 @@ against Postgres. So do the Postgres-specific tests in
 They need a server:
 
 ```sh
-WRIT_POSTGRES_URL='postgres://writ:pw@localhost/writ_test' \
-  cargo test -p writ-ledger --all-features
+PROVIO_POSTGRES_URL='postgres://provio:pw@localhost/provio_test' \
+  cargo test -p provio-ledger --all-features
 ```
 
-Each test uses its own schema (`writ_test_<pid>_<n>`). Schemas left behind by
+Each test uses its own schema (`provio_test_<pid>_<n>`). Schemas left behind by
 earlier runs are dropped on first use, so point the variable at a scratch
 database. Without the variable, every Postgres test prints a skip notice and
-passes. Optional: `WRIT_POSTGRES_TLS=1` checks `sslmode=require` against a
-TLS-enabled server, and `WRIT_POSTGRES_SSLROOTCERT=<pem>` checks `verify-ca`.
+passes. Optional: `PROVIO_POSTGRES_TLS=1` checks `sslmode=require` against a
+TLS-enabled server, and `PROVIO_POSTGRES_SSLROOTCERT=<pem>` checks `verify-ca`.

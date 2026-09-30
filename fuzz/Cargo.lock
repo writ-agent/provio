@@ -408,7 +408,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
-name = "writ-core"
+name = "provio-core"
 version = "0.1.0"
 dependencies = [
  "hex",
@@ -419,19 +419,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "writ-fuzz"
+name = "provio-fuzz"
 version = "0.0.0"
 dependencies = [
  "libfuzzer-sys",
  "serde_json",
- "writ-core",
- "writ-ledger",
- "writ-mcp",
- "writ-policy",
+ "provio-core",
+ "provio-ledger",
+ "provio-mcp",
+ "provio-policy",
 ]
 
 [[package]]
-name = "writ-ledger"
+name = "provio-ledger"
 version = "0.1.0"
 dependencies = [
  "hex",
@@ -439,22 +439,22 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
- "writ-core",
+ "provio-core",
 ]
 
 [[package]]
-name = "writ-mcp"
+name = "provio-mcp"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
  "tracing",
- "writ-core",
+ "provio-core",
 ]
 
 [[package]]
-name = "writ-policy"
+name = "provio-policy"
 version = "0.1.0"
 dependencies = [
  "regex",
@@ -462,7 +462,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "thiserror",
- "writ-core",
+ "provio-core",
 ]
 
 [[package]]

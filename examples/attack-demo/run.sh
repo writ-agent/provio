@@ -1,28 +1,28 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# writ attack demo — offline, reproducible, no API key.
+# provio attack demo — offline, reproducible, no API key.
 #
 # A coding agent reads a poisoned README (fixture-repo/README.md) whose hidden
 # comment tells it to exfiltrate an SSH key and delete a directory. The agent's
 # tool-call CHOICES are scripted (the JSON payloads in ./calls/), exactly as
-# Claude Code would emit them to a PreToolUse/PostToolUse hook. Everything writ
+# Claude Code would emit them to a PreToolUse/PostToolUse hook. Everything provio
 # does — the decisions, the ledger records, verify — is REAL: each payload is
-# fed to the real `writ` binary through `writ check --format claude-code`, the
+# fed to the real `provio` binary through `provio check --format claude-code`, the
 # same gateway Claude Code calls before every tool runs.
 #
-#   ./run.sh              uses `writ` from PATH
-#   WRIT_BIN=/path/writ ./run.sh   uses a specific binary
+#   ./run.sh              uses `provio` from PATH
+#   PROVIO_BIN=/path/provio ./run.sh   uses a specific binary
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-WRIT="${WRIT_BIN:-writ}"
-POLICY="writ.yaml"
-LEDGER=".writ/ledger.jsonl"
+PROVIO="${PROVIO_BIN:-provio}"
+POLICY="provio.yaml"
+LEDGER=".provio/ledger.jsonl"
 
-if ! command -v "$WRIT" >/dev/null 2>&1 && [ ! -x "$WRIT" ]; then
-  echo "error: writ binary not found. Install it (pip install writ-cli) or set WRIT_BIN=/path/to/writ." >&2
+if ! command -v "$PROVIO" >/dev/null 2>&1 && [ ! -x "$PROVIO" ]; then
+  echo "error: provio binary not found. Install it (pip install provio) or set PROVIO_BIN=/path/to/provio." >&2
   exit 1
 fi
 
@@ -36,17 +36,17 @@ fi
 rule() { printf "${DIM}%s${RST}\n" "----------------------------------------------------------------------"; }
 
 # Fresh ledger each run so the demo is deterministic.
-rm -rf .writ
-mkdir -p .writ
+rm -rf .provio
+mkdir -p .provio
 
 echo
-echo "${B}writ attack demo${RST}  ${DIM}·${RST}  $("$WRIT" --version)"
+echo "${B}provio attack demo${RST}  ${DIM}·${RST}  $("$PROVIO" --version)"
 echo "${DIM}An injected README tells the agent to steal a key and delete a directory.${RST}"
-echo "${DIM}The agent's tool calls are scripted; writ's decisions and ledger are real.${RST}"
+echo "${DIM}The agent's tool calls are scripted; provio's decisions and ledger are real.${RST}"
 rule
 
 # label | payload file : the label is what the (scripted) agent tried; the
-# verdict below always comes from writ.
+# verdict below always comes from provio.
 STEPS=(
   "read the project README (this pulls the injection into context)|calls/01-read-readme.json"
   "the read completes — poisoned text now in the model's context|calls/02-read-readme-complete.json"
@@ -63,7 +63,7 @@ for step in "${STEPS[@]}"; do
   printf "${B}[%d]${RST} agent → %s\n" "$n" "$label"
 
   # Feed the scripted hook payload to the real gateway.
-  out="$(printf '%s' "$(cat "$file")" | "$WRIT" check --format claude-code --policy "$POLICY" --ledger "$LEDGER" 2>/dev/null || true)"
+  out="$(printf '%s' "$(cat "$file")" | "$PROVIO" check --format claude-code --policy "$POLICY" --ledger "$LEDGER" 2>/dev/null || true)"
 
   decision="$(printf '%s' "$out" | sed -n 's/.*"permissionDecision":"\([a-z]*\)".*/\1/p')"
   reason="$(printf '%s' "$out" | sed -n 's/.*"permissionDecisionReason":"\(.*\)"}}/\1/p' | sed 's/\\"/"/g')"
@@ -78,23 +78,23 @@ for step in "${STEPS[@]}"; do
 done
 
 rule
-echo "${B}writ log${RST}  ${DIM}— what the agent actually did${RST}"
-"$WRIT" log --ledger "$LEDGER"
+echo "${B}provio log${RST}  ${DIM}— what the agent actually did${RST}"
+"$PROVIO" log --ledger "$LEDGER"
 echo
 
-echo "${B}writ verify${RST}  ${DIM}— is the record intact?${RST}"
-"$WRIT" verify --ledger "$LEDGER"
+echo "${B}provio verify${RST}  ${DIM}— is the record intact?${RST}"
+"$PROVIO" verify --ledger "$LEDGER"
 echo
 rule
 
 # Tamper demonstration — on a COPY, so the real ledger is left intact.
 echo "${B}Now someone edits the evidence${RST} ${DIM}(on a copy of the ledger)${RST}"
-cp "$LEDGER" .writ/ledger.tampered.jsonl
+cp "$LEDGER" .provio/ledger.tampered.jsonl
 # Rewrite the denied rm -rf into a harmless ls in the copied record.
-sed -i 's#rm -rf /home/dev/project#ls -la#' .writ/ledger.tampered.jsonl
-echo "${DIM}\$ sed -i 's#rm -rf ...#ls -la#' .writ/ledger.tampered.jsonl${RST}"
-echo "${B}writ verify${RST} --ledger .writ/ledger.tampered.jsonl"
-if "$WRIT" verify --ledger .writ/ledger.tampered.jsonl; then
+sed -i 's#rm -rf /home/dev/project#ls -la#' .provio/ledger.tampered.jsonl
+echo "${DIM}\$ sed -i 's#rm -rf ...#ls -la#' .provio/ledger.tampered.jsonl${RST}"
+echo "${B}provio verify${RST} --ledger .provio/ledger.tampered.jsonl"
+if "$PROVIO" verify --ledger .provio/ledger.tampered.jsonl; then
   echo "${RED}(unexpected: the tamper was not caught)${RST}"
 else
   :

@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions and ideas
-    url: https://github.com/writ-agent/writ/discussions
+    url: https://github.com/writ-agent/provio/discussions
     about: Ask in Discussions (Q&A, Ideas, Show and tell).
   - name: Security vulnerability
-    url: https://github.com/writ-agent/writ/security/advisories/new
+    url: https://github.com/writ-agent/provio/security/advisories/new
     about: Private reporting only — never a public issue. See docs/SECURITY.md.
   - name: Policy packs
-    url: https://github.com/writ-agent/writ/tree/main/packs
+    url: https://github.com/writ-agent/provio/tree/main/packs
     about: Contributing a pack is a single PR — see CONTRIBUTING.md.

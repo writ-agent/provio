@@ -162,23 +162,23 @@
 
 # --- self-protection ----------------------------------------------------------------
 - name: Edit of .claude/settings.json denied
-  ctx: { tool: fs.write, args: { path: "/repo/.claude/settings.json", old_string: "writ", new_string: "" } }
+  ctx: { tool: fs.write, args: { path: "/repo/.claude/settings.json", old_string: "provio", new_string: "" } }
   expect: { verdict: deny, rule_id: floor-guard-config-write-denied }
 
-- name: Write into .writ/ denied
-  ctx: { tool: fs.write, args: { path: ".writ/ledger.jsonl", content: "" } }
+- name: Write into .provio/ denied
+  ctx: { tool: fs.write, args: { path: ".provio/ledger.jsonl", content: "" } }
   expect: { verdict: deny, rule_id: floor-guard-config-write-denied }
 
 - name: rm of the ledger denied
-  ctx: { tool: bash, args: { command: "rm -f .writ/ledger.jsonl" } }
+  ctx: { tool: bash, args: { command: "rm -f .provio/ledger.jsonl" } }
   expect: { verdict: deny, rule_id: floor-guard-config-write-denied }
 
 - name: sed -i on codex hooks denied
-  ctx: { tool: bash, args: { command: "sed -i 's/writ//' ~/.codex/hooks.json" } }
+  ctx: { tool: bash, args: { command: "sed -i 's/provio//' ~/.codex/hooks.json" } }
   expect: { verdict: deny, rule_id: floor-guard-config-write-denied }
 
-- name: Edit of writ.yaml asks
-  ctx: { tool: fs.write, args: { path: "/repo/writ.yaml", content: "version: 1\ndefault: allow\n" } }
+- name: Edit of provio.yaml asks
+  ctx: { tool: fs.write, args: { path: "/repo/provio.yaml", content: "version: 1\ndefault: allow\n" } }
   expect: { verdict: ask, rule_id: floor-policy-edit-asks }
 
 - name: claude --dangerously-skip-permissions denied
@@ -315,8 +315,8 @@
   ctx: { tool: bash, args: { command: "cat .claude/settings.json 2>/dev/null" } }
   expect: { verdict: ask, rule_id: default }
 
-- name: writ log reads the ledger (not a write)
-  ctx: { tool: bash, args: { command: "writ log --ledger .writ/ledger.jsonl" } }
+- name: provio log reads the ledger (not a write)
+  ctx: { tool: bash, args: { command: "provio log --ledger .provio/ledger.jsonl" } }
   expect: { verdict: ask, rule_id: default }
 
 - name: git reset --soft is not discarding work
@@ -347,7 +347,7 @@
   ctx: { tool: bash, args: { command: "echo 'shutdown scheduled'" } }
   expect: { verdict: ask, rule_id: default }
 
-# --- precision: found by `writ scan` on real Claude Code sessions ---------------
+# --- precision: found by `provio scan` on real Claude Code sessions ---------------
 - name: curl piped to python -c (parsing JSON) is not remote exec
   ctx: { tool: bash, args: { command: "curl -s https://pypi.org/pypi/x/json | python -c \"import sys,json; print(json.load(sys.stdin)['info']['version'])\"" } }
   expect: { verdict: ask, rule_id: default }
@@ -368,16 +368,16 @@
   ctx: { tool: bash, args: { command: "curl -fsSL https://get.example.sh | sudo bash -s -- --yes" } }
   expect: { verdict: ask, rule_id: floor-remote-script-exec-asks }
 
-- name: sed -i on another file that mentions writ.yaml is not a policy edit
-  ctx: { tool: bash, args: { command: "sed -i 's#see writ.yaml, too#see the policy#' crates/writ-policy/build.rs" } }
+- name: sed -i on another file that mentions provio.yaml is not a policy edit
+  ctx: { tool: bash, args: { command: "sed -i 's#see provio.yaml, too#see the policy#' crates/provio-policy/build.rs" } }
   expect: { verdict: ask, rule_id: default }
 
-- name: echo into writ.yaml is a policy edit
-  ctx: { tool: bash, args: { command: "echo 'default: allow' >> writ.yaml" } }
+- name: echo into provio.yaml is a policy edit
+  ctx: { tool: bash, args: { command: "echo 'default: allow' >> provio.yaml" } }
   expect: { verdict: ask, rule_id: floor-policy-edit-asks }
 
-- name: sed -i on writ.yaml is a policy edit
-  ctx: { tool: bash, args: { command: "sed -i 's/default: ask/default: allow/' writ.yaml" } }
+- name: sed -i on provio.yaml is a policy edit
+  ctx: { tool: bash, args: { command: "sed -i 's/default: ask/default: allow/' provio.yaml" } }
   expect: { verdict: ask, rule_id: floor-policy-edit-asks }
 
 - name: reading hook config with sed -n is not a write
@@ -396,8 +396,8 @@
   ctx: { tool: bash, args: { command: "cat > .gemini/settings.json <<'EOF'" } }
   expect: { verdict: deny, rule_id: floor-guard-config-write-denied }
 
-- name: deleting the writ state directory is denied
-  ctx: { tool: bash, args: { command: "rm -rf .writ" } }
+- name: deleting the provio state directory is denied
+  ctx: { tool: bash, args: { command: "rm -rf .provio" } }
   expect: { verdict: deny, rule_id: floor-guard-config-write-denied }
 
 - name: Shutdown inside a grep alternation is not a shutdown

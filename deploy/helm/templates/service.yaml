@@ -1,13 +1,13 @@
 ﻿apiVersion: v1
 kind: Service
 metadata:
-  name: "{{ .Release.Name }}-writ-gateway"
+  name: "{{ .Release.Name }}-provio-gateway"
   labels:
-    app.kubernetes.io/name: writ
+    app.kubernetes.io/name: provio
 spec:
   type: "{{ .Values.service.type }}"
   selector:
-    app.kubernetes.io/name: writ
+    app.kubernetes.io/name: provio
     app.kubernetes.io/component: gateway
   ports:
     - name: http

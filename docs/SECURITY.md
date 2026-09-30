@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Report suspected vulnerabilities privately via **GitHub private vulnerability
-reporting** (writ-agent/writ → Security → Report a vulnerability), or by email
+reporting** (writ-agent/provio → Security → Report a vulnerability), or by email
 to **gurrambhaskar.ai@gmail.com**.
 Do not open a public issue for security reports.
 
@@ -17,7 +17,7 @@ Do not open a public issue for security reports.
 
 ## Scope
 
-In scope: the `writ` binary, all crates in this repository, the policy
+In scope: the `provio` binary, all crates in this repository, the policy
 engine, the ledger, the MCP proxy, and sandbox adapters. The threat model —
 including explicit exclusions (prompt injection, model-layer safety,
 malicious operator, side-effect reversal) — is in

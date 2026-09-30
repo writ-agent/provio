@@ -1,13 +1,13 @@
-# Contributing to Writ
+# Contributing to Provio
 
 Thanks for helping build the authorization and provenance layer for AI agents.
 
 ## Where to start
 
-- The [roadmap](https://github.com/writ-agent/writ/issues/9) is pinned in Issues.
-- Issues labelled [`good first issue`](https://github.com/writ-agent/writ/labels/good%20first%20issue) are scoped for a first PR; [`help wanted`](https://github.com/writ-agent/writ/labels/help%20wanted) ones are bigger.
+- The [roadmap](https://github.com/writ-agent/provio/issues/9) is pinned in Issues.
+- Issues labelled [`good first issue`](https://github.com/writ-agent/provio/labels/good%20first%20issue) are scoped for a first PR; [`help wanted`](https://github.com/writ-agent/provio/labels/help%20wanted) ones are bigger.
 - A new **policy pack** is the most valuable small contribution (see below).
-- Questions and ideas go to [Discussions](https://github.com/writ-agent/writ/discussions), not issues.
+- Questions and ideas go to [Discussions](https://github.com/writ-agent/provio/discussions), not issues.
 - `main` is protected: open a PR; CI must pass, and changes under the security
   paths in `.github/CODEOWNERS` need a code-owner review.
 
@@ -19,7 +19,7 @@ Thanks for helping build the authorization and provenance layer for AI agents.
 2. **Claim discipline is CI-enforced.** No unearned assurance labels, no
    certification claims about the binary, no performance numbers outside
    published, reproducible benchmarks. See `docs/THREAT_MODEL.md`.
-3. **Honesty over hype.** Writ is a governance tool; its docs state what it
+3. **Honesty over hype.** Provio is a governance tool; its docs state what it
    does NOT do as clearly as what it does. Match that standard.
 
 ## Build & test
@@ -33,7 +33,7 @@ cargo fmt --all -- --check
 ## Crate ownership
 
 Every crate has an owning agent role (see `docs/internal/BUILD_PLAN.md` §5.2).
-Changes to the frozen contracts in `writ-core` or `docs/INTERFACES.md`
+Changes to the frozen contracts in `provio-core` or `docs/INTERFACES.md`
 require an ADR in `docs/DECISIONS.md` and maintainer review.
 
 ## Contribute a policy pack
@@ -43,9 +43,9 @@ new user to arrive. One PR per pack:
 
 1. Add `packs/<your-pack>/pack.yaml` (schema: `id`, `version`, `description`,
    `rules` — see `packs/terraform-safety` for the shape).
-2. Rules must compile: `cargo run -p writ-cli -- doctor --policy <file>` after
+2. Rules must compile: `cargo run -p provio-cli -- doctor --policy <file>` after
    wrapping with a `version`/`default` header, or add a fixture under
-   `crates/writ-policy/fixtures/`.
+   `crates/provio-policy/fixtures/`.
 3. Every `deny`/`ask` needs a human-readable `reason`.
 4. Describe the threat your pack addresses in the PR body.
 

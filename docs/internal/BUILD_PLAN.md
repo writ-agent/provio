@@ -1,7 +1,7 @@
-# WRIT — Master Build Plan (Full-Scope, Single-Pass)
+# PROVIO — Master Build Plan (Full-Scope, Single-Pass)
 **Authorization and provenance for AI agents. One policy file, one signed ledger, any agent.**
 
-- Source spec: `Writ_Technical_Specification_v2.0.md`
+- Source spec: `Provio_Technical_Specification_v2.0.md`
 - Build strategy: **all features, all at once** — the spec's v0.1→v0.4 market phasing is intentionally ignored; final-state architecture is designed up front and every feature is built in one coordinated program.
 - License: Apache-2.0 (permanent, per spec §20). Language: Rust (per spec §5).
 
@@ -26,10 +26,10 @@ The spec ends with four open questions (Appendix A). This plan answers them:
 
 | # | Question | Decision | Rationale |
 |---|----------|----------|-----------|
-| 1 | Which agent to wrap first? | **Claude Code** via `writ run -- claude`, with the MCP proxy being agent-agnostic from day one. | Largest hook-friendly audience; the spec's own demo uses it; MCP proxy covers Codex/others without per-agent work. |
+| 1 | Which agent to wrap first? | **Claude Code** via `provio run -- claude`, with the MCP proxy being agent-agnostic from day one. | Largest hook-friendly audience; the spec's own demo uses it; MCP proxy covers Codex/others without per-agent work. |
 | 2 | Native DSL vs Rego first? | **Native DSL is the default; all three engines (native, Rego, Cedar) are built** behind one `PolicyEngine` trait compiling to a shared internal decision IR. | Spec already mandates pluggability; building all-at-once removes the either/or trade-off. Native wins developer ergonomics; Rego/Cedar win enterprise. |
-| 3 | Must the ledger schema be stable at first release? | **Yes.** `schema_version` field from commit one; `writ verify` must verify every historical version forever; changes only ever via additive migrations with golden fixtures. | Verify-forever is the product's core promise; a breaking schema change silently destroys evidentiary value. |
-| 4 | Register names before code? | **Yes, immediately (Wave 0, day 1):** GitHub org, crates.io `writ`, npm `writ`, writ.dev / writ.sh, USPTO/EUIPO search in software classes. | Spec §2: "Names in this category are being taken weekly." Cost is trivial; loss is unrecoverable. |
+| 3 | Must the ledger schema be stable at first release? | **Yes.** `schema_version` field from commit one; `provio verify` must verify every historical version forever; changes only ever via additive migrations with golden fixtures. | Verify-forever is the product's core promise; a breaking schema change silently destroys evidentiary value. |
+| 4 | Register names before code? | **Yes, immediately (Wave 0, day 1):** GitHub org, crates.io `provio`, npm `provio`, provio.dev / provio.sh, USPTO/EUIPO search in software classes. | Spec §2: "Names in this category are being taken weekly." Cost is trivial; loss is unrecoverable. |
 
 ## 3. Final-State Feature Manifest (Everything, No Compromises)
 
@@ -39,35 +39,35 @@ Union of spec v0.1–v0.4 scope. Each item carries the spec section it comes fro
 | Feature | Spec | Acceptance |
 |---|---|---|
 | MCP proxy — full client **and** server over stdio, SSE, streamable HTTP | §6A, §11 | Round-trips real servers (postgres, github, filesystem reference servers); agent config change is the only integration step |
-| Auto-discovery of tool schemas; per-server identity | §11 | `writ proxy` enumerates tools and attributes every call to a server identity |
-| Credential injection at dispatch (agent never holds tokens) | §11 | Secret exists only in Writ's store; red team test: dump agent context, find no token |
+| Auto-discovery of tool schemas; per-server identity | §11 | `provio proxy` enumerates tools and attributes every call to a server identity |
+| Credential injection at dispatch (agent never holds tokens) | §11 | Secret exists only in Provio's store; red team test: dump agent context, find no token |
 | MCP scanner integration (external scanner verdict → policy input `server.trust`) | §11 | `when server.trust == "unverified"` rule fires in e2e test. **Do not build a scanner — integrate one.** |
 | Process wrap: Landlock + seccomp (Linux), Seatbelt (macOS), restricted tokens + job objects (Windows) | §6B | Kernel-level deny of out-of-workspace writes and non-allowlisted egress, verified by syscall-level tests on all three OSes |
 | SDK hooks: LangGraph, OpenAI Agents SDK, Claude Agent SDK | §6C, §17 | Each adapter intercepts a named tool call with typed args in its native test suite |
-| `writ doctor` coverage report — states exactly which call paths are covered/blind | §6 | Output lists covered channels and **loudly** flags MCP-proxy-only bypass risk (spec §15) |
+| `provio doctor` coverage report — states exactly which call paths are covered/blind | §6 | Output lists covered channels and **loudly** flags MCP-proxy-only bypass risk (spec §15) |
 
 ### 3.2 Policy
 | Feature | Spec | Acceptance |
 |---|---|---|
-| Native readable DSL (`writ.yaml` as in spec §7), four verdicts: `allow` `deny` `ask` `redact` | §7 | All spec example rules compile and fire against fixtures |
+| Native readable DSL (`provio.yaml` as in spec §7), four verdicts: `allow` `deny` `ask` `redact` | §7 | All spec example rules compile and fire against fixtures |
 | Fail-closed default (`default: ask`), `--yolo` flips to allow | §7 | Unmatched call → ask (interactive) / deny-or-OOB (headless) |
-| Structured denials: rule id + reason + `writ.yaml:line` returned to the model | §7, §12 | Agent receives self-correcting refusal, never "denied by policy" |
+| Structured denials: rule id + reason + `provio.yaml:line` returned to the model | §7, §12 | Agent receives self-correcting refusal, never "denied by policy" |
 | Hot-reload of policy file | §7 | Edit during a run takes effect without restart; reload failure keeps last-good policy |
 | `irreversible: true` marking, `timeout` on ask | §7 | Irreversible calls excluded from automated replay; headless timeout fails closed |
 | Rego engine backend (WASM-compiled evaluator allowed) | §7, §8 | Same fixtures, same verdicts as native engine |
 | Cedar engine backend | §7 | Same fixtures, same verdicts |
-| `writ policy test` — rules vs recorded fixtures | §7 | CI-style pass/fail with per-rule diffs |
-| `writ policy add <pack>` — community packs w/ checksum verification; starter packs: `terraform-safety`, `k8s-prod`, `pii-redaction` | §7, §19 | Pack install verifies checksum; each starter pack ships with tests |
+| `provio policy test` — rules vs recorded fixtures | §7 | CI-style pass/fail with per-rule diffs |
+| `provio policy add <pack>` — community packs w/ checksum verification; starter packs: `terraform-safety`, `k8s-prod`, `pii-redaction` | §7, §19 | Pack install verifies checksum; each starter pack ships with tests |
 
 ### 3.3 Provenance Ledger (the differentiator)
 | Feature | Spec | Acceptance |
 |---|---|---|
-| Append-only hash-chained records: call, args, caller identity, session, verdict, rule, approver, backend, exit status, I/O hashes, prev-hash | §9 | `writ verify` reports exact break index on a tampered fixture |
+| Append-only hash-chained records: call, args, caller identity, session, verdict, rule, approver, backend, exit status, I/O hashes, prev-hash | §9 | `provio verify` reports exact break index on a tampered fixture |
 | SQLite WAL (workstation) **and** Postgres + object storage (cluster) | §9, §14 | Same record format both stores; cluster backend passes same verify suite |
-| Local-first, **no content capture by default** (hashes + metadata only), **zero product telemetry (absent, not opt-out)** | §9, §20 | Network trace of a full run shows no Writ-originated egress; content only appears when explicitly enabled |
-| `writ log`, `writ show <call-id>` | §2, §9 | Human-readable session answers "what did my agent do last night" |
-| `writ report` — shareable single-file HTML run summary | §9 | Opens offline, self-contained, screenshot-worthy |
-| Sigstore keyless signed run receipts | §9 | `writ verify --receipt` validates a CI run's signature offline |
+| Local-first, **no content capture by default** (hashes + metadata only), **zero product telemetry (absent, not opt-out)** | §9, §20 | Network trace of a full run shows no Provio-originated egress; content only appears when explicitly enabled |
+| `provio log`, `provio show <call-id>` | §2, §9 | Human-readable session answers "what did my agent do last night" |
+| `provio report` — shareable single-file HTML run summary | §9 | Opens offline, self-contained, screenshot-worthy |
+| Sigstore keyless signed run receipts | §9 | `provio verify --receipt` validates a CI run's signature offline |
 | External anchor: push signed receipt to transparency log / periodic export to append-only storage | §9 | Anchor configured → tamper-*proof* path demonstrated; docs state tamper-evident vs tamper-proof distinction verbatim |
 
 ### 3.4 Sandbox Delegation
@@ -85,7 +85,7 @@ Union of spec v0.1–v0.4 scope. Each item carries the spec section it comes fro
 | Feature | Spec | Acceptance |
 |---|---|---|
 | Deterministic replay of recorded I/O + cached model provider | §10 | Re-run produces identical trajectory, zero side effects |
-| Policy replay: candidate `writ.yaml` vs last N runs — "would have blocked 3 calls" | §10 | Output diff of verdict changes; **this is the platform-team trust feature** |
+| Policy replay: candidate `provio.yaml` vs last N runs — "would have blocked 3 calls" | §10 | Output diff of verdict changes; **this is the platform-team trust feature** |
 | Guarded branching: re-branch from step N; irreversible steps refused by default, explicit ack flag to override | §10 | Default posture is refusal; ack is logged to the ledger |
 
 ### 3.6 TUI & DX
@@ -107,23 +107,23 @@ Context engine/pruning; bespoke telemetry schema; WASM tool-execution driver (st
 
 ### 4.1 Repository layout (spec §18, finalized)
 ```
-writ/
+provio/
 ├── crates/
-│   ├── writ-core/        interception → decision → dispatch pipeline (orchestrates traits below)
-│   ├── writ-policy/      PolicyEngine trait + native DSL parser/evaluator + decision IR
-│   ├── writ-policy-rego/ Rego backend (WASM evaluator)
-│   ├── writ-policy-cedar/ Cedar backend
-│   ├── writ-mcp/         MCP client/server proxy, schema discovery, credential injection
-│   ├── writ-sandbox/     SandboxBackend trait + local-os adapter (per-OS modules)
-│   ├── writ-sandbox-docker/  writ-sandbox-microsandbox/  writ-sandbox-firecracker/  writ-sandbox-k8s/
-│   ├── writ-ledger/      record schema, hash chain, SQLite + Postgres stores, verify, receipts, anchors
-│   ├── writ-replay/      recorded-I/O replay, policy replay, guarded branching
-│   ├── writ-otel/        GenAI semantic-convention emitter
-│   ├── writ-tui/         approval gate, live call tree, cost meter
-│   └── writ-cli/         run · proxy · log · show · verify · replay · policy test/add · doctor · report
+│   ├── provio-core/        interception → decision → dispatch pipeline (orchestrates traits below)
+│   ├── provio-policy/      PolicyEngine trait + native DSL parser/evaluator + decision IR
+│   ├── provio-policy-rego/ Rego backend (WASM evaluator)
+│   ├── provio-policy-cedar/ Cedar backend
+│   ├── provio-mcp/         MCP client/server proxy, schema discovery, credential injection
+│   ├── provio-sandbox/     SandboxBackend trait + local-os adapter (per-OS modules)
+│   ├── provio-sandbox-docker/  provio-sandbox-microsandbox/  provio-sandbox-firecracker/  provio-sandbox-k8s/
+│   ├── provio-ledger/      record schema, hash chain, SQLite + Postgres stores, verify, receipts, anchors
+│   ├── provio-replay/      recorded-I/O replay, policy replay, guarded branching
+│   ├── provio-otel/        GenAI semantic-convention emitter
+│   ├── provio-tui/         approval gate, live call tree, cost meter
+│   └── provio-cli/         run · proxy · log · show · verify · replay · policy test/add · doctor · report
 ├── adapters/             langgraph (py) · agents-sdk (py) · claude-agent-sdk (ts) · native hooks
 ├── packs/                terraform-safety · k8s-prod · pii-redaction (+ registry format)
-├── examples/             writ.yaml per stack
+├── examples/             provio.yaml per stack
 ├── deploy/               helm/ · action/ · terraform/ · airgap/
 ├── docs/                 THREAT_MODEL.md · SECURITY.md · policy-reference.md · INTERFACES.md · ADRs
 └── .github/              CI matrix · scorecard · cosign · release
@@ -133,15 +133,15 @@ writ/
 These are the only cross-agent coordination surface. Each lives in `docs/INTERFACES.md` **and** as Rust traits/schemas in code.
 
 1. **`ToolCall` envelope** (interceptors → core): `call_id, session_id, caller_identity, mode (mcp|wrap|sdk), tool, args (JSON), server_identity?, trust_verdict?, captured_at`. Blind-spot metadata included so `doctor` can report coverage.
-2. **`PolicyEngine` trait + decision IR**: `load(policy_bytes) → CompiledPolicy`; `evaluate(&ToolCallContext) → Verdict`. `Verdict = Allow | Deny{rule_id, reason, location} | Ask{rule_id, diff, timeout, irreversible} | Redact{patterns}`. All three engines must produce identical verdicts on the shared fixture corpus (`crates/writ-policy/fixtures/`).
-3. **`LedgerRecord` schema v1** (versioned, additive-only forever): fields per §9 + `schema_version`, `prev_hash`, `record_hash`. Golden fixtures committed; `writ verify` must validate v1 records for the life of the project.
+2. **`PolicyEngine` trait + decision IR**: `load(policy_bytes) → CompiledPolicy`; `evaluate(&ToolCallContext) → Verdict`. `Verdict = Allow | Deny{rule_id, reason, location} | Ask{rule_id, diff, timeout, irreversible} | Redact{patterns}`. All three engines must produce identical verdicts on the shared fixture corpus (`crates/provio-policy/fixtures/`).
+3. **`LedgerRecord` schema v1** (versioned, additive-only forever): fields per §9 + `schema_version`, `prev_hash`, `record_hash`. Golden fixtures committed; `provio verify` must validate v1 records for the life of the project.
 4. **`SandboxBackend` trait**: `prepare(spec) → Handle`; `exec(handle, ApprovedCall) → Execution`; `collect(handle) → Outputs{stdout, stderr, files, exit}`; `teardown(handle)`. Latency instrumentation hooks included from the start (for the published benchmark suite).
 5. **`Approver` trait** (ask-verdict plumbing): TUI approver (workstation), out-of-band approver (CI webhook), RBAC-checked approver (cluster). Headless timeout → fail closed, always recorded with approver identity.
 
-### 4.3 Data-flow invariants (enforced by writ-core, tested by QA agent)
+### 4.3 Data-flow invariants (enforced by provio-core, tested by QA agent)
 - Every intercepted call produces **exactly one** ledger record, including denials and redactions (redactions record a hash of the original, §7).
 - No call reaches a sandbox backend without an `Allow` (or human-approved `Ask`) verdict.
-- Credential material exists only inside writ-mcp's injection path; it is never serializable into a `ToolCall` or ledger record (compile-time `secrecy::SecretString`-style types, reviewed by security agent).
+- Credential material exists only inside provio-mcp's injection path; it is never serializable into a `ToolCall` or ledger record (compile-time `secrecy::SecretString`-style types, reviewed by security agent).
 - Policy hot-reload is atomic: a parse failure keeps the last-good compiled policy and logs the error with file:line.
 
 ## 5. Multi-Agent / Multi-Model Orchestration
@@ -158,17 +158,17 @@ These are the only cross-agent coordination surface. Each lives in `docs/INTERFA
 |---|---|---|---|
 | **A0 Architect/Orchestrator** | INTERFACES.md, ADRs, workspace scaffold, cross-agent review, merge arbitration | T1 | Contract mistakes compound across every agent |
 | **A1 Policy-Native** | DSL parser/evaluator, verdict IR, hot-reload, `policy test` | T1 (parser+semantics) | Parser of untrusted input on the security path; fail-closed semantics must be exact |
-| **A2 Policy-Rego/Cedar** | writ-policy-rego, writ-policy-cedar | T2 | Well-bounded adapter work against the frozen IR; WASM-Rego compile step escalates to T1 if blocked |
-| **A3 Ledger** | writ-ledger: schema, hash chain, SQLite+Postgres, verify, receipts, anchors | T1 | Evidentiary correctness is the product's core promise |
-| **A4 MCP Proxy** | writ-mcp: stdio/SSE/HTTP, discovery, credential injection, scanner-verdict input | T1 | Protocol correctness + credential handling on the security path |
+| **A2 Policy-Rego/Cedar** | provio-policy-rego, provio-policy-cedar | T2 | Well-bounded adapter work against the frozen IR; WASM-Rego compile step escalates to T1 if blocked |
+| **A3 Ledger** | provio-ledger: schema, hash chain, SQLite+Postgres, verify, receipts, anchors | T1 | Evidentiary correctness is the product's core promise |
+| **A4 MCP Proxy** | provio-mcp: stdio/SSE/HTTP, discovery, credential injection, scanner-verdict input | T1 | Protocol correctness + credential handling on the security path |
 | **A5 Sandbox-Linux** | Landlock + seccomp adapter | T1 | Kernel security boundary; unsafe-adjacent |
 | **A6 Sandbox-macOS** | Seatbelt adapter | T1 | Same |
 | **A7 Sandbox-Windows** | Restricted tokens + job objects | T1 | Same; historically the leakiest platform |
 | **A8 Sandbox-Backends** | docker, microsandbox, firecracker/e2b, k8s adapters + benchmark suite | T2 | Trait-driven integration of existing SDKs |
 | **A9 TUI** | Approval gate, call tree, cost meter, §16 demo screen | T2 | Craft-heavy UX but no security boundary |
-| **A10 Replay** | writ-replay: I/O replay, policy replay, guarded branching | T2 | Deterministic logic against frozen ledger schema |
-| **A11 Observability** | writ-otel GenAI emitter, opt-in PII masking | T3→T2 | Convention-following; pin spec version, map fields |
-| **A12 CLI/Doctor/Report** | writ-cli verbs, coverage report, HTML report | T2 (report) / T3 (verb plumbing) | Mostly wiring to frozen traits |
+| **A10 Replay** | provio-replay: I/O replay, policy replay, guarded branching | T2 | Deterministic logic against frozen ledger schema |
+| **A11 Observability** | provio-otel GenAI emitter, opt-in PII masking | T3→T2 | Convention-following; pin spec version, map fields |
+| **A12 CLI/Doctor/Report** | provio-cli verbs, coverage report, HTML report | T2 (report) / T3 (verb plumbing) | Mostly wiring to frozen traits |
 | **A13 Enterprise** | Helm, sidecar/gateway, SSO/SCIM/RBAC, SIEM export, Vault/KMS, air-gap | T2 (impl) + T1 (RBAC/SSO design review) | Authz design review is T1; the rest is integration |
 | **A14 DevOps/Supply-chain** | CI matrix, release, cosign, SBOM, scorecard, brew/npx/curl distribution | T3 | Config plumbing; escalates signing-key design to T1 |
 | **A15 Docs/Packs/Examples** | README (spec §18 order), policy-reference, packs, examples, comparison table | T3 | Writing to a spec; hero demo copy reviewed by A0 |
@@ -176,7 +176,7 @@ These are the only cross-agent coordination surface. Each lives in `docs/INTERFA
 
 ### 5.3 Escalation & routing rules
 - A task starts at its assigned tier. **Two failed attempts → escalate one tier.** A T1 task completed cleanly may be *downgraded* for follow-up polish.
-- A0 reviews and approves every cross-crate PR touching a frozen contract; A16 reviews every PR in writ-policy, writ-ledger, writ-mcp, and all sandbox kernel adapters.
+- A0 reviews and approves every cross-crate PR touching a frozen contract; A16 reviews every PR in provio-policy, provio-ledger, provio-mcp, and all sandbox kernel adapters.
 - One agent never edits another agent's crate. Cross-crate needs go through A0 as a contract change request.
 
 ## 6. Token-Efficiency Operating Protocol
@@ -197,7 +197,7 @@ How the multi-agent program avoids wasting tokens — enforced by A0:
 > Waves overlap: a wave starts when its *contract dependencies* merge, not when the previous wave fully finishes.
 
 ### Wave 0 — Foundation (week 0). Agents: A0 (+A14 for plumbing). Tier: T1.
-- [ ] Reserve names: GitHub org, crates.io `writ`, npm `writ`, writ.dev/writ.sh, trademark search (spec §2) — **day 1, before code**
+- [ ] Reserve names: GitHub org, crates.io `provio`, npm `provio`, provio.dev/provio.sh, trademark search (spec §2) — **day 1, before code**
 - [ ] Cargo workspace scaffold, crate skeletons, `cargo deny`/`audit`/clippy/fmt CI baseline (T3)
 - [ ] **INTERFACES.md + the five frozen contracts in code** with compile-only stub impls (T1)
 - [ ] Ledger `schema_version=1` + policy DSL grammar + ADRs 001–005 (T1)
@@ -212,16 +212,16 @@ How the multi-agent program avoids wasting tokens — enforced by A0:
 | MCP proxy (stdio first, then SSE/HTTP), schema discovery, credential injection | A4 | T1 |
 | CLI verbs: `run`, `proxy`, `log`, `show`, `verify` + `local-os` exec passthrough | A12 | T2 |
 | TUI approval gate + live call tree (the §16 screen, exact) | A9 | T2 |
-| Three starter rules + example writ.yaml files | A15 | T3 |
+| Three starter rules + example provio.yaml files | A15 | T3 |
 
 ### Wave 2 — Coverage & trust (parallel). Exit: launchable product (spec §16 exit criterion achievable).
 | Task | Agent | Tier |
 |---|---|---|
 | Process wrap: Landlock+seccomp / Seatbelt / restricted tokens (three parallel tracks) | A5/A6/A7 | T1 |
-| `writ doctor` coverage/blind-spot report | A12 | T2 |
+| `provio doctor` coverage/blind-spot report | A12 | T2 |
 | docker + microsandbox backends; published benchmark harness | A8 | T2 |
 | Replay trio: I/O replay, policy replay, guarded branching | A10 | T2 |
-| OTel GenAI emitter + opt-in masking; `writ report` HTML | A11/A12 | T3/T2 |
+| OTel GenAI emitter + opt-in masking; `provio report` HTML | A11/A12 | T3/T2 |
 | `policy test`; cost/token meter | A1/A9 | T2 |
 | Cross-platform release pipeline: 6 binary targets, brew/npx/curl-sh, cosign + SBOM + scorecard | A14 | T3 |
 | README (spec §18 order, hero GIF of the approval gate), docs, comparison table | A15 | T3 |
@@ -236,7 +236,7 @@ How the multi-agent program avoids wasting tokens — enforced by A0:
 | Helm chart, sidecar/gateway, k8s agent-sandbox + firecracker/e2b backends | A13/A8 | T2 |
 | SSO (SAML/OIDC) + SCIM, RBAC, per-agent identity, SIEM/Kafka export, Vault/KMS, air-gap install | A13 | T2 + T1 design review |
 | Policy-pack registry w/ checksums; `terraform-safety`, `k8s-prod`, `pii-redaction` packs | A15 | T3 |
-| NIST AI RMF / ISO 42001 / EU AI Act evidence-pack generator (extends `writ report`) | A12 | T2 |
+| NIST AI RMF / ISO 42001 / EU AI Act evidence-pack generator (extends `provio report`) | A12 | T2 |
 
 ### Wave 4 — Hardening & launch. Exit: release candidate.
 - [ ] A16: fuzz policy parser, MCP codec, ledger import; `cargo miri` on unsafe; adversarial review of every security-path crate; e2e suite across the OS matrix and all interception modes (T1 review / T3 generation)
@@ -250,7 +250,7 @@ How the multi-agent program avoids wasting tokens — enforced by A0:
 | Gate | Applies to | Standard |
 |---|---|---|
 | Unit + golden-fixture tests | every crate | Policy engines: identical verdicts across native/Rego/Cedar on the shared corpus. Ledger: tamper fixtures must break `verify` at the reported index |
-| Coverage | writ-policy, writ-ledger, writ-mcp, sandbox kernel adapters | ≥90% line coverage on security-path crates; enforced in CI |
+| Coverage | provio-policy, provio-ledger, provio-mcp, sandbox kernel adapters | ≥90% line coverage on security-path crates; enforced in CI |
 | Fuzzing | DSL parser, MCP codec, ledger record decode, policy-file hot-reload | cargo-fuzz targets in CI (nightly cron), crashes block release |
 | Unsafe audit | any `unsafe` | Justification comment + miri run + A16 sign-off |
 | E2E matrix | interception modes × OS × sandbox backends | Real agent (Claude Code) + real MCP servers (postgres/github/filesystem) in GitHub Actions + Kind cluster |
@@ -265,7 +265,7 @@ How the multi-agent program avoids wasting tokens — enforced by A0:
 | Name/org unavailable at registration | Med | High | Wave-0 day-1 action; backup names ready (Chancery, Assay, Custos, Ferrule) |
 | OS sandbox parity gaps (Windows restricted tokens weakest) | High | High | A5–A7 start in Wave 2 with syscall-level deny tests; `doctor` reports residual blind spots honestly rather than hiding them |
 | MCP spec drift | Med | Med | Pin protocol versions; conformance suite in CI; version-negotiation tests |
-| OTel GenAI conventions still evolving | High | Low | Pin a convention version, document it (spec §13); isolate mapping in writ-otel only |
+| OTel GenAI conventions still evolving | High | Low | Pin a convention version, document it (spec §13); isolate mapping in provio-otel only |
 | Rego-in-WASM evaluator complexity | Med | Med | Frozen IR insulates the rest; fallback: subprocess `opa` eval behind the same trait, flagged in docs |
 | Ledger schema regret | Low (if Wave 0 holds) | Severe | Frozen v1 + additive-only rule + golden fixtures + verify-forever test |
 | Approval-gate fatigue UX | Med | Med | Precise diffs, `always-allow-this-rule`, `ask` kept rare by starter-rule tuning |
@@ -279,20 +279,20 @@ How the multi-agent program avoids wasting tokens — enforced by A0:
 **Per wave:** wave exit criterion met in CI, demoed live by A0, DECISIONS.md updated.
 
 **Program-level (all-at-once complete):**
-1. `npx writ run -- claude` reproduces the spec §16 screen exactly on macOS, Linux, and Windows.
-2. Same `writ.yaml` governs the same workload in workstation, CI (GitHub Action, signed receipt artifact), and cluster (Helm, Kind e2e) — the spec §3 "three together" gap, demonstrated.
-3. `writ verify` validates the ledger; a tampered copy fails at the exact index; anchored run receipt validates offline via Sigstore.
+1. `npx provio run -- claude` reproduces the spec §16 screen exactly on macOS, Linux, and Windows.
+2. Same `provio.yaml` governs the same workload in workstation, CI (GitHub Action, signed receipt artifact), and cluster (Helm, Kind e2e) — the spec §3 "three together" gap, demonstrated.
+3. `provio verify` validates the ledger; a tampered copy fails at the exact index; anchored run receipt validates offline via Sigstore.
 4. Every §20 enterprise-checklist item is either shipped or is a documented, honest exclusion.
 5. A new user goes from install to enforced policy in ≤30 seconds (spec §8 local-os goal).
 
 ## 11. Agent Kickoff Prompt Template (per task)
 
 ```
-ROLE: You are agent <A#> on the Writ project (<one-line product>).
+ROLE: You are agent <A#> on the Provio project (<one-line product>).
 CONTEXT: Read only: docs/INTERFACES.md §<relevant contracts>, docs/DECISIONS.md,
          and your owned paths: <paths>. Do not read other crates.
-TASK: <single deliverable> per WRIT_MASTER_BUILD_PLAN.md §<ref>.
-ACCEPTANCE: <exact command, e.g. cargo test -p writ-policy --all-features> must pass.
+TASK: <single deliverable> per PROVIO_MASTER_BUILD_PLAN.md §<ref>.
+ACCEPTANCE: <exact command, e.g. cargo test -p provio-policy --all-features> must pass.
 RULES: Edit only owned paths. No performance/security claims in text or comments
        (see claim-discipline list in docs/). Fail-closed on any ambiguity in
        security semantics — post a decision request, do not guess.
@@ -307,7 +307,7 @@ ESCALATION: Two failed test-fix iterations → stop and report the blocker with
 3. A14 scaffolds workspace + CI (T3) in parallel.
 4. On contract merge: launch Wave 1 agents A1/A3/A4 (T1) and A9/A12 (T2) simultaneously.
 
-*Plan generated from Writ Technical Specification v2.0. All scope decisions trace to the spec; the only deliberate deviation is the removal of market phasing, requested by the project owner, with launchability preserved via the early Wave-2 demo gate.*
+*Plan generated from Provio Technical Specification v2.0. All scope decisions trace to the spec; the only deliberate deviation is the removal of market phasing, requested by the project owner, with launchability preserved via the early Wave-2 demo gate.*
 
 
 ---

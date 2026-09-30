@@ -48,7 +48,7 @@ pack gates *writes* to those files).
 - **`sysctl` keys outside the security list** (e.g. `vm.swappiness`) and
   `usermod` options other than group membership are not gated.
 - **Obfuscation.** Base64 or otherwise encoded commands, and heredocs that
-  build these files indirectly, are not decoded by these regexes; writ's
+  build these files indirectly, are not decoded by these regexes; provio's
   script inspection and the kernel write boundary are the backstop.
 
 ## Tests

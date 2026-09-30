@@ -8,9 +8,9 @@ This directory does not yet contain a generated bundle. It defines what a future
 
 A release air-gap bundle should contain:
 
-1. Writ container images for gateway and sidecar, exported as OCI archives.
+1. Provio container images for gateway and sidecar, exported as OCI archives.
 2. Helm chart under `deploy/helm` plus pinned values examples.
-3. Static Writ binaries for supported offline platforms.
+3. Static Provio binaries for supported offline platforms.
 4. Policy packs and checksums.
 5. Database migration files for the Postgres ledger backend once Wave 3 storage lands.
 6. Documentation: threat model, policy reference, enterprise deployment notes, and offline upgrade/rollback steps.
@@ -22,7 +22,7 @@ A release air-gap bundle should contain:
 - Verify archive checksums before import.
 - Verify image digests after loading into the private registry.
 - Verify SBOM/signature material against the organization-approved offline trust root.
-- Run `writ verify` against sample and migrated ledgers before enabling production approvals.
+- Run `provio verify` against sample and migrated ledgers before enabling production approvals.
 
 ## Honest exclusions in this scaffold
 

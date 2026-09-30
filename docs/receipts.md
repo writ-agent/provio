@@ -1,8 +1,8 @@
 # Receipts and anchoring
 
-`writ verify` makes the ledger **tamper-evident**: an edited record or a
+`provio verify` makes the ledger **tamper-evident**: an edited record or a
 broken link is caught and named by index. It cannot catch a rewrite. Anyone
-who can write `.writ/ledger.jsonl` can edit a record and recompute every hash
+who can write `.provio/ledger.jsonl` can edit a record and recompute every hash
 after it, or delete the file, and the new chain verifies.
 
 Receipts and anchors close part of that gap:
@@ -20,12 +20,12 @@ Receipts and anchors close part of that gap:
   append-only file you copy somewhere the ledger host cannot rewrite.
 
 ```sh
-writ receipt keygen --out ~/.config/writ/receipt.key     # + receipt.key.pub
-writ receipt create --key ~/.config/writ/receipt.key --out r.json [--session S]
-writ receipt anchor r.json --to rekor                    # or: --to file [--anchor-log PATH]
-writ receipt verify r.json --pubkey ~/.config/writ/receipt.key.pub
-writ receipt prove <call-id> --receipt r.json --out p.json
-writ receipt verify p.json --pubkey receipt.key.pub      # no ledger needed
+provio receipt keygen --out ~/.config/provio/receipt.key     # + receipt.key.pub
+provio receipt create --key ~/.config/provio/receipt.key --out r.json [--session S]
+provio receipt anchor r.json --to rekor                    # or: --to file [--anchor-log PATH]
+provio receipt verify r.json --pubkey ~/.config/provio/receipt.key.pub
+provio receipt prove <call-id> --receipt r.json --out p.json
+provio receipt verify p.json --pubkey receipt.key.pub      # no ledger needed
 ```
 
 `verify` prints one line per check and exits **0** when every check passes,
@@ -36,10 +36,10 @@ writ receipt verify p.json --pubkey receipt.key.pub      # no ledger needed
 
 ---
 
-## Contract 7 — Receipts (`writ_receipts`)
+## Contract 7 — Receipts (`provio_receipts`)
 
 Versioned by the `format` string of each file. A new version gets a new
-`format` value and a new canonical context string; `writ receipt verify` keeps
+`format` value and a new canonical context string; `provio receipt verify` keeps
 reading every earlier version.
 
 ### 7.1 Receipt file: `writ.receipt/v1`
@@ -114,14 +114,14 @@ on). A receipt that fails validation is rejected rather than normalized, so
 each checkpoint has exactly one canonical encoding.
 
 **Domain separation.** The first line, `writ.receipt.checkpoint.v1`, is the
-context string. No other writ object starts with it, so a signature over a
+context string. No other provio object starts with it, so a signature over a
 checkpoint can't be replayed as a signature over anything else, and v2 will
 use a different line.
 
 **Signature.** Ed25519ph as defined in RFC 8032 §5.1: the message is
 pre-hashed with SHA-512, and the RFC 8032 context is empty (`dom2(1, "")`).
 Verification uses the strict variant (`verify_prehashed_strict`: it rejects
-small-order keys and non-canonical signatures). writ uses Ed25519ph rather
+small-order keys and non-canonical signatures). provio uses Ed25519ph rather
 than plain Ed25519 because Rekor's `hashedrekord` type accepts Ed25519 keys
 only as Ed25519ph over a SHA-512 digest. The signature in the receipt can
 therefore be submitted to Rekor unchanged, and anchoring does not need the
@@ -130,7 +130,7 @@ why domain separation lives in the message's first line.
 
 ### 7.3 Keys
 
-- `writ receipt keygen --out K [--force]` draws a 32-byte seed from the OS
+- `provio receipt keygen --out K [--force]` draws a 32-byte seed from the OS
   CSPRNG (`getrandom`) and writes:
   - `K`: the private key, PKCS#8 v2 PEM (`-----BEGIN PRIVATE KEY-----`,
     RFC 8410).
@@ -167,7 +167,7 @@ real Rekor inclusion proofs.
 
 ### 7.5 Verification
 
-`writ receipt verify R [--pubkey P] [--rekor-pubkey L] [--anchor-log F]`:
+`provio receipt verify R [--pubkey P] [--rekor-pubkey L] [--anchor-log F]`:
 
 1. **Signature.** Parse the file, validate the checkpoint, and check the
    Ed25519ph signature. With `--pubkey`, the receipt must be signed by that
@@ -178,7 +178,7 @@ real Rekor inclusion proofs.
 2. **Checkpoint.** Stream the ledger at `--ledger`. A JSONL ledger is read
    line by line without creating, locking or repairing it; a torn final line
    (a write in progress) ends the stream, as it does in the store. Other
-   stores (SQLite, …) are read through `writ_ledger::open_store`. For each record
+   stores (SQLite, …) are read through `provio_ledger::open_store`. For each record
    `i` in `0..=tip_index`:
    - The record must parse.
    - Its `index` field must be `i`.
@@ -200,7 +200,7 @@ real Rekor inclusion proofs.
 3. **After the checkpoint.** Appended records are counted and allowed. If a
    record after the tip does not continue the chain, verify fails with
    `the checkpoint holds, but record N (after it) does not continue the chain;
-   run writ verify`. The receipt's own claim still stands, but the ledger does
+   run provio verify`. The receipt's own claim still stands, but the ledger does
    not.
 4. **Anchors.** Each anchor is verified as in §7.6. A Rekor anchor for a log
    with no pinned key and no `--rekor-pubkey` fails; it is not skipped.
@@ -209,7 +209,7 @@ Exit 0 only if every check passed.
 
 ### 7.6 Anchors
 
-#### Rekor (`writ receipt anchor R --to rekor [--url U] [--rekor-pubkey L]`)
+#### Rekor (`provio receipt anchor R --to rekor [--url U] [--rekor-pubkey L]`)
 
 This was checked against the Rekor OpenAPI spec and the `hashedrekord` v0.0.1
 schema, and tested live against `rekor.sigstore.dev` on 2026-09-23. See
@@ -269,15 +269,15 @@ Offline verification against the log key:
    its final newline.
 
 **Log key.** The production key for `rekor.sigstore.dev` is **pinned** in
-`writ_receipts::rekor::PINNED_PUBLIC_KEY_PEM`. Its log ID is
+`provio_receipts::rekor::PINNED_PUBLIC_KEY_PEM`. Its log ID is
 `c0d23d6a…9591801d`. It is the key served at
 `https://rekor.sigstore.dev/api/v1/log/publicKey` and distributed in the
 Sigstore TUF root. Verify never contacts the network. For any other URL, pass
 `--rekor-pubkey L` to both anchor and verify. If you don't, anchor fetches
 `/api/v1/log/publicKey` once, with a warning, only to sanity-check the
-response. verify then refuses the anchor until you supply the key. writ does
+response. verify then refuses the anchor until you supply the key. provio does
 not follow Sigstore TUF key rotation. If the public instance rotates its key,
-the pin must be updated in a writ release.
+the pin must be updated in a provio release.
 
 What an anchor proves: an entry committing to this exact checkpoint and
 signature was in a public, append-only, monitored log at `integrated_time`.
@@ -289,7 +289,7 @@ Privacy: the entry publishes the checkpoint's SHA-512 digest, the signature
 and your public key. No ledger content, call arguments, session ids or hashes
 of records are sent. The key does link your anchors to each other.
 
-#### File (`writ receipt anchor R --to file [--anchor-log F]`)
+#### File (`provio receipt anchor R --to file [--anchor-log F]`)
 
 This appends one JSON line to `F` and fsyncs it. The default `F` is
 `anchors.log` next to the ledger. The line looks like this:
@@ -312,7 +312,7 @@ administrator. At that point verify it with `--anchor-log <that copy>`.
 
 ### 7.7 Inclusion proof file: `writ.inclusion-proof/v1`
 
-`writ receipt prove <call-id> --receipt R [--out P]` first checks that the
+`provio receipt prove <call-id> --receipt R [--out P]` first checks that the
 ledger still matches R (§7.5 step 2). It then writes:
 
 ```json
@@ -322,7 +322,7 @@ ledger still matches R (§7.5 step 2). It then writes:
 ```
 
 There is one entry per covered record of that call, normally its decision
-and its execution. `writ receipt verify P --pubkey K`:
+and its execution. `provio receipt verify P --pubkey K`:
 
 - checks the embedded receipt's signature and anchors;
 - for each entry, recomputes `record_hash` from the record's contents, then
@@ -339,7 +339,7 @@ the receipt's tip is not covered; create a new receipt first.
 
 What each layer adds:
 
-| Attacker action | Hash chain only (`writ verify`) | + receipt, public key held elsewhere | + anchor |
+| Attacker action | Hash chain only (`provio verify`) | + receipt, public key held elsewhere | + anchor |
 |---|---|---|---|
 | Edit one record, leave the hashes | Detected, index named | Detected, index named | — |
 | Edit, then recompute the chain after it | **Not detected** | Detected: `rewritten at or before record N` | — |
@@ -374,20 +374,20 @@ What receipts and anchoring **do not** do:
   someone keeps them. An anchor proves a receipt existed, and the Rekor body
   is enough to recognise it, but it cannot rebuild the ledger.
 - **Rekor's trust assumptions.** An anchor is as trustworthy as the log and
-  the pinned key. The public-good instance is monitored, but writ does not
+  the pinned key. The public-good instance is monitored, but provio does not
   itself check consistency between checkpoints (split-view detection); that is
   left to Sigstore's monitors.
 - **Local clocks.** `created_at` and file-anchor `anchored_at` are the local
   clock. Only a Rekor `integrated_time` is independent.
 - **Correctness of the recorded decisions.** A receipt certifies that the
   records are unchanged, not that the policy was right or that every tool call
-  went through writ (see THREAT_MODEL.md, "Agent bypasses Writ entirely").
+  went through provio (see THREAT_MODEL.md, "Agent bypasses Provio entirely").
 
 ## 9. Key management
 
 - Keep the private key **off the host whose ledger it signs**, if you can.
   Best is a CI job or a separate machine that pulls the ledger, runs
-  `writ receipt create` and `anchor`, and keeps the receipts. A key on the
+  `provio receipt create` and `anchor`, and keeps the receipts. A key on the
   same host is only as safe as that host.
 - The private key file is unencrypted PKCS#8. Protect it with file
   permissions (set by keygen), full-disk encryption, or a secrets manager. Do

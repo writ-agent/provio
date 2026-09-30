@@ -8,9 +8,9 @@ never in support or help channels, and never DM maintainers. Each intro is
 the attack demo.
 
 Links used below:
-- Repo: https://github.com/writ-agent/writ
-- Demo: https://github.com/writ-agent/writ/tree/main/examples/attack-demo
-- Playground: https://writ-omega.vercel.app/playground.html
+- Repo: https://github.com/writ-agent/provio
+- Demo: https://github.com/writ-agent/provio/tree/main/examples/attack-demo
+- Playground: https://provio.vercel.app/playground.html
 
 ---
 
@@ -30,13 +30,13 @@ Links used below:
   question, for example how proxies should report policy denials to clients.
 
 **Intro:**
-> writ is an open-source MCP proxy (stdio or Streamable HTTP) that checks
-> every `tools/call` against a `writ.yaml` policy (allow, deny, ask, or
+> provio is an open-source MCP proxy (stdio or Streamable HTTP) that checks
+> every `tools/call` against a `provio.yaml` policy (allow, deny, ask, or
 > redact the result) before forwarding it, and records each decision in a
-> hash-chained ledger. Over HTTP, writ injects the upstream credentials
+> hash-chained ledger. Over HTTP, provio injects the upstream credentials
 > itself and doesn't forward the agent's own `Authorization` header unless
 > told to. It's honest about its limits: a proxy can't see the agent's own
-> shell, and `writ doctor` says so.
+> shell, and `provio doctor` says so.
 
 ## Claude Code
 
@@ -44,12 +44,12 @@ Links used below:
 project-sharing channel. r/ClaudeAI is covered in `reddit.md`.
 
 **Intro:**
-> writ plugs into Claude Code's PreToolUse/PostToolUse hooks with one
-> command (`writ integrate claude-code`). Every tool call is checked against
-> a `writ.yaml` in your repo, a writ `ask` becomes Claude Code's own
+> provio plugs into Claude Code's PreToolUse/PostToolUse hooks with one
+> command (`provio integrate claude-code`). Every tool call is checked against
+> a `provio.yaml` in your repo, a provio `ask` becomes Claude Code's own
 > permission prompt, and everything lands in a ledger you can
-> `writ verify`. There's an offline demo where an injected README tries to
-> exfiltrate an SSH key, with scripted tool calls and real writ output.
+> `provio verify`. There's an offline demo where an injected README tries to
+> exfiltrate an SSH key, with scripted tool calls and real provio output.
 
 ## LangGraph / LangChain
 
@@ -57,11 +57,11 @@ project-sharing channel. r/ClaudeAI is covered in `reddit.md`.
 **"Talking Shop"**. The LangGraph repo has no GitHub Discussions.
 
 **Intro:**
-> writ-sdk wraps a LangGraph `ToolNode` (`writ_tool_node(tools, writ)`) so
-> every tool call is checked against a `writ.yaml` policy before it runs:
+> provio-sdk wraps a LangGraph `ToolNode` (`provio_tool_node(tools, provio)`) so
+> every tool call is checked against a `provio.yaml` policy before it runs:
 > allow, deny (the model gets the rule and reason back as the tool result),
 > ask a human, or redact the output. Each decision goes to a hash-chained
-> ledger, and `writ replay --candidate` shows what a new policy would have
+> ledger, and `provio replay --candidate` shows what a new policy would have
 > done to a past run. I'd like feedback on how this fits with interrupts
 > for human-in-the-loop.
 
@@ -72,7 +72,7 @@ category **"Community"** (the showcase area; confirm the subcategory). The
 `openai/openai-agents-python` repo has no Discussions.
 
 **Intro:**
-> `writ_sdk.openai_agents.guard_agent(agent, writ)` puts a policy check in
+> `provio_sdk.openai_agents.guard_agent(agent, provio)` puts a policy check in
 > front of every function tool an Agents SDK agent calls: allow, deny with a
 > reason the model can act on, ask a human, or redact. Decisions are recorded
 > in a local hash-chained ledger, with no hosted service and no telemetry.
@@ -84,10 +84,10 @@ category **"Community"** (the showcase area; confirm the subcategory). The
 tell"**, plus the **"Codex"** category on community.openai.com.
 
 **Intro:**
-> writ integrates with Codex CLI's hooks (`writ integrate codex` writes
+> provio integrates with Codex CLI's hooks (`provio integrate codex` writes
 > `.codex/config.toml` and keeps your comments). Each tool call is checked
-> against a `writ.yaml` policy and recorded in a hash-chained ledger. Codex
-> has no ask prompt, so a writ `ask` fails closed; `writ run -- codex` also
+> against a `provio.yaml` policy and recorded in a hash-chained ledger. Codex
+> has no ask prompt, so a provio `ask` fails closed; `provio run -- codex` also
 > launches it inside an OS write boundary.
 
 ## Gemini CLI
@@ -96,9 +96,9 @@ tell"**, plus the **"Codex"** category on community.openai.com.
 **"Show and tell"**.
 
 **Intro:**
-> writ hooks into Gemini CLI's BeforeTool/AfterTool events
-> (`writ integrate gemini`), so every tool call is checked against a
-> `writ.yaml` policy: deny with a reason, a writ `ask` shown as Gemini's own
+> provio hooks into Gemini CLI's BeforeTool/AfterTool events
+> (`provio integrate gemini`), so every tool call is checked against a
+> `provio.yaml` policy: deny with a reason, a provio `ask` shown as Gemini's own
 > confirmation, or redacted output. Each decision is written to a
 > hash-chained ledger you can verify later.
 
@@ -108,11 +108,11 @@ tell"**, plus the **"Codex"** category on community.openai.com.
 **"Showcase"**.
 
 **Intro:**
-> writ adds a policy check to Cursor's agent hooks (`writ integrate cursor`
+> provio adds a policy check to Cursor's agent hooks (`provio integrate cursor`
 > writes `.cursor/hooks.json` with `failClosed: true`). Tool calls and MCP
 > calls are allowed, denied or sent to Cursor's own prompt according to a
-> `writ.yaml` in the repo, and recorded in a hash-chained ledger. Cursor also
-> runs Claude Code hooks from `.claude/settings.json`; writ detects Cursor
+> `provio.yaml` in the repo, and recorded in a hash-chained ledger. Cursor also
+> runs Claude Code hooks from `.claude/settings.json`; provio detects Cursor
 > payloads there and tells you which integration to use.
 
 ## Windsurf
@@ -121,9 +121,9 @@ tell"**, plus the **"Codex"** category on community.openai.com.
 current). This one is lower priority.
 
 **Intro:**
-> `writ integrate windsurf` adds a policy check to Windsurf's run_command,
+> `provio integrate windsurf` adds a policy check to Windsurf's run_command,
 > read/write and MCP hooks, recording every decision in a hash-chained
-> ledger. Windsurf's hooks have no prompt or output-rewrite path, so a writ
+> ledger. Windsurf's hooks have no prompt or output-rewrite path, so a provio
 > `ask` or `redact` is denied. The integration doc lists the residual risks.
 
 ---

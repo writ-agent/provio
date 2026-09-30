@@ -1,7 +1,7 @@
 id: secrets-guard
 version: 0.1.0
 description: Keep credential material out of the agent - deny reads of key, token and cloud-credential files, credential-store and env-dump commands, and egress of secret files; mask common token formats in read results.
-# Two sections. Merge the DENY section near the TOP of writ.yaml (before any
+# Two sections. Merge the DENY section near the TOP of provio.yaml (before any
 # rule that could allow a read), and the REDACT section at the very END:
 # `redact` means "run the call, then mask the result", so a redact rule also
 # lets every matching call through without a prompt. See README.md.
@@ -86,7 +86,7 @@ rules:
     reason: "Dumping the environment (or printing a secret-named variable) copies API keys and tokens into the model's context. Read the specific non-secret variable you need, e.g. `echo $PATH`."
 
   # -------------------------------------------------------------- REDACT ---
-  # Merge these at the END of writ.yaml. They let the matched calls run and
+  # Merge these at the END of provio.yaml. They let the matched calls run and
   # mask token-shaped strings in the result before the model sees it.
   - id: secrets-redact-file-reads
     when: tool == "fs.read"

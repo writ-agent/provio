@@ -1,0 +1,17 @@
+# Redact-verdict fixture with its own inline policy (examples/provio.yaml has
+# no redact rule). The harness compiles `policy` per fixture when present.
+
+- name: regex redact masks secrets in results
+  policy: |
+    version: 1
+    default: allow
+    rules:
+      - id: redact-api-keys
+        when: tool == "http" and query matches "(?i)api.?key|token"
+        verdict: redact
+        reason: "Mask credentials before the result re-enters the model context."
+        patterns: ["sk-[A-Za-z0-9]+", "(?i)password=\\S+"]
+  ctx:
+    tool: http
+    query: "fetch the API key status"
+  expect: { verdict: redact, rule_id: redact-api-keys }

@@ -1,0 +1,54 @@
+[package]
+name = "provio-sandbox"
+description = "SandboxBackend trait adapters: local-os and external backends."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+provio-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+# Linux kernel enforcement (spec §6B). Target-gated so Windows/macOS builds
+# never compile (or vendor) these; all three are pure-Rust (no C toolchain,
+# no raw-dylib import libs — ADR-006/007 constraints do not apply to them).
+# landlock: Landlock ABI wrappers (MIT OR Apache-2.0).
+# seccompiler: BPF filter builder from rust-vmm (Apache-2.0 OR BSD-3-Clause).
+# libc: syscall numbers and AF_* constants for the seccomp filter.
+[target.'cfg(target_os = "linux")'.dependencies]
+landlock = "0.4.7"
+seccompiler = "0.5"
+libc = "0.2"
+
+# macOS: killpg for timed-out process groups (Seatbelt itself is declared
+# extern "C" in src/macos.rs; libSystem is linked by default).
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+
+# Windows kernel enforcement (spec §6B) via raw Win32 bindings: AppContainer
+# token + Job Object (batch backend); Low integrity token + mandatory labels +
+# Job Object for interactive runs (Console: std handles, Ctrl-C handling). windows-sys 0.61 links through windows-link
+# (raw-dylib), which the MSVC toolchain builds; the version matches the one
+# already in the lock graph. Features are the minimum the adapter calls.
+[target.'cfg(windows)'.dependencies.windows-sys]
+version = "0.61"
+features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Security_Isolation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_System_Console",
+    "Win32_System_JobObjects",
+    "Win32_System_Pipes",
+    "Win32_System_Services",
+    "Win32_System_Threading",
+]
+
+# Tests issue raw syscalls (io_uring_setup) to prove the seccomp filter.
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+libc = "0.2"

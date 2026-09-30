@@ -22,9 +22,9 @@ infrastructure.
 ## Use it
 
 ```bash
-writ policy add terraform-safety   # bundled with writ (a local ./packs/<id> wins); prints the sha256
+provio policy add terraform-safety   # bundled with provio (a local ./packs/<id> wins); prints the sha256
 ```
 
-Paste the `rules:` entries into your `writ.yaml`, then `writ policy test
---policy writ.yaml --fixtures packs/terraform-safety/fixtures`. Fixtures:
+Paste the `rules:` entries into your `provio.yaml`, then `provio policy test
+--policy provio.yaml --fixtures packs/terraform-safety/fixtures`. Fixtures:
 `fixtures/terraform-safety.yaml` (6 cases).

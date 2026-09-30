@@ -1,4 +1,4 @@
-# writ.yaml for CI — headless posture (spec §14, Phase 2).
+# provio.yaml for CI — headless posture (spec §14, Phase 2).
 # No human at the keyboard: `ask` fails closed on timeout or routes to an
 # out-of-band approver. Content capture stays off; the ledger + signed run
 # receipt are the audit artifact.

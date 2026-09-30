@@ -15,8 +15,8 @@ import type {
   SyncHookJSONOutput,
 } from "@anthropic-ai/claude-agent-sdk";
 
-import { createWritIntegration, mapClaudeTool, mergeHooks, writHooks } from "../src/claude-agent-sdk.js";
-import { WritClient } from "../src/index.js";
+import { createProvioIntegration, mapClaudeTool, mergeHooks, provioHooks } from "../src/claude-agent-sdk.js";
+import { ProvioClient } from "../src/index.js";
 import { fakeClient, tempDir } from "./helpers.js";
 
 const base = { session_id: "sess-1", transcript_path: "/tmp/t.jsonl", cwd: "/work" };
@@ -46,7 +46,7 @@ function updatedOutput(out: HookJSONOutput): unknown {
 const canUseOpts = (toolUseID: string) => ({ signal: new AbortController().signal, toolUseID, requestId: "req-1" });
 
 describe("mapClaudeTool", () => {
-  it("maps Claude Code tools to writ's vocabulary", () => {
+  it("maps Claude Code tools to provio's vocabulary", () => {
     assert.deepEqual(mapClaudeTool("Bash", { command: "ls -la", description: "list" }), {
       tool: "bash",
       args: { command: "ls -la", description: "list" },
@@ -77,20 +77,20 @@ describe("mapClaudeTool", () => {
 describe("Claude Agent SDK hooks", () => {
   it("fits the SDK's Options type", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client });
+    const integ = createProvioIntegration({ client: h.client });
     const options: Options = { hooks: mergeHooks(integ.hooks, { Stop: [{ hooks: [async () => ({})] }] }), canUseTool: integ.canUseTool };
     assert.equal(options.hooks?.PreToolUse?.length, 1);
     assert.equal(options.hooks?.Stop?.length, 1);
-    assert.equal(writHooks({ client: h.client, matcher: "Bash", hookTimeoutSec: 30 }).PreToolUse?.[0]?.matcher, "Bash");
+    assert.equal(provioHooks({ client: h.client, matcher: "Bash", hookTimeoutSec: 30 }).PreToolUse?.[0]?.matcher, "Bash");
     await h.client.close();
   });
 
   it("PreToolUse allow -> permissionDecision allow; PostToolUse records", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client });
+    const integ = createProvioIntegration({ client: h.client });
     try {
       const out = await integ.preToolUse(pre("Bash", { command: "ls" }), "toolu_1", signal());
-      assert.deepEqual(permission(out), { decision: "allow", reason: "writ: allowed by rule 'allow-all'" });
+      assert.deepEqual(permission(out), { decision: "allow", reason: "provio: allowed by rule 'allow-all'" });
       const after = await integ.postToolUse(post("Bash", { command: "ls" }, { stdout: "a", stderr: "" }), "toolu_1", signal());
       assert.deepEqual(after, {});
     } finally {
@@ -105,7 +105,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("subagent calls carry agent_id as non_human_id", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client, caller: { agent: "my-app", agent_version: "2" } });
+    const integ = createProvioIntegration({ client: h.client, caller: { agent: "my-app", agent_version: "2" } });
     try {
       await integ.preToolUse({ ...pre("Read", { file_path: "a" }), agent_id: "sub-1" }, "toolu_1", signal());
     } finally {
@@ -117,7 +117,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("PostToolUse output is the JSON of the SDK tool_response", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client });
+    const integ = createProvioIntegration({ client: h.client });
     try {
       await integ.preToolUse(pre("Bash", { command: "ls" }), "toolu_1", signal());
       await integ.postToolUse(post("Bash", { command: "ls" }, { stdout: "a", stderr: "" }), "toolu_1", signal());
@@ -129,7 +129,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("onAllow: passthrough leaves the SDK's own permission flow in charge", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client, onAllow: "passthrough" });
+    const integ = createProvioIntegration({ client: h.client, onAllow: "passthrough" });
     try {
       assert.deepEqual(await integ.preToolUse(pre("Bash", { command: "ls" }), "toolu_1", signal()), {});
     } finally {
@@ -139,11 +139,11 @@ describe("Claude Agent SDK hooks", () => {
 
   it("PreToolUse deny -> permissionDecision deny naming rule and location", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client, mapTool: () => ({ tool: "deny", args: {} }) });
+    const integ = createProvioIntegration({ client: h.client, mapTool: () => ({ tool: "deny", args: {} }) });
     try {
       const out = permission(await integ.preToolUse(pre("Bash", { command: "rm -rf /" }), "toolu_1", signal()));
       assert.equal(out.decision, "deny");
-      assert.match(out.reason ?? "", /rule 'no-rm' \(writ\.yaml:7\): Destructive command\./);
+      assert.match(out.reason ?? "", /rule 'no-rm' \(provio\.yaml:7\): Destructive command\./);
     } finally {
       await h.client.close();
     }
@@ -151,7 +151,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("ask with an inline approver -> allow after resolve(approved)", async () => {
     const h = fakeClient({ ask: "defer" });
-    const integ = createWritIntegration({ client: h.client, approver: () => true, mapTool: () => ({ tool: "ask", args: {} }) });
+    const integ = createProvioIntegration({ client: h.client, approver: () => true, mapTool: () => ({ tool: "ask", args: {} }) });
     try {
       assert.equal(permission(await integ.preToolUse(pre("Bash", { command: "deploy" }), "toolu_1", signal())).decision, "allow");
     } finally {
@@ -162,7 +162,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("ask with no approver and no canUseTool -> deny, and resolve(false) is recorded", async () => {
     const h = fakeClient({ ask: "defer" });
-    const integ = createWritIntegration({ client: h.client, mapTool: () => ({ tool: "ask", args: {} }) });
+    const integ = createProvioIntegration({ client: h.client, mapTool: () => ({ tool: "ask", args: {} }) });
     try {
       assert.equal(permission(await integ.preToolUse(pre("Bash", {}), "toolu_1", signal())).decision, "deny");
     } finally {
@@ -173,7 +173,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("ask under --ask deny -> deny", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client, approver: () => true, mapTool: () => ({ tool: "ask", args: {} }) });
+    const integ = createProvioIntegration({ client: h.client, approver: () => true, mapTool: () => ({ tool: "ask", args: {} }) });
     try {
       assert.equal(permission(await integ.preToolUse(pre("Bash", {}), "toolu_1", signal())).decision, "deny");
     } finally {
@@ -181,14 +181,14 @@ describe("Claude Agent SDK hooks", () => {
     }
   });
 
-  it("ask routed to the SDK: PreToolUse returns ask, canUseTool resolves writ", async () => {
+  it("ask routed to the SDK: PreToolUse returns ask, canUseTool resolves provio", async () => {
     const h = fakeClient({ ask: "defer" });
     const seen: string[] = [];
     const userCanUseTool: CanUseTool = async (toolName, input): Promise<PermissionResult> => {
       seen.push(toolName);
       return { behavior: "allow", updatedInput: input, updatedPermissions: [] };
     };
-    const integ = createWritIntegration({ client: h.client, canUseTool: userCanUseTool, mapTool: () => ({ tool: "ask", args: {} }) });
+    const integ = createProvioIntegration({ client: h.client, canUseTool: userCanUseTool, mapTool: () => ({ tool: "ask", args: {} }) });
     try {
       const out = permission(await integ.preToolUse(pre("Bash", { command: "deploy" }, "toolu_7"), "toolu_7", signal()));
       assert.equal(out.decision, "ask");
@@ -206,7 +206,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("ask routed to the SDK: user denies -> deny", async () => {
     const h = fakeClient({ ask: "defer" });
-    const integ = createWritIntegration({
+    const integ = createProvioIntegration({
       client: h.client,
       canUseTool: async () => ({ behavior: "deny", message: "no" }),
       mapTool: () => ({ tool: "ask", args: {} }),
@@ -223,7 +223,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("ask routed to the SDK: approval with edited input is rejected", async () => {
     const h = fakeClient({ ask: "defer" });
-    const integ = createWritIntegration({
+    const integ = createProvioIntegration({
       client: h.client,
       canUseTool: async () => ({ behavior: "allow", updatedInput: { command: "something else" } }),
       mapTool: () => ({ tool: "ask", args: {} }),
@@ -238,9 +238,9 @@ describe("Claude Agent SDK hooks", () => {
     assert.equal(h.requests("resolve")[0]?.approved, false);
   });
 
-  it("canUseTool for a call writ did not defer -> deny without a delegate", async () => {
+  it("canUseTool for a call provio did not defer -> deny without a delegate", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client });
+    const integ = createProvioIntegration({ client: h.client });
     try {
       assert.equal((await integ.canUseTool("Bash", {}, canUseOpts("toolu_x")))?.behavior, "deny");
     } finally {
@@ -250,7 +250,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("a deferred ask that runs anyway gets its output withheld", async () => {
     const h = fakeClient({ ask: "defer" });
-    const integ = createWritIntegration({ client: h.client, canUseTool: async () => ({ behavior: "allow" }), mapTool: () => ({ tool: "ask", args: {} }) });
+    const integ = createProvioIntegration({ client: h.client, canUseTool: async () => ({ behavior: "allow" }), mapTool: () => ({ tool: "ask", args: {} }) });
     try {
       await integ.preToolUse(pre("Bash", {}, "toolu_10"), "toolu_10", signal());
       const out = await integ.postToolUse(post("Bash", {}, "leaked", "toolu_10"), "toolu_10", signal());
@@ -263,7 +263,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("redact: PostToolUse replaces the tool output via updatedToolOutput", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client, mapTool: () => ({ tool: "redact", args: {} }) });
+    const integ = createProvioIntegration({ client: h.client, mapTool: () => ({ tool: "redact", args: {} }) });
     try {
       assert.equal(permission(await integ.preToolUse(pre("mcp__db__query", { sql: "select" }), "toolu_1", signal())).decision, "allow");
       const out = await integ.postToolUse(post("mcp__db__query", {}, { rows: [{ email: "a@b.io" }] }), "toolu_1", signal());
@@ -277,12 +277,12 @@ describe("Claude Agent SDK hooks", () => {
     const h = fakeClient();
     let n = 0;
     // First decide is redact; then the gateway goes away before complete.
-    const integ = createWritIntegration({ client: h.client, mapTool: () => ({ tool: n++ === 0 ? "redact" : "x", args: {} }) });
+    const integ = createProvioIntegration({ client: h.client, mapTool: () => ({ tool: n++ === 0 ? "redact" : "x", args: {} }) });
     try {
       await integ.preToolUse(pre("Read", { file_path: "a" }), "toolu_1", signal());
       await h.client.close();
       const out = await integ.postToolUse(post("Read", {}, "a@b.io"), "toolu_1", signal());
-      assert.equal(updatedOutput(out), "[writ: tool output withheld because redaction could not be applied]");
+      assert.equal(updatedOutput(out), "[provio: tool output withheld because redaction could not be applied]");
     } finally {
       await h.client.close();
     }
@@ -290,7 +290,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("PostToolUseFailure records ok:false", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client });
+    const integ = createProvioIntegration({ client: h.client });
     try {
       await integ.preToolUse(pre("Bash", { command: "false" }), "toolu_1", signal());
       assert.deepEqual(await integ.postToolUseFailure(failure("Bash", "exit 1"), "toolu_1", signal()), {});
@@ -305,7 +305,7 @@ describe("Claude Agent SDK hooks", () => {
   for (const tool of ["malformed", "crash", "error", "hang"]) {
     it(`gateway ${tool} -> deny (fail closed)`, async () => {
       const h = fakeClient({ timeoutMs: 150 });
-      const integ = createWritIntegration({ client: h.client, mapTool: () => ({ tool, args: {} }) });
+      const integ = createProvioIntegration({ client: h.client, mapTool: () => ({ tool, args: {} }) });
       try {
         const out = permission(await integ.preToolUse(pre("Bash", {}), "toolu_1", signal()));
         assert.equal(out.decision, "deny");
@@ -316,18 +316,18 @@ describe("Claude Agent SDK hooks", () => {
     });
   }
 
-  it("missing writ binary -> deny (fail closed)", async () => {
-    const client = new WritClient({ bin: join(tempDir(), "writ.exe") });
-    const integ = createWritIntegration({ client });
+  it("missing provio binary -> deny (fail closed)", async () => {
+    const client = new ProvioClient({ bin: join(tempDir(), "provio.exe") });
+    const integ = createProvioIntegration({ client });
     const out = permission(await integ.preToolUse(pre("Read", { file_path: "a" }), "toolu_1", signal()));
     assert.equal(out.decision, "deny");
     assert.match(out.reason ?? "", /not found/);
     await client.close();
   });
 
-  it("aborted signal -> deny without asking writ", async () => {
+  it("aborted signal -> deny without asking provio", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client });
+    const integ = createProvioIntegration({ client: h.client });
     const ac = new AbortController();
     ac.abort();
     try {
@@ -340,7 +340,7 @@ describe("Claude Agent SDK hooks", () => {
 
   it("ignores events it is not registered for", async () => {
     const h = fakeClient();
-    const integ = createWritIntegration({ client: h.client });
+    const integ = createProvioIntegration({ client: h.client });
     assert.deepEqual(await integ.preToolUse(post("Bash", {}, ""), "toolu_1", signal()), {});
     assert.deepEqual(await integ.postToolUse(post("Bash", {}, "", "unknown"), "unknown", signal()), {});
     await h.client.close();

@@ -55,7 +55,7 @@ TEXT_EXTENSIONS = {
 TEXT_FILE_NAMES = {"Dockerfile", "LICENSE"}
 
 # Directories never scanned: VCS/ignore targets, fuzz output, runtime state.
-EXCLUDED_DIRS = {".git", "target", "node_modules", ".venv", "venv", "dist", "__pycache__", "corpus", "artifacts", "coverage", ".writ"}
+EXCLUDED_DIRS = {".git", "target", "node_modules", ".venv", "venv", "dist", "__pycache__", "corpus", "artifacts", "coverage", ".provio"}
 
 # Meta files that define or describe the discipline itself (mirrors ci.yml's
 # EXCLUDE list), plus this script, which holds the patterns as data.

@@ -35,8 +35,8 @@ so `echo "gh workflow run …"` does not match.
 
 - **Other ways a file changes.** `git checkout other-branch -- .github/`,
   `git apply`, `patch`, `tar x`, a script that writes the workflow, or an
-  editor opened through the shell are not seen. writ's script inspection
-  and, under `writ run`, the kernel write boundary are the backstop.
+  editor opened through the shell are not seen. provio's script inspection
+  and, under `provio run`, the kernel write boundary are the backstop.
 - **Pushing the edit.** A workflow edited outside the agent and pushed
   by it is a `git push`; see `github-safety`. `pull_request_target`
   workflows that run fork code are a repository setting, not a command.

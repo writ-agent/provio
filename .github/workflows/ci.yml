@@ -24,7 +24,7 @@ jobs:
     env:
       # Kernel sandbox tests fail (instead of skipping) if the runner cannot
       # enforce the boundary: CI must prove enforcement on every OS.
-      WRIT_SANDBOX_REQUIRE_ENFORCEMENT: '1'
+      PROVIO_SANDBOX_REQUIRE_ENFORCEMENT: '1'
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -43,10 +43,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: crates/writ-bench
+          workspaces: crates/provio-bench
       # Compile only: numbers from shared CI runners are not publishable.
       - run: cargo bench --no-run
-        working-directory: crates/writ-bench
+        working-directory: crates/provio-bench
 
   cargo-deny:
     name: licenses, advisories, sources
@@ -96,7 +96,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      # --no-deps: the writ-cli pin names the version being released, which
+      # --no-deps: the provio pin names the version being released, which
       # may not be on PyPI yet; the tests use a fake gateway, not the binary.
       - run: python -m pip install --quiet --no-deps -e .
       - run: python -m pip install --quiet pytest pytest-asyncio "langgraph>=1.0" "langchain-core>=1.0" "openai-agents>=0.22" "claude-agent-sdk>=0.2"
@@ -128,7 +128,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test crates/writ-wasm/tests/playground.test.mjs
+      - run: node --test crates/provio-wasm/tests/playground.test.mjs
 
   ledger-postgres:
     name: ledger on Postgres 16
@@ -137,25 +137,25 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: writ
+          POSTGRES_USER: provio
           # Distinct from every identifier in the tests, so the
           # "password never appears in output" checks cannot match a name.
           POSTGRES_PASSWORD: pg-ci-9f3c1d
-          POSTGRES_DB: writ_test
+          POSTGRES_DB: provio_test
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U writ" --health-interval 5s
+          --health-cmd "pg_isready -U provio" --health-interval 5s
           --health-timeout 5s --health-retries 10
     env:
-      WRIT_POSTGRES_URL: postgres://writ:pg-ci-9f3c1d@localhost:5432/writ_test?sslmode=disable
+      PROVIO_POSTGRES_URL: postgres://provio:pg-ci-9f3c1d@localhost:5432/provio_test?sslmode=disable
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test -p writ-ledger --all-features
-      - run: cargo clippy -p writ-ledger --all-targets --all-features -- -D warnings
+      - run: cargo test -p provio-ledger --all-features
+      - run: cargo clippy -p provio-ledger --all-targets --all-features -- -D warnings
 
   claim-discipline:
     runs-on: ubuntu-latest

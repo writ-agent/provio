@@ -6,16 +6,16 @@ import time
 
 import pytest
 
-from writ_sdk import (
+from provio_sdk import (
     Approval,
-    Writ,
-    WritApprovalRejected,
-    WritDenied,
-    WritError,
-    WritProtocolError,
-    WritUnavailable,
-    set_default_writ,
-    writ_tool,
+    Provio,
+    ProvioApprovalRejected,
+    ProvioDenied,
+    ProvioError,
+    ProvioProtocolError,
+    ProvioUnavailable,
+    set_default_provio,
+    provio_tool,
 )
 
 
@@ -35,7 +35,7 @@ def ops(log):
 
 def test_allow_runs_and_completes(fake_bin, fake_log):
     spy = Spy()
-    with Writ(session_id="sess") as w:
+    with Provio(session_id="sess") as w:
         assert w.execute("allowed", {"x": 1}, spy) == "ran"
     assert spy.calls == 1
     log = fake_log()
@@ -46,7 +46,7 @@ def test_allow_runs_and_completes(fake_bin, fake_log):
 
 def test_deny_never_runs(fake_bin, fake_log):
     spy = Spy()
-    with Writ() as w, pytest.raises(WritDenied) as ei:
+    with Provio() as w, pytest.raises(ProvioDenied) as ei:
         w.execute("denied", {}, spy)
     assert spy.calls == 0
     assert ei.value.decision.rule_id == "no-rm"
@@ -55,7 +55,7 @@ def test_deny_never_runs(fake_bin, fake_log):
 
 def test_ask_default_approver_rejects(fake_bin, fake_log):
     spy = Spy()
-    with Writ(ask="defer") as w, pytest.raises(WritApprovalRejected):
+    with Provio(ask="defer") as w, pytest.raises(ProvioApprovalRejected):
         w.execute("asky", {}, spy)
     assert spy.calls == 0
     log = fake_log()
@@ -64,7 +64,7 @@ def test_ask_default_approver_rejects(fake_bin, fake_log):
 
 def test_ask_in_deny_mode_fails_closed(fake_bin, fake_log):
     spy = Spy()
-    with Writ(approver=lambda r: True, ask="deny") as w, pytest.raises(WritApprovalRejected):
+    with Provio(approver=lambda r: True, ask="deny") as w, pytest.raises(ProvioApprovalRejected):
         w.execute("asky", {}, spy)
     assert spy.calls == 0 and ops(fake_log) == ["decide"]
 
@@ -77,7 +77,7 @@ def test_ask_defer_approved(fake_bin, fake_log):
         return Approval(True, "human:alice")
 
     spy = Spy()
-    with Writ(approver=approver) as w:
+    with Provio(approver=approver) as w:
         assert w.execute("asky", {"q": "DROP"}, spy) == "ran"
     assert spy.calls == 1
     assert seen[0].diff == "--- diff ---" and seen[0].decision.irreversible
@@ -89,7 +89,7 @@ def test_ask_defer_approved(fake_bin, fake_log):
 
 def test_ask_defer_rejected(fake_bin):
     spy = Spy()
-    with Writ(approver=lambda r: False) as w, pytest.raises(WritApprovalRejected):
+    with Provio(approver=lambda r: False) as w, pytest.raises(ProvioApprovalRejected):
         w.execute("asky", {}, spy)
     assert spy.calls == 0
 
@@ -98,27 +98,27 @@ def test_ask_defer_rejected(fake_bin):
 def test_ask_bad_approver_rejects(fake_bin, bad):
     approver = bad if callable(bad) else (lambda r, b=bad: b)
     spy = Spy()
-    with Writ(approver=approver) as w, pytest.raises(WritApprovalRejected):
+    with Provio(approver=approver) as w, pytest.raises(ProvioApprovalRejected):
         w.execute("asky", {}, spy)
     assert spy.calls == 0
 
 
 def test_ask_approver_timeout_rejects(fake_bin):
     spy = Spy()
-    with Writ(approver=lambda r: time.sleep(5) or True, approval_timeout=0.3) as w:
-        with pytest.raises(WritApprovalRejected):
+    with Provio(approver=lambda r: time.sleep(5) or True, approval_timeout=0.3) as w:
+        with pytest.raises(ProvioApprovalRejected):
             w.execute("asky", {}, spy)
     assert spy.calls == 0
 
 
 def test_redact_returns_redacted(fake_bin):
-    with Writ() as w:
+    with Provio() as w:
         out = w.execute("redacty", {}, lambda: {"ssn": "123-45-6789"})
-    assert out == '{"ssn": "[redacted-by-writ]"}'
+    assert out == '{"ssn": "[redacted-by-provio]"}'
 
 
 def test_redact_without_output_withholds(fake_bin):
-    with Writ() as w, pytest.raises(WritProtocolError):
+    with Provio() as w, pytest.raises(ProvioProtocolError):
         w.execute("redact_noout", {}, lambda: "123-45-6789")
 
 
@@ -126,7 +126,7 @@ def test_tool_exception_is_recorded_and_reraised(fake_bin, fake_log):
     def boom():
         raise ValueError("nope")
 
-    with Writ() as w, pytest.raises(ValueError):
+    with Provio() as w, pytest.raises(ValueError):
         w.execute("allowed", {}, boom)
     log = fake_log()
     assert log[-1]["op"] == "complete" and log[-1]["ok"] is False and log[-1]["exit"] == 1
@@ -135,21 +135,21 @@ def test_tool_exception_is_recorded_and_reraised(fake_bin, fake_log):
 @pytest.mark.parametrize("tool", ["malformed", "hang", "crash", "error", "wrongid", "liar"])
 def test_gateway_failures_never_run(fake_bin, tool):
     spy = Spy()
-    with Writ(timeout=0.5) as w, pytest.raises(WritError):
+    with Provio(timeout=0.5) as w, pytest.raises(ProvioError):
         w.execute(tool, {}, spy)
     assert spy.calls == 0
 
 
 def test_missing_binary_never_runs(monkeypatch, tmp_path):
-    monkeypatch.setenv("WRIT_BIN", str(tmp_path / "missing" / "writ"))
+    monkeypatch.setenv("PROVIO_BIN", str(tmp_path / "missing" / "provio"))
     spy = Spy()
-    with Writ() as w, pytest.raises(WritUnavailable):
+    with Provio() as w, pytest.raises(ProvioUnavailable):
         w.execute("allowed", {}, spy)
     assert spy.calls == 0
 
 
 def test_guarded_binds_arguments(fake_bin, fake_log):
-    with Writ() as w:
+    with Provio() as w:
 
         @w.tool("allowed")
         def read_file(path: str, limit: int = 10) -> str:
@@ -157,7 +157,7 @@ def test_guarded_binds_arguments(fake_bin, fake_log):
 
         assert read_file("a.txt") == "a.txt:10"
         g = w.guarded(lambda command: "x", name="bash")
-        with pytest.raises(WritDenied):
+        with pytest.raises(ProvioDenied):
             g(command="rm -rf /")
     assert fake_log()[0]["call"]["args"] == {"path": "a.txt", "limit": 10}
 
@@ -166,7 +166,7 @@ async def test_guarded_async(fake_bin):
     async def approver(req):
         return True
 
-    async with Writ(approver=approver) as w:
+    async with Provio(approver=approver) as w:
 
         @w.tool("asky")
         async def migrate(sql: str) -> str:
@@ -178,20 +178,20 @@ async def test_guarded_async(fake_bin):
         async def nope() -> str:  # pragma: no cover - must not run
             raise AssertionError("ran")
 
-        with pytest.raises(WritDenied):
+        with pytest.raises(ProvioDenied):
             await nope()
 
 
-def test_writ_tool_default_is_lazy(fake_bin, fake_log):
-    @writ_tool("allowed")
+def test_provio_tool_default_is_lazy(fake_bin, fake_log):
+    @provio_tool("allowed")
     def f(a):
         return a * 2
 
     assert fake_log() == []  # decorating started nothing
-    w = Writ()
-    set_default_writ(w)
+    w = Provio()
+    set_default_provio(w)
     try:
         assert f(3) == 6
     finally:
-        set_default_writ(None)
+        set_default_provio(None)
         w.close()
