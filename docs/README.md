@@ -2,6 +2,7 @@
 
 | Document | What it covers |
 |---|---|
+| [owasp-agentic.md](owasp-agentic.md) | provio's controls mapped to the OWASP Top 10 for Agentic Applications (2026), with honest coverage levels |
 | [comparison.md](comparison.md) | provio next to dcg, nah, cc-safety-net, the built-in agent sandboxes and Microsoft's Agent Governance Toolkit, including what provio does worse |
 | [first-run.md](first-run.md) | `provio scan` (what would provio have caught?), `provio init` (a policy and hooks for every agent), `provio test` (one call, nothing run) |
 | [inspection.md](inspection.md) | How a call is judged by what it runs: scripts, heredocs, `npm run`, shell inside code; and what that misses |
