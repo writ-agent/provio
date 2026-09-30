@@ -83,6 +83,8 @@ pip install provio                 # Python users
 npm install -g provio       # Node users
 curl -fsSL https://raw.githubusercontent.com/writ-agent/provio/main/scripts/install.sh | sh
 irm https://raw.githubusercontent.com/writ-agent/provio/main/scripts/install.ps1 | iex   # Windows PowerShell
+brew install writ-agent/provio/provio                               # Homebrew (macOS, Linux)
+scoop bucket add provio https://github.com/writ-agent/scoop-provio; scoop install provio   # Scoop (Windows)
 ```
 
 The install scripts check the binary against the release's `checksums.txt`
