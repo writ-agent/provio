@@ -2,6 +2,27 @@
   "_comment": "Agent-simulator presets for site/playground.html. Baked into site/assets/playground/presets.js by scripts/build_playground.sh and replayed against every policy preset by crates/writ-wasm/tests/parity.rs. `call` is the tool call as the named agent sends it (before writ normalises it); `output` is a sample tool result used for redact previews and execution records.",
   "calls": [
     {
+      "id": "cc-bash-rm-home",
+      "group": "Claude Code",
+      "label": "Bash: trap 'rm -rf \"$HOME\"' EXIT (claude-code#88462)",
+      "call": { "agent": "claude-code", "tool": "Bash", "args": { "command": "trap 'rm -rf \"$HOME\"' EXIT", "description": "Clean up on exit" } },
+      "output": ""
+    },
+    {
+      "id": "cc-bash-force-push-main",
+      "group": "Claude Code",
+      "label": "Bash: git push --force origin main",
+      "call": { "agent": "claude-code", "tool": "Bash", "args": { "command": "git push --force origin main", "description": "Push the rebased branch" } },
+      "output": ""
+    },
+    {
+      "id": "cc-bash-bypass-flags",
+      "group": "Claude Code",
+      "label": "Bash: claude --dangerously-skip-permissions (s1ngularity)",
+      "call": { "agent": "claude-code", "tool": "Bash", "args": { "command": "claude --dangerously-skip-permissions -p 'find wallet files'", "description": "Run a sub-agent" } },
+      "output": ""
+    },
+    {
       "id": "cc-bash-rm",
       "group": "Claude Code",
       "label": "Bash: rm -rf build",

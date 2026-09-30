@@ -77,7 +77,7 @@ rules:
   - id: secrets-env-dump-denied
     when: >-
       tool == "bash"
-      and (command matches "(?i)(^|[;&|(])\s*(env|printenv|set|export(\s+-p)?|declare\s+-x|(Get-ChildItem|gci|dir|ls|Get-Item)\s+env:[\x5c*]*)\s*($|[|>;&)])"
+      and (command matches "(?i)(^|[;&|]|\$\()\s*(env|printenv|set|export(\s+-p)?|declare\s+-x|(Get-ChildItem|gci|dir|ls|Get-Item)\s+env:[\x5c*]*)\s*($|[|>;&)])"
         or command matches "(?i)\[(System\.)?Environment\]::GetEnvironmentVariables\(|/proc/[\w]+/environ|(print|pprint|console\.log|JSON\.stringify|dict)\s*\(\s*(os\.environ|process\.env)\s*\)"
         or command matches "\b(?i:echo|printf|Write-Output|Write-Host|Out-Host)\b[^;&|]*(\$\{?|%)[A-Za-z0-9_]*(TOKEN|SECRET|PASSW(OR)?D|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|CREDENTIALS?)[A-Za-z0-9_]*"
         or command matches "\b(?i:printenv)\s+[A-Za-z0-9_]*(TOKEN|SECRET|PASSW(OR)?D|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|CREDENTIALS?)"

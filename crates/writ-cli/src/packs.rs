@@ -1,21 +1,4 @@
-//! The policy packs bundled into the binary (see `build.rs`).
+//! The policy packs bundled into the binary (they live in `writ-policy`, so
+//! `packs:` in writ.yaml resolves them too).
 
-/// `(pack id, pack.yaml source)`, sorted by id.
-pub(crate) const BUNDLED: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/bundled_packs.rs"));
-
-/// The bundled source of `id`, if this build ships it.
-pub(crate) fn bundled(id: &str) -> Option<&'static str> {
-    BUNDLED
-        .iter()
-        .find(|(name, _)| *name == id)
-        .map(|(_, src)| *src)
-}
-
-/// The ids of every bundled pack, comma-separated (for messages).
-pub(crate) fn names() -> String {
-    BUNDLED
-        .iter()
-        .map(|(n, _)| *n)
-        .collect::<Vec<_>>()
-        .join(", ")
-}
+pub(crate) use writ_policy::packs::{bundled, names, BUNDLED};

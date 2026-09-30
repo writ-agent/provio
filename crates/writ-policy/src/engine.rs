@@ -91,7 +91,10 @@ pub fn default_verdict(default: DefaultVerdict) -> Verdict {
 /// engine crates (Rego, Cedar) stay verdict-identical to the native engine
 /// (Contract 2 parity).
 pub fn verdict_for(rule: &CompiledRule, ctx: &ToolCallContext) -> Verdict {
-    let location = rule.line.map(|l| format!("{}:{}", POLICY_FILE_NAME, l));
+    let location = match &rule.pack {
+        Some(pack) => Some(format!("pack:{pack}")),
+        None => rule.line.map(|l| format!("{}:{}", POLICY_FILE_NAME, l)),
+    };
     match rule.verdict {
         RuleVerdict::Allow => Verdict::Allow {
             rule_id: Some(rule.id.clone()),

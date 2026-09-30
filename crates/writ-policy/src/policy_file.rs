@@ -20,10 +20,50 @@ struct RawPolicyFile {
     default: DefaultVerdict,
     #[serde(default)]
     rules: Vec<RawRule>,
+    /// Bundled policy packs to compose with `rules` (see [`crate::packs`]).
+    #[serde(default)]
+    packs: Vec<PackRef>,
     /// Any other top-level mapping (e.g. `hosts: { allowed: [...] }`) is a
     /// namespace of named lists addressable from `in` expressions.
     #[serde(flatten)]
     lists: HashMap<String, serde_yaml::Value>,
+}
+
+/// One `packs:` entry: a bundled pack id, or `{ id, skip: [rule ids] }` to
+/// leave out rules the policy author wants to decide differently.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum PackRef {
+    Id(String),
+    Spec {
+        id: String,
+        #[serde(default)]
+        skip: Vec<String>,
+    },
+}
+
+impl PackRef {
+    fn id(&self) -> &str {
+        match self {
+            PackRef::Id(id) | PackRef::Spec { id, .. } => id,
+        }
+    }
+
+    fn skip(&self) -> &[String] {
+        match self {
+            PackRef::Id(_) => &[],
+            PackRef::Spec { skip, .. } => skip,
+        }
+    }
+}
+
+/// A pack's `pack.yaml` (`description` and any other keys are ignored).
+#[derive(Debug, Deserialize)]
+struct RawPack {
+    #[serde(default)]
+    version: Option<String>,
+    #[serde(default)]
+    rules: Vec<RawRule>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,6 +102,9 @@ pub struct CompiledRule {
     pub patterns: Vec<String>,
     /// 1-based line of `- id: <id>` in the source, if found.
     pub line: Option<usize>,
+    /// `<pack id>@<version>` when the rule comes from a `packs:` entry
+    /// (`line` is then `None`).
+    pub pack: Option<String>,
 }
 
 /// A fully validated, evaluation-ready policy.
@@ -150,44 +193,97 @@ pub fn compile(source: &str) -> Result<CompiledPolicy, String> {
     // Track each rule's `- id: <id>` source line.
     let id_lines = extract_rule_id_lines(source);
     let mut cursor = 0usize;
-    let mut rules = Vec::with_capacity(raw.rules.len());
+    let mut own = Vec::with_capacity(raw.rules.len());
     for (i, rr) in raw.rules.iter().enumerate() {
         let line = locate_rule_line(&id_lines, &rr.id, i, &mut cursor);
         let at = |msg: String| match line {
             Some(l) => format!("{}:{}: rule {:?}: {}", POLICY_FILE_NAME, l, rr.id, msg),
             None => format!("{}: rule {:?}: {}", POLICY_FILE_NAME, rr.id, msg),
         };
+        own.push(compile_rule(rr, &lists, line, None).map_err(at)?);
+    }
 
-        if rr.id.trim().is_empty() {
-            return Err(at("rule id must not be empty".to_string()));
+    // Packs compose around the policy's own rules the way the packs README
+    // says to merge them by hand: their deny and ask rules first (a broad
+    // allow of your own cannot open a floor), their allow rules after yours
+    // (your denies still win), their redact rules last (redact dispatches).
+    let (mut front, mut allows, mut redacts) = (Vec::new(), Vec::new(), Vec::new());
+    let mut seen_packs: Vec<&str> = Vec::new();
+    for pr in &raw.packs {
+        let id = pr.id();
+        let at = |msg: String| format!("{}: pack {:?}: {}", POLICY_FILE_NAME, id, msg);
+        if seen_packs.contains(&id) {
+            return Err(at("listed twice under `packs:`".to_string()));
         }
-        let raw_expr = parse_when(&rr.when).map_err(|e| at(format!("invalid `when`: {}", e)))?;
-        let when = compile_expr(&raw_expr, &lists).map_err(&at)?;
+        seen_packs.push(id);
+        let src = crate::packs::bundled(id).ok_or_else(|| {
+            at(format!(
+                "not bundled in this build (bundled packs: {})",
+                match crate::packs::names() {
+                    n if n.is_empty() => "<none>".to_string(),
+                    n => n,
+                }
+            ))
+        })?;
+        let pack: RawPack =
+            serde_yaml::from_str(src).map_err(|e| at(format!("invalid pack.yaml: {e}")))?;
+        for skip in pr.skip() {
+            if !pack.rules.iter().any(|r| &r.id == skip) {
+                return Err(at(format!(
+                    "`skip` names {skip:?}, which is not a rule of this pack"
+                )));
+            }
+        }
+        let tag = match &pack.version {
+            Some(v) => format!("{id}@{v}"),
+            None => id.to_string(),
+        };
+        for rr in pack.rules.iter().filter(|r| !pr.skip().contains(&r.id)) {
+            let rule = compile_rule(rr, &lists, None, Some(&tag))
+                .map_err(|e| at(format!("rule {:?}: {e}", rr.id)))?;
+            match rule.verdict {
+                RuleVerdict::Deny | RuleVerdict::Ask => front.push(rule),
+                RuleVerdict::Allow => allows.push(rule),
+                RuleVerdict::Redact => redacts.push(rule),
+            }
+        }
+    }
+    let mut rules = front;
+    rules.extend(own);
+    rules.extend(allows);
+    rules.extend(redacts);
+
+    /// Validate and compile one rule. Errors carry no location; the caller
+    /// prefixes the policy line or the pack.
+    fn compile_rule(
+        rr: &RawRule,
+        lists: &HashMap<String, Vec<String>>,
+        line: Option<usize>,
+        pack: Option<&str>,
+    ) -> Result<CompiledRule, String> {
+        if rr.id.trim().is_empty() {
+            return Err("rule id must not be empty".to_string());
+        }
+        let raw_expr = parse_when(&rr.when).map_err(|e| format!("invalid `when`: {}", e))?;
+        let when = compile_expr(&raw_expr, lists)?;
         let verdict = match rr.verdict.as_str() {
             "allow" => RuleVerdict::Allow,
             "deny" => RuleVerdict::Deny,
             "ask" => RuleVerdict::Ask,
             "redact" => RuleVerdict::Redact,
             other => {
-                return Err(at(format!(
+                return Err(format!(
                     "unknown verdict {:?} (expected allow, deny, ask, redact)",
                     other
-                )))
+                ))
             }
         };
-        let timeout_ms = rr
-            .timeout
-            .as_deref()
-            .map(parse_duration)
-            .transpose()
-            .map_err(&at)?;
+        let timeout_ms = rr.timeout.as_deref().map(parse_duration).transpose()?;
         let patterns = rr.patterns.clone().unwrap_or_default();
         if verdict == RuleVerdict::Redact && patterns.is_empty() {
-            return Err(at(
-                "`verdict: redact` requires a non-empty `patterns` list".to_string()
-            ));
+            return Err("`verdict: redact` requires a non-empty `patterns` list".to_string());
         }
-        rules.push(CompiledRule {
+        Ok(CompiledRule {
             id: rr.id.clone(),
             when,
             verdict,
@@ -196,7 +292,8 @@ pub fn compile(source: &str) -> Result<CompiledPolicy, String> {
             timeout_ms,
             patterns,
             line,
-        });
+            pack: pack.map(str::to_string),
+        })
     }
 
     /// Compile a raw expression: build regexes and resolve `in` list refs.

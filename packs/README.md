@@ -7,6 +7,7 @@ directory has a `pack.yaml` (`id`, `version`, `description`, `rules`), a
 
 | Pack | What it does |
 |---|---|
+| [floor](floor/) | **Start here.** The disaster floor: denies recursive deletes of `~` or `/`, disk wipes, force pushes to main, reading SSH/cloud keys, reverse shells, agents rewriting their own hook config or launching with `--yolo`-style flags; asks before database drops, cloud destroys, discarding uncommitted work, `curl \| sh` and persistence. Low-noise enough for every project. |
 | [aws-safety](aws-safety/) | Denies audit-log tampering, Organizations changes, KMS key deletion, `s3 rb --force`; asks before IAM, S3, EC2, RDS and stack deletions and secret reads; allows read-only `describe/list/get`. |
 | [gcp-azure-safety](gcp-azure-safety/) | The same for `gcloud`/`gsutil`/`bq` and `az` (plus Az / Google Cloud PowerShell): denies project deletion, Key Vault purge and audit-log deletion; asks before deletes, IAM/RBAC changes and secret reads; allows `list/describe/show`. |
 | [github-safety](github-safety/) | Denies force pushes to protected branches, `push --mirror`, `gh repo delete`, branch-protection changes, `pr merge --admin`, `gh auth token`; asks before other force pushes, history rewrites, discarding work, secrets, releases, merges and GitHub MCP delete/merge tools; allows read-only `git`/`gh`. |
@@ -19,42 +20,60 @@ directory has a `pack.yaml` (`id`, `version`, `description`, `rules`), a
 
 ## Using a pack
 
-writ does not load packs on its own; you merge a pack's rules into your
-`writ.yaml`, where they are reviewed and versioned with the rest of your
-policy.
-
-```bash
-writ policy add aws-safety        # from a checkout that contains packs/
-# installed pack 'aws-safety' → .writ/packs/aws-safety.yaml
-# sha256: …                       # compare against the published checksum
-```
-
-Then copy the entries under `rules:` into your own `rules:` list.
-Evaluation is **first match wins**, so placement is policy:
-
-1. **Deny and ask rules** go above any broad allow of your own, or the
-   allow wins first.
-2. **Allow rules** from a pack (read-only calls) go below your own denies.
-3. **Redact rules** go at the very end. `redact` runs the call and masks
-   the output, so a redact rule also lets the calls it matches through
-   without a prompt (see `secrets-guard` and `pii-redaction`).
-
-Rule ids are prefixed per pack (`aws-`, `gcp-`/`az-`, `github-`,
-`secrets-`, `db-`, `publish-`, `tf-`, `k8s-`), so several packs merge
-without id collisions. Where two packs cover the same command (for example
-`gh auth token`), the first one in your file decides.
-
-Every pack assumes the recommended fail-closed header:
+Name bundled packs in your `writ.yaml`; every writ build ships them:
 
 ```yaml
 version: 1
 default: ask
+packs: [floor, secrets-guard, github-safety]
+rules:
+  # your own rules
 ```
 
-Calls a pack does not mention get that default. The packs match command
-text, paths, SQL, and MCP tool/server names; they cannot see what a script
-or program does once it runs, which account a CLI resolves to, or which
-database a URL points at. Each README lists its own gaps.
+writ places each pack's rules around yours the way a careful hand-merge
+would, so **placement is not your problem**:
+
+1. The packs' **deny and ask** rules go first, in the order you list the
+   packs, so a broad allow of yours cannot open them.
+2. Your own `rules:` come next.
+3. The packs' **allow** rules (read-only calls) go after yours, so your
+   denies still win.
+4. The packs' **redact** rules go last. `redact` runs the call and masks
+   the output, so a redact rule also lets the calls it matches through
+   without a prompt (see `secrets-guard` and `pii-redaction`).
+
+Evaluation is first match wins. A decision from a pack rule names it as
+its location (`pack:floor@0.1.0`), in the ledger and in the agent's
+refusal. To decide one pack rule differently, leave it out and write your
+own:
+
+```yaml
+packs:
+  - floor
+  - id: github-safety
+    skip: [github-pr-merge-asks]
+```
+
+An unknown pack, a pack listed twice, or a `skip` naming a rule the pack
+does not have is a policy error (writ refuses to load it).
+
+To review or fork a pack instead, copy it out and merge its rules by hand
+(then follow the same placement):
+
+```bash
+writ policy add aws-safety
+# installed pack 'aws-safety' → .writ/packs/aws-safety.yaml
+# sha256: …
+```
+
+Rule ids are prefixed per pack (`floor-`, `aws-`, `gcp-`/`az-`, `github-`,
+`secrets-`, `db-`, `publish-`, `tf-`, `k8s-`), so several packs merge
+without id collisions. Where two packs cover the same command (for example
+`gh auth token`), the first one listed decides.
+
+Packs match command text, paths, SQL, and MCP tool/server names; they
+cannot see what a program does once it runs, which account a CLI resolves
+to, or which database a URL points at. Each README lists its own gaps.
 
 Check the merged result:
 

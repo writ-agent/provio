@@ -2,6 +2,8 @@
 
 | Document | What it covers |
 |---|---|
+| [first-run.md](first-run.md) | `writ scan` (what would writ have caught?), `writ init` (a policy and hooks for every agent), `writ test` (one call, nothing run) |
+| [inspection.md](inspection.md) | How a call is judged by what it runs: scripts, heredocs, `npm run`, shell inside code; and what that misses |
 | [policy-reference.md](policy-reference.md) | The `writ.yaml` language: rules, conditions, verdicts, defaults, packs |
 | [INTERFACES.md](INTERFACES.md) | The frozen contracts between crates: call context, verdict IR, ledger record schema, sandbox backend, CLI surface |
 | [THREAT_MODEL.md](THREAT_MODEL.md) | What writ defends against, what it does not, and where each boundary sits |

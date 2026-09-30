@@ -103,12 +103,10 @@ use anyhow::Result;
 use regex::Regex;
 use serde_json::{json, Map, Value};
 use writ_core::approver::{ApproverIdentity, ApproverKind, AskView, FailClosedApprover};
-use writ_core::call::{
-    CallerIdentity, InterceptMode, ServerIdentity, ToolCall, ToolCallContext, TrustVerdict,
-};
+use writ_core::call::{CallerIdentity, InterceptMode, ServerIdentity, ToolCall, TrustVerdict};
 use writ_core::ledger::{LedgerRecord, LedgerStore, LedgerWriter, RecordKind, SCHEMA_VERSION};
 use writ_core::verdict::Verdict;
-use writ_core::{Approver, PolicyEngine, Timestamp};
+use writ_core::{Approver, Timestamp};
 use writ_ledger::retry_append;
 use writ_policy::NativePolicyEngine;
 
@@ -135,6 +133,7 @@ pub enum Format {
 
 /// The other coding agents' hook formats (`hook/agents.rs`).
 mod agents;
+pub(crate) use agents::native_calls;
 
 /// What an `ask` verdict does when `writ check` has no terminal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
@@ -378,7 +377,9 @@ impl Gateway {
 
     /// Evaluate, record exactly one decision record, return the outcome.
     fn decide_call(&mut self, call: ToolCall) -> std::result::Result<Decided, GwError> {
-        let verdict = self.engine()?.evaluate(&ToolCallContext::from_call(&call));
+        // The call's own verdict, made stricter by the lines of any script
+        // it runs or writes (see `inspect`).
+        let verdict = crate::inspect::evaluate(self.engine()?, &call);
         // `--ask deny`: the headless fail-closed approver answers, and its
         // identity is recorded with the ask (as `handle_call` does).
         let approver = match (&verdict, self.ask) {

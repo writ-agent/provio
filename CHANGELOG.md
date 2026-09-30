@@ -8,6 +8,51 @@ The ledger record schema is versioned separately (`schema_version`, see
 
 ## [Unreleased]
 
+### Added
+
+- **`writ scan`**: replays what your agents already did (Claude Code, Codex
+  and Gemini CLI transcripts on this machine) through the policy and prints
+  a scorecard of what would have been blocked or asked, with examples per
+  rule. Reads only; `--format markdown` is a shareable counts-only summary,
+  `--format json` has every finding.
+- **`writ init`**: writes a starter policy (`default: allow`, packs `floor`
+  and `secrets-guard`; `--strict` for `default: ask`) and wires every coding
+  agent found (Claude Code, Codex, Gemini CLI, Cursor, Windsurf); `--global`
+  wires user-level config with the policy and ledger in `~/.writ/`; adds
+  `.writ/` to `.gitignore`.
+- **`writ test "<command>"`**: one call through the policy, nothing run or
+  recorded; exit 0 allow, 2 deny, 3 ask. Also `--tool/--path/--content`,
+  `--call <json>`, `--json`.
+- **`packs:` in writ.yaml**: name bundled packs and writ composes them with
+  your rules (their deny/ask first, your rules, their allow, their redact
+  last); `skip:` leaves a pack rule out. Pack decisions are located as
+  `pack:<id>@<version>`. Works for the native, Rego and Cedar engines and in
+  the playground.
+- **The `floor` pack**: the disaster floor. Denies recursive deletes of `~`,
+  `/` and profile folders (including the claude-code#88462 `trap` shape),
+  disk wipes, force pushes to main, reading SSH/cloud keys, reverse shells,
+  agents rewriting their own hook config or ledger, and agents launched with
+  `--dangerously-skip-permissions`/`--yolo`/`--trust-all-tools`; asks before
+  database drops, cloud destroys, discarding uncommitted work, `curl | sh`
+  and persistence. 100 fixtures, including near misses found by `writ scan`
+  on real sessions.
+- **Judged by what it runs** (`writ check`, `test`, `scan`): the commands
+  behind a call are evaluated too: lines of scripts it runs (`bash x.sh`,
+  `./x`, `npm run x`, `python x.py`) or writes (shell scripts,
+  `package.json` scripts, Makefiles, Codex patches), heredocs by consumer,
+  shell strings inside Python/JS. See docs/inspection.md.
+- `examples/starter.yaml` (what `writ init` writes) is the playground's first
+  preset; new simulator calls for the floor.
+
+### Changed
+
+- Heredoc bodies are no longer matched as command-line text: `python - <<EOF`
+  or `cat > notes.md <<EOF` bodies are judged by what consumes them.
+- `secrets-guard`: `defaultdict(set)` and similar no longer trip the
+  environment-dump rule.
+- Policy packs are bundled by `writ-policy` (was `writ-cli`), so every
+  engine and the WASM playground resolve `packs:`.
+
 ## [0.1.2] — 2026-09-25
 
 ### Added

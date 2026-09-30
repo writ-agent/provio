@@ -62,6 +62,15 @@ version `v: 1`; changes are additive only.
   processes may share one ledger concurrently (parallel tool calls); the
   ledger store serializes appends across processes.
 
+**Decision** (additive, 0.1.3). The recorded verdict is the engine's verdict
+for the call, made stricter by the commands hidden behind it (lines of a
+script it runs or writes, heredocs by consumer, `package.json` scripts,
+shell strings in code; [inspection.md](inspection.md)). Only an explicit
+deny/ask rule of a hidden command counts, and only when stricter; its
+`rule_id` and `location` are that rule's, and its `reason`/`diff` is
+prefixed with where the command was found. Command-line rules evaluate the
+command with heredoc bodies removed. The ledger records the call as sent.
+
 **Requests** (`--format writ`, the adapter format):
 
 ```json
@@ -241,4 +250,4 @@ Specified in full in [receipts.md](receipts.md#contract-7--receipts-writ_receipt
 
 ## CLI surface (`writ-cli`)
 
-`writ run [--yolo] [--policy PATH] [--net open|none] [--allow-write PATH]… [--unconfined] [--no-hooks] -- <agent cmd>` · `writ check [--stdio] [--format writ|claude-code|codex|gemini|cursor|windsurf] [--ask deny|defer|ui]` · `writ integrate <claude-code|codex|gemini|cursor|windsurf>` · `writ ui [--port N] [--no-open]` · `writ receipt keygen|create|verify|prove|anchor` · `writ proxy --mcp [--transport stdio|http --listen ADDR --upstream URL]` · `writ log` · `writ show <call-id>` · `writ verify [--ledger PATH]` · `writ replay <run-id>` · `writ policy test` · `writ policy add <pack>` · `writ doctor` · `writ report`. Ledger default path: `.writ/ledger.jsonl` (displayed as `ledger.db` once SQLite is enabled).
+`writ init [--agent A,B] [--strict] [--global] [--dry-run]` · `writ scan [--days N] [--agent claude-code,codex,gemini] [--packs A,B] [--dir PATH] [--format text|json|markdown]` · `writ test [--tool T --path P --url U --query Q --content C --server S | --call JSON] [--packs A,B] [--json] [<command>…]` (exit 0 allow/redact, 2 deny, 3 ask, 1 error) · `writ run [--yolo] [--policy PATH] [--net open|none] [--allow-write PATH]… [--unconfined] [--no-hooks] -- <agent cmd>` · `writ check [--stdio] [--format writ|claude-code|codex|gemini|cursor|windsurf] [--ask deny|defer|ui]` · `writ integrate <claude-code|codex|gemini|cursor|windsurf>` · `writ ui [--port N] [--no-open]` · `writ receipt keygen|create|verify|prove|anchor` · `writ proxy --mcp [--transport stdio|http --listen ADDR --upstream URL]` · `writ log` · `writ show <call-id>` · `writ verify [--ledger PATH]` · `writ replay <run-id>` · `writ policy test` · `writ policy add <pack>` · `writ doctor` · `writ report`. Ledger default path: `.writ/ledger.jsonl` (displayed as `ledger.db` once SQLite is enabled).

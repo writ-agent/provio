@@ -20,6 +20,7 @@
 pub mod ast;
 mod engine;
 pub mod fixtures;
+pub mod packs;
 mod parser;
 pub mod policy_file;
 

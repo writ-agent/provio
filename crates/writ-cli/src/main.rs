@@ -7,11 +7,14 @@ use clap::{Parser, Subcommand};
 
 mod cmds;
 mod hook;
+mod inspect;
 mod integrate;
 mod mcp_http;
+mod onboard;
 mod packs;
 mod receipt;
 mod run;
+mod scan;
 mod ui;
 
 #[derive(Parser)]
@@ -42,6 +45,19 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Protect this project: a starter policy (the disaster floor and the
+    /// secrets guard) and hooks for every coding agent found here.
+    Init(onboard::InitArgs),
+
+    /// What would writ have done? Replays your agents' past sessions
+    /// (Claude Code, Codex, Gemini CLI transcripts) through the policy.
+    /// Reads only; installs and records nothing.
+    Scan(scan::ScanArgs),
+
+    /// Try one call against the policy: `writ test "rm -rf ~"`. Nothing
+    /// runs and nothing is recorded. Exit 0 allow, 2 deny, 3 ask.
+    Test(onboard::TestArgs),
+
     /// Wrap an agent, policy enforced: `writ run -- claude`
     Run {
         /// Sandbox backend (writ doctor lists what this machine supports).
@@ -183,6 +199,12 @@ fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
     match cli.command {
+        Commands::Init(args) => onboard::init(&cli.policy, &cli.ledger, &args),
+        Commands::Scan(args) => scan::scan(&cli.policy, &args),
+        Commands::Test(args) => {
+            let code = onboard::test(&cli.policy, &args)?;
+            std::process::exit(code)
+        }
         Commands::Run {
             backend,
             net,

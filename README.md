@@ -21,12 +21,50 @@ Your agent asks. Your policy decides. The ledger remembers.
 
 </div>
 
-A writ is authority to act, and the written record that it was authorized. That is
-the product: every tool call an AI agent makes is checked against one policy file
-before it runs, and written to one hash-chained ledger after.
+**A safety floor your AI agents can't get under.** One policy for Claude Code,
+Codex, Gemini CLI, Cursor, Windsurf, your SDK agents and your MCP servers,
+checked before every tool call and judged by what the call will actually run
+(the script behind `bash cleanup.sh`, a heredoc fed to a shell, the
+`package.json` script behind `npm run`). Launched agents also run inside a
+kernel write boundary for what no parser can see. Every decision lands in a
+tamper-evident, signable ledger.
 
-For developers who hand agents real credentials, and for the platform teams who
-answer for what those agents did.
+A writ is authority to act, and the written record that it was authorized:
+for developers who run agents in auto mode with real credentials, and for the
+platform teams who answer for what those agents did.
+
+## 60 seconds
+
+```bash
+pip install writ-cli            # or: npm install -g @writ-agent/cli
+
+writ scan                       # what would writ have caught in your agents' last 30 days?
+writ init                       # a policy (the disaster floor + secrets guard) and hooks
+                                # for every agent found here: Claude Code, Codex, Gemini, Cursor, Windsurf
+writ test "rm -rf ~"            # try any command against your policy
+```
+
+`writ scan` reads the transcripts your agents already keep (Claude Code,
+Codex, Gemini CLI) and replays every tool call through the policy. It
+installs, hooks and records nothing, and `--format markdown` gives a
+shareable summary with counts only. `writ init` never overwrites an existing
+policy; `--global` wires your user-level agent config instead of one project.
+
+The starter policy is `default: allow` plus two bundled packs, so agents stay
+fast and only disasters stop them:
+
+| The [`floor`](packs/floor/) pack refuses | and asks before |
+|---|---|
+| recursive deletes of `~`, `/`, `C:\`, your profile, `~/Documents` … (also inside scripts, `trap`, `sh -c`, `shutil.rmtree(Path.home())`) | `rm -rf .`, `.git`, `*` |
+| `mkfs`, `dd of=/dev/…`, fork bombs, `chmod -R 777 /` | `git reset --hard`, `clean -f`, `checkout -- .` |
+| force pushes to `main`/`master` | `DROP DATABASE`, `prisma migrate reset`, Redis `FLUSHALL` |
+| reading SSH private keys and cloud credentials | `terraform destroy`, `gcloud projects delete`, `kubectl delete ns`, `aws s3 rm --recursive` |
+| reverse shells | `curl … \| sh` |
+| the agent rewriting its own hooks or `.writ/` ledger | edits to `writ.yaml` |
+| launching agents with `--dangerously-skip-permissions`, `--yolo`, `--trust-all-tools` | cron, launchd, scheduled tasks, shell-profile edits |
+
+Add more with one line (`packs: [floor, secrets-guard, github-safety, aws-safety]`);
+see [packs/](packs/).
 
 ## Install
 
@@ -41,10 +79,10 @@ curl -fsSL https://raw.githubusercontent.com/writ-agent/writ/main/scripts/instal
 
 or download `writ-<target>` from the
 [latest release](https://github.com/writ-agent/writ/releases/latest)
-(checksums, Sigstore bundles and build provenance attached). Then:
+(checksums, Sigstore bundles and build provenance attached). Then
+`writ init` in your project, or launch an agent inside the kernel boundary:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/writ-agent/writ/main/examples/writ.yaml
 writ run -- claude
 ```
 

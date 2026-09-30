@@ -1,0 +1,189 @@
+id: floor
+version: 0.1.0
+description: The disaster floor - the few things an AI agent must never do on its own, whatever mode it runs in. Wiping your home directory or disk, force-pushing over main, reading your SSH and cloud keys, opening a reverse shell, switching off its own guard rails. Irreversible cloud and database deletes ask first.
+# Low-noise by design: every rule here names a disaster, not a style
+# choice, so `packs: [floor]` is safe to turn on everywhere. Use it in
+# writ.yaml as
+#
+#   version: 1
+#   default: allow          # or ask
+#   packs: [floor]
+#
+# and its deny/ask rules are placed before your own rules, so a broad allow
+# of yours cannot open the floor. Leave a rule out with
+# `packs: [{ id: floor, skip: [floor-...] }]`.
+#
+# Command regexes find a command at the start of a pipeline segment:
+# after ^ ; & | ( ` { ! or a quote (sh -c '...', trap '...'), or after a
+# wrapper word (sudo, env, xargs, then, do, ...), so `git rm -r .` is not
+# `rm`. [/\x5c] is / or \, \x22 is a double quote, \x60 a backtick (written
+# so neither YAML nor the policy string lexer rewrites them).
+rules:
+  # ------------------------------------------------------------ DENY ---
+  - id: floor-rm-home-or-root-denied
+    when: >-
+      tool == "bash"
+      and command matches "(?i)(^|[;&|(\x60{!\x22']\s*|\b(sudo|doas|nohup|exec|time|command|env|xargs|busybox|then|do|else)(\s+-{1,2}[\w=-]+)*\s+|\btimeout\s+\S+\s+)((/usr)?/bin/)?rm(\.exe)?(\s[^;&|\n]*)?(\s-[a-z]*r[a-z]*|\s--recursive)(\s|$|[\x22')\x60])"
+      and command matches "(?i)(^|[;&|(\x60{!\x22']\s*|\b(sudo|doas|nohup|exec|time|command|env|xargs|busybox|then|do|else)(\s+-{1,2}[\w=-]+)*\s+|\btimeout\s+\S+\s+)((/usr)?/bin/)?rm(\.exe)?(\s[^;&|\n]*)?\s[\x22']?(/|~|\$HOME|\$\{HOME\}|/home/[\w.-]+|/Users/[\w.-]+|/root|/etc|/usr|/var|/bin|/boot|/lib|/opt|/System|/Applications|[a-z]:[/\x5c]?((Users([/\x5c][\w .-]+)?|Windows))?|/[a-z](/Users(/[\w.-]+)?)?|%USERPROFILE%|%HOMEDRIVE%|\$env:USERPROFILE|(~|\$HOME|\$\{HOME\})/(Documents|Desktop|Downloads|Pictures|Music|Movies|Videos|Library|\.ssh|\.gnupg|\.aws|\.config|\.kube|\.local))[\x22']?/?(\.?\*)?[\x22']?(\s|$|[;&|)\x60])"
+    verdict: deny
+    reason: "Recursive delete of your home directory, a top-level home folder, or a system root. No agent task needs this; name the exact subdirectory instead."
+
+  - id: floor-rm-no-preserve-root-denied
+    when: >-
+      tool == "bash" and command matches "(?i)\brm(\.exe)?\s[^;&|\n]*--no-preserve-root"
+    verdict: deny
+    reason: "`rm --no-preserve-root` exists only to delete /. Refused outright."
+
+  - id: floor-windows-recursive-delete-denied
+    when: >-
+      tool == "bash"
+      and (
+        (command matches "(?i)\b(Remove-Item|ri)(\s[^;&|\n]*)?\s-r(ecurse)?\b"
+         and command matches "(?i)\b(Remove-Item|ri)(\s[^;&|\n]*)?\s(-(Literal)?Path\s+)?[\x22']?(~|\$HOME|\$env:USERPROFILE|\$env:HOMEDRIVE|\$env:SystemRoot|[a-z]:[/\x5c]?((Users([/\x5c][\w .-]+)?|Windows))?)[\x22']?[/\x5c]?\*?[\x22']?(\s|$|[;&|)])")
+        or command matches "(?i)\b(rd|rmdir)(\.exe)?\s+(/[sq]\s+)+[\x22']?([a-z]:[/\x5c]?((Users([/\x5c][\w .-]+)?|Windows))?|%USERPROFILE%|%HOMEDRIVE%|%SystemRoot%)[\x22']?(\s|$)"
+      )
+    verdict: deny
+    reason: "Recursive delete of a drive root, the Windows directory or your user profile. Name the exact subdirectory instead."
+
+  - id: floor-find-delete-home-or-root-denied
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\bfind\s+[\x22']?(/|~|\$HOME|\$\{HOME\})[\x22']?\s[^;&|\n]*(-delete\b|-exec\s+rm\b)"
+    verdict: deny
+    reason: "`find` over your home directory or / with -delete. Scope it to the directory you mean."
+
+  - id: floor-disk-and-system-wipe-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)(^|[;&|(\x60{!\x22']\s*|\b(sudo|doas|exec|then|do|else)\s+)(mkfs(\.\w+)?|mke2fs|wipefs|newfs|diskpart|Format-Volume|Clear-Disk|Initialize-Disk)(\.exe)?\b"
+        or command matches "(?i)\bdd\s[^;&|\n]*\bof=/dev/(sd|hd|vd|xvd|nvme|disk|rdisk|mmcblk)"
+        or command matches "(?i)(^|[^0-9&>])>\s*/dev/(sd|hd|vd|xvd|nvme|disk|rdisk|mmcblk)[a-z0-9]*"
+        or command matches "(?i)\bshred\s[^;&|\n]*/dev/"
+        or command matches "(?i)\bformat(\.com)?\s+[a-z]:"
+        or command matches ":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:"
+        or command matches "(?i)\bch(mod|own|grp)\s+(-[a-z]*R[a-z]*|--recursive)\s[^;&|\n]*\s[\x22']?(/|~|\$HOME|/etc|/usr|/var|/bin)[\x22']?(\s|$)"
+        or command matches "\bkill\s+-(9|KILL|s\s+KILL)\s+-1\b"
+      )
+    verdict: deny
+    reason: "Formats or overwrites a disk, fork-bombs the machine, or recursively changes ownership/permissions of a system or home root. Refused outright."
+
+  - id: floor-force-push-main-denied
+    when: >-
+      tool == "bash"
+      and (
+        (command matches "(?i)\bgit(\.exe)?\s[^;&|\n]*\bpush\b[^;&|\n]*\s(-[a-z]*f|--force|--force-with-lease(=\S*)?|--force-if-includes)(\s|$)"
+         and command matches "\bgit(\.exe)?\s[^;&|\n]*\bpush\b[^;&|\n]*[\s:/](main|master)(\s|$)")
+        or command matches "\bgit(\.exe)?\s[^;&|\n]*\bpush\b[^;&|\n]*\s\+(\S*:)?(refs/heads/)?(main|master)(\s|$)"
+      )
+    verdict: deny
+    reason: "Force-pushing main/master rewrites shared history for everyone. Push a branch and open a pull request."
+
+  - id: floor-private-keys-denied
+    when: >-
+      (path matches "(?i)(^|[/\x5c])\.ssh[/\x5c](id_[\w-]+|identity)$|(^|[/\x5c])\.aws[/\x5c]credentials$|application_default_credentials\.json$|(^|[/\x5c])\.config[/\x5c]gcloud[/\x5c](credentials\.db|access_tokens\.db|legacy_credentials)"
+       and not tool == "http")
+      or (tool == "bash"
+          and command matches "(?i)\b(cat|less|more|head|tail|base64|xxd|od|strings|cp|mv|scp|rsync|curl|wget|nc|ncat|type|Get-Content|gc|openssl|tar|zip|7z)(\.exe)?\s[^;&|\n]*(\.ssh[/\x5c](id_[\w-]+|identity)([\s\x22')]|$)|\.aws[/\x5c]credentials|application_default_credentials\.json)")
+    verdict: deny
+    reason: "SSH private keys and cloud credentials never go through the agent. The tools that need them read them themselves; public keys (*.pub) stay readable."
+
+  - id: floor-reverse-shell-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "/dev/(tcp|udp)/"
+        or command matches "(?i)\b(nc|ncat|netcat)(\.exe)?(\s[^;&|\n]*)?\s-[a-z]*[ec]\s"
+        or command matches "(?i)\bsocat\s[^;&|\n]*\bexec:"
+        or command matches "(?i)socket\.socket\([^;]*\)[\s\S]*(subprocess|pty\.spawn|os\.dup2)"
+        or command matches "(?i)New-Object\s+System\.Net\.Sockets\.TCPClient"
+      )
+    verdict: deny
+    reason: "Reverse-shell pattern: this hands an interactive shell on your machine to a remote host."
+
+  - id: floor-guard-config-write-denied
+    when: >-
+      (path matches "(?i)(^|[/\x5c])(\.writ[/\x5c].+|\.claude[/\x5c]settings(\.local)?\.json|\.codex[/\x5c](config\.toml|hooks\.json)|\.gemini[/\x5c]settings\.json|\.cursor[/\x5c]hooks\.json|\.windsurf[/\x5c]hooks\.json|\.codeium[/\x5c]windsurf[/\x5c]hooks\.json)$"
+       and not tool == "fs.read")
+      or (tool == "bash"
+          and command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(rm|mv|cp|truncate|ln|del|erase|move|copy|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Clear-Content)(\.exe)?\s([^;&|\n]*\s)?|\b(sed|perl)\s([^;&|\n]*\s)?-[a-z]*i[^;&|\n]*\s)[\x22']?[^\s;&|<>\x22']*(\.writ([/\x5c][^\s;&|<>\x22']*)?|\.claude[/\x5c]settings(\.local)?\.json|\.codex[/\x5c](config\.toml|hooks\.json)|\.gemini[/\x5c]settings\.json|\.cursor[/\x5c]hooks\.json|windsurf[/\x5c]hooks\.json)[\x22']?\s*($|[;&|)\n]|\s+[0-9]?[<>])")
+    verdict: deny
+    reason: "The agent cannot rewrite its own guard rails: the writ ledger and state (.writ/) and the agent hook configuration are off-limits. Change them yourself, outside the agent."
+
+  - id: floor-agent-bypass-flags-denied
+    when: >-
+      tool == "bash"
+      and command matches "(?i)--dangerously-skip-permissions|--allow-dangerously-skip-permissions|--dangerously-bypass-approvals-and-sandbox|--permission-mode[=\s]+bypassPermissions|--approval-mode[=\s]+yolo|--trust-all-tools|(^|\s)--yolo(\s|$)|\bdangerouslyDisableSandbox\b"
+    verdict: deny
+    reason: "Launching an agent (or writ) with its safety checks switched off. This is how the s1ngularity/Nx malware recruited local AI CLIs. Run it yourself if you mean it."
+
+  - id: floor-authorized-keys-write-denied
+    when: >-
+      (path matches "(?i)(^|[/\x5c])\.ssh[/\x5c]authorized_keys2?$" and not tool == "fs.read")
+      or (tool == "bash" and command matches "(?i)\.ssh[/\x5c]authorized_keys")
+    verdict: deny
+    reason: "Adding an SSH key to authorized_keys grants someone permanent login to this machine."
+
+  # ------------------------------------------------------------- ASK ---
+  - id: floor-policy-edit-asks
+    when: >-
+      (path matches "(?i)(^|[/\x5c])writ\.yaml$" and not tool == "fs.read")
+      or (tool == "bash"
+          and command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(rm|mv|cp|truncate|ln|del|erase|move|copy|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Clear-Content)(\.exe)?\s([^;&|\n]*\s)?|\b(sed|perl)\s([^;&|\n]*\s)?-[a-z]*i[^;&|\n]*\s)[\x22']?[^\s;&|<>\x22']*writ\.yaml[\x22']?\s*($|[;&|)\n]|\s+[0-9]?[<>])")
+    verdict: ask
+    reason: "The agent wants to change a writ policy file. You decide whether it may edit its own rules."
+
+  - id: floor-rm-workspace-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)(^|[;&|(\x60{!\x22']\s*|\b(sudo|doas|nohup|exec|time|command|env|xargs|busybox|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)((/usr)?/bin/)?rm(\.exe)?(\s[^;&|\n]*)?(\s-[a-z]*r[a-z]*|\s--recursive)(\s|$)"
+      and command matches "(?i)(^|[;&|(\x60{!\x22']\s*|\b(sudo|doas|nohup|exec|time|command|env|xargs|busybox|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)((/usr)?/bin/)?rm(\.exe)?(\s[^;&|\n]*)?\s[\x22']?(\.|\.\.|\*|\./\*|\.\./\.\.|\.\./\*|\.git|\$PWD|\$\(pwd\)|\$\{PWD\})[\x22']?/?(\s|$|[;&|)\x60])"
+    verdict: ask
+    reason: "Recursive delete of the whole working directory, its parent, or .git. Confirm this is the directory you mean."
+    irreversible: true
+
+  - id: floor-discard-uncommitted-work-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\bgit(\.exe)?\s[^;&|\n]*\b(reset\s[^;&|\n]*--hard|clean\s[^;&|\n]*-[a-z]*f|checkout\s[^;&|\n]*--\s+\.(\s|$)|restore\s+(--\S+\s+)*\.(\s|$)|stash\s+(clear|drop))"
+    verdict: ask
+    reason: "Throws away uncommitted work (reset --hard, clean -f, checkout -- ., restore ., stash drop/clear). It cannot be recovered from git."
+    irreversible: true
+
+  - id: floor-database-drop-asks
+    when: >-
+      (tool == "bash" and command matches "(?i)\bdrop\s+(database|schema)\b|(^|[\s;&|(])dropdb(\.exe)?\s|\bflushall\b|\bflushdb\b|\bdropDatabase\s*\(|\b(prisma\s+migrate\s+reset|rails\s+db:(drop|reset)|supabase\s+db\s+reset)\b")
+      or query matches "(?i)\bdrop\s+(database|schema)\b|\bflushall\b|\bdropDatabase\s*\("
+    verdict: ask
+    reason: "Drops or wipes a whole database. Check which database this points at: production wipes are how the Replit and PocketOS incidents lost their data."
+    irreversible: true
+
+  - id: floor-cloud-destroy-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\b(terraform|tofu|terragrunt)(\.exe)?\s[^;&|\n]*\bdestroy\b|\bpulumi\s[^;&|\n]*\bdestroy\b|\bcdk\s+destroy\b|\bgcloud\s[^;&|\n]*\bprojects\s+delete\b|\baz\s+group\s+delete\b|\baws\s+s3\s+rb\s[^;&|\n]*--force|\baws\s+s3\s+rm\s[^;&|\n]*--recursive|\baws\s+rds\s+delete-db-(instance|cluster)\b|\baws\s+cloudformation\s+delete-stack\b|\bkubectl\s[^;&|\n]*\bdelete\s+(ns|namespaces?|all\s|--all)\b|\bfly(ctl)?\s+(apps\s+)?destroy\b|\bheroku\s+apps:destroy\b|\brailway\s+(down|delete)\b|\bvercel\s+(rm|remove)\b|\bfirebase\s+projects:delete\b"
+    verdict: ask
+    reason: "Deletes cloud infrastructure or data (a stack, project, bucket, database or namespace). Confirm the account and environment first."
+    irreversible: true
+
+  - id: floor-remote-script-exec-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\b(curl|wget|iwr|irm|Invoke-WebRequest|Invoke-RestMethod)(\.exe)?\s[^;&\n]*\|\s*(sudo\s+(-\S+\s+)*)?((ba|z|da|k|a)?sh(\.exe)?\b|(python[\d.]*|node|perl|ruby|php)(\.exe)?(\s+-)?\s*($|[;&|)\n])|(pwsh|powershell)(\.exe)?(\s+-(c|Command)\s+-)?\s*($|[;&|)\n])|(iex|Invoke-Expression)\b)"
+    verdict: ask
+    reason: "Downloads a script and runs it unseen. Fetch it to a file first so it can be read, or confirm you trust the source."
+
+  - id: floor-persistence-asks
+    when: >-
+      (path matches "(?i)(^|[/\x5c])(\.bashrc|\.bash_profile|\.zshrc|\.zprofile|\.profile|\.zshenv|config\.fish|Microsoft\.PowerShell_profile\.ps1|profile\.ps1)$" and not tool == "fs.read")
+      or (tool == "bash"
+          and command matches "(?i)\bcrontab\s+(-r|-e|-\s|[^-\s;&|]+)|\bcrontab\s*$|\blaunchctl\s+(load|bootstrap|submit)\b|\bschtasks(\.exe)?\s+/create\b|\bRegister-ScheduledTask\b|\bsystemctl\s+(--user\s+)?enable\b|\breg(\.exe)?\s+add\s[^;&|\n]*\x5cCurrentVersion\x5cRun|\bNew-ItemProperty\s[^;&|\n]*CurrentVersion\x5cRun")
+    verdict: ask
+    reason: "Makes something run automatically later (shell profile, cron, launchd, scheduled task, service, Run key). Confirm you want this to outlive the session."
+
+  - id: floor-shutdown-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)(shutdown|reboot|halt|poweroff|Stop-Computer|Restart-Computer)(\.exe)?(\s+[-/+0-9a-z]|\s*$|\s*[;&|])"
+    verdict: ask
+    reason: "Shuts down or restarts this machine."

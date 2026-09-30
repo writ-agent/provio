@@ -1,11 +1,12 @@
 //! Embed the policy packs from the repository's `packs/` directory, so
-//! `writ policy add <pack>` and the `writ ui` policy screen work for every
-//! install (pip, npm, release binaries), not only inside a checkout.
+//! `packs:` in writ.yaml, `writ policy add <pack>` and the `writ ui` policy
+//! screen work for every install (pip, npm, release binaries, the WASM
+//! playground), not only inside a checkout.
 //!
 //! Writes `$OUT_DIR/bundled_packs.rs`: a `&[(&str, &str)]` of
 //! `(pack id, pack.yaml source)`, sorted by id. When `packs/` is absent
 //! (e.g. a build from a source archive that does not ship it) the list is
-//! empty and writ still builds.
+//! empty and writ still builds (a policy naming a pack then fails to load).
 
 use std::fmt::Write as _;
 use std::path::PathBuf;

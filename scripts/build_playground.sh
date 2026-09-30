@@ -77,13 +77,14 @@ def read(p):
         return f.read().replace(CR + LF, LF)
 
 blurb = {
+    "starter.yaml": "Starter: what `writ init` writes (default allow + the floor + secrets guard)",
     "writ.yaml": "Full tour: four verdicts, fail-closed default",
     "ci.yaml": "Headless CI posture",
     "strict.yaml": "Default deny: allow-list only",
 }
 policies = [
     {"id": f"examples/{f}", "label": blurb[f], "kind": "example", "source": read(f"examples/{f}")}
-    for f in ["writ.yaml", "ci.yaml", "strict.yaml"]
+    for f in ["starter.yaml", "writ.yaml", "ci.yaml", "strict.yaml"]
 ]
 for d in sorted(os.listdir("packs")):
     p = f"packs/{d}/pack.yaml"

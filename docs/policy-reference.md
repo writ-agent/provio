@@ -8,6 +8,7 @@ shareable. The policy file is the product's centre of gravity.
 ```yaml
 version: 1                    # policy format version (required)
 default: ask                  # verdict for unmatched calls: ask | allow | deny
+packs: [floor, secrets-guard] # optional bundled packs, composed around rules (below)
 rules:                        # evaluated in order; first match wins
   - id: my-rule               # unique, shown in errors and the ledger
     when: <expression>        # see below
@@ -53,6 +54,31 @@ when: (server.trust == "malicious" or server.trust == "unverified") and not mode
 Wildcard list entries: `*.internal.example.com` matches
 `api.internal.example.com` on a dot boundary (not `evilinternal.example.com`).
 
+## Packs
+
+`packs:` names bundled policy packs ([packs/](../packs/)); every writ build
+ships them, so the policy stays one short file:
+
+```yaml
+packs:
+  - floor                         # the disaster floor
+  - secrets-guard
+  - id: github-safety
+    skip: [github-pr-merge-asks]  # decide this one yourself
+```
+
+writ composes them with your `rules:` the way a careful hand-merge would:
+the packs' **deny and ask** rules first (in the order listed, so a broad
+allow of yours cannot open them), then **your rules**, then the packs'
+**allow** rules (your denies still win), then their **redact** rules (redact
+dispatches, so it goes last). A pack rule's location is `pack:<id>@<version>`,
+in the ledger and in the agent's refusal. An unknown pack, a pack listed
+twice, or a `skip` naming a rule the pack does not have is a policy error:
+writ refuses to load the policy. `packs:` works the same with the Rego and
+Cedar engines, which compile the same `writ.yaml`.
+
+To see the composed result for a call: `writ test "<command>"`.
+
 ## The four verdicts
 
 | Verdict | Behaviour |
@@ -65,7 +91,20 @@ Wildcard list entries: `*.internal.example.com` matches
 Unmatched calls get `default`. Ship `default: ask` (fail-closed);
 `writ run --yolo` flips it to `allow` (demos only — it prints a loud warning).
 
+Deny and ask verdicts also apply to the commands hidden behind a call (the
+lines of a script it runs or writes, a heredoc fed to a shell, the
+`package.json` script behind `npm run`): see [inspection.md](inspection.md).
+
 ## Testing your policy
+
+Try one call without running it (exit 0 allow, 2 deny, 3 ask):
+
+```bash
+writ test "git push --force origin main"
+writ test --tool fs.read --path .env
+```
+
+Or replay a whole recorded suite:
 
 ```bash
 writ policy test --policy writ.yaml --fixtures crates/writ-policy/fixtures

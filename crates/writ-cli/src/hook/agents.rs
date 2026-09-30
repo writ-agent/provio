@@ -304,6 +304,53 @@ impl Mapped {
     }
 }
 
+/// One writ tool call mapped from an agent's native tool call.
+pub(crate) type NativeCall = (String, Map<String, Value>, Option<ServerIdentity>);
+
+/// Map a tool call read back from an agent's transcript (`writ scan`) the
+/// way that agent's hook would: one writ call per candidate value of a
+/// multi-valued key. `agent` is `claude-code`, `codex` or `gemini-cli`;
+/// `mcp` is Gemini's `mcp_context`, when the transcript has one.
+pub(crate) fn native_calls(
+    agent: &str,
+    name: &str,
+    input: Map<String, Value>,
+    cwd: Option<&str>,
+    mcp: Option<&Value>,
+) -> Vec<NativeCall> {
+    let mapped = match agent {
+        "codex" => codex_map(name, input, cwd),
+        "gemini-cli" => gemini_map(name, input, mcp),
+        _ => {
+            let (tool, args, server) = map_claude_tool(name, input, None);
+            Mapped {
+                tool,
+                args,
+                server,
+                candidates: None,
+            }
+        }
+    };
+    match mapped.candidates {
+        Some((key, vals)) if vals.len() > 1 => vals
+            .into_iter()
+            .map(|v| {
+                let mut args = mapped.args.clone();
+                args.insert(key.into(), json!(v));
+                (mapped.tool.clone(), args, mapped.server.clone())
+            })
+            .collect(),
+        Some((key, vals)) => {
+            let mut args = mapped.args;
+            if let Some(v) = vals.into_iter().next() {
+                args.insert(key.into(), json!(v));
+            }
+            vec![(mapped.tool, args, mapped.server)]
+        }
+        None => vec![(mapped.tool, mapped.args, mapped.server)],
+    }
+}
+
 fn server(name: &str, transport: &str) -> ServerIdentity {
     ServerIdentity {
         name: name.to_string(),
