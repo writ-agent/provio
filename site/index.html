@@ -158,6 +158,7 @@
     <h1>A safety floor your<br>AI agents <span class="verdict">can't get under</span>.</h1>
     <p class="sub">One policy for Claude Code, Codex, Gemini CLI, Cursor, Windsurf and your MCP servers. Checked before every tool call, judged by what the call will actually run, backstopped by the kernel, recorded in a ledger you can verify.</p>
     <div class="install"><span class="prompt">$</span><span>pip install provio && provio scan && provio init</span></div>
+    <p class="sub" style="font-size:15px">Also: <code>brew install writ-agent/provio/provio</code> · <code>scoop install provio</code> · the Claude Code plugin (<code>/plugin marketplace add writ-agent/provio</code>) · <code>gemini extensions install https://github.com/writ-agent/provio</code></p>
     <figure class="demo">
       <img src="assets/demo-88462.svg" alt="claude-code#88462 replayed: provio denies writing a cleanup script whose trap runs rm -rf $HOME, denies running it by reading the script, and when the delete is obfuscated past every rule the kernel boundary refuses it and the home directory stays intact">
       <figcaption><a href="https://github.com/anthropics/claude-code/issues/88462">claude-code#88462</a>, replayed: refused when written, refused when run, and stopped by the kernel when obfuscated past every rule.</figcaption>
@@ -269,6 +270,8 @@
       <a href="https://github.com/writ-agent/provio">GitHub</a>
       <a href="https://github.com/writ-agent/provio/blob/main/docs/THREAT_MODEL.md">Threat model</a>
       <a href="https://github.com/writ-agent/provio/blob/main/docs/policy-reference.md">Policy reference</a>
+      <a href="https://github.com/writ-agent/provio/blob/main/docs/comparison.md">Compare</a>
+      <a href="https://github.com/writ-agent/provio/blob/main/docs/owasp-agentic.md">OWASP Agentic Top 10</a>
       <a href="https://github.com/writ-agent/provio/blob/main/LICENSE">Apache-2.0</a>
     </div>
     <p class="fine">Status: pre-release. PROVIO — Warranted Runtime for Intelligent Tools. No daemon, no images, no account, no telemetry.</p>
