@@ -122,7 +122,67 @@ struct Source {
     found_dir: Option<PathBuf>,
 }
 
+/// Everything one scan found.
+struct Collected {
+    policy_label: String,
+    cutoff: String,
+    sources: BTreeMap<&'static str, Source>,
+    findings: Vec<Finding>,
+    allowed: usize,
+    defaulted: usize,
+}
+
 pub fn scan(policy: &Path, args: &ScanArgs) -> Result<()> {
+    let c = collect(policy, args)?;
+    match args.format {
+        ScanFormat::Json => println!("{}", serde_json::to_string_pretty(&to_json(args.days, &c))?),
+        ScanFormat::Markdown => print!(
+            "{}",
+            markdown(args.days, &c.policy_label, &c.sources, &c.findings)
+        ),
+        ScanFormat::Text => text(
+            args,
+            &c.policy_label,
+            &c.sources,
+            &c.findings,
+            c.allowed,
+            c.defaulted,
+        ),
+    }
+    Ok(())
+}
+
+/// The `--format json` report, for the console's Look back screen.
+pub(crate) fn json_report(policy: &Path, days: u32, packs: &[String]) -> Result<Value> {
+    let args = ScanArgs {
+        days,
+        agent: Vec::new(),
+        packs: packs.to_vec(),
+        dir: None,
+        format: ScanFormat::Json,
+        examples: 3,
+    };
+    Ok(to_json(days, &collect(policy, &args)?))
+}
+
+fn to_json(days: u32, c: &Collected) -> Value {
+    json!({
+        "days": days,
+        "since": c.cutoff,
+        "policy": c.policy_label,
+        "sources": c.sources.iter().map(|(id, s)| json!({
+            "agent": id,
+            "dir": s.found_dir,
+            "files": s.files,
+            "sessions": s.sessions.len(),
+            "tool_calls": s.calls,
+        })).collect::<Vec<_>>(),
+        "totals": totals_json(&c.findings, c.allowed, c.defaulted),
+        "findings": c.findings,
+    })
+}
+
+fn collect(policy: &Path, args: &ScanArgs) -> Result<Collected> {
     let (engine, policy_label) = crate::onboard::judging_policy(policy, &args.packs)?;
     let cutoff = iso_days_ago(args.days);
     let agents: Vec<ScanAgent> = if args.agent.is_empty() {
@@ -211,32 +271,14 @@ pub fn scan(policy: &Path, args: &ScanArgs) -> Result<()> {
         }
     }
     findings.sort_by(|a, b| b.when.cmp(&a.when));
-
-    match args.format {
-        ScanFormat::Json => {
-            let out = json!({
-                "days": args.days,
-                "since": cutoff,
-                "policy": policy_label,
-                "sources": sources.iter().map(|(id, s)| json!({
-                    "agent": id,
-                    "dir": s.found_dir,
-                    "files": s.files,
-                    "sessions": s.sessions.len(),
-                    "tool_calls": s.calls,
-                })).collect::<Vec<_>>(),
-                "totals": totals_json(&findings, allowed, defaulted),
-                "findings": findings,
-            });
-            println!("{}", serde_json::to_string_pretty(&out)?);
-        }
-        ScanFormat::Markdown => print!(
-            "{}",
-            markdown(args.days, &policy_label, &sources, &findings)
-        ),
-        ScanFormat::Text => text(args, &policy_label, &sources, &findings, allowed, defaulted),
-    }
-    Ok(())
+    Ok(Collected {
+        policy_label,
+        cutoff,
+        sources,
+        findings,
+        allowed,
+        defaulted,
+    })
 }
 
 fn totals_json(findings: &[Finding], allowed: usize, defaulted: usize) -> Value {

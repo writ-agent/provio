@@ -42,6 +42,8 @@ and `provio init` recognise and replace hooks written by `writ`, and the
   starter floor; fails closed without the binary; `/provio:scan` and
   `/provio:report` commands. `provio check --if-no-policy starter` is the
   flag behind it.
+- **Look back** screen in `provio ui`: the `provio scan` scorecard for the
+  last 7, 30 or 90 days, judged by the policy or every bundled pack.
 - **`provio scan`**: replays what your agents already did (Claude Code, Codex
   and Gemini CLI transcripts on this machine) through the policy and prints
   a scorecard of what would have been blocked or asked, with examples per

@@ -130,6 +130,15 @@ by the policy and recorded:
 If an escape succeeds, the screen says so in red. Nothing is reported as
 held without that check from outside.
 
+### Look back
+
+`provio scan` in the console: the Claude Code, Codex and Gemini CLI
+transcripts on this machine, replayed through the console's policy (or every
+bundled pack), for the last 7, 30 or 90 days. It shows how many calls would
+have been blocked, asked about or scanned for secrets, then one card per rule
+with its reason and recent example calls. It only reads transcripts; nothing
+is installed, hooked or recorded. See [first-run.md](first-run.md).
+
 ## Security model
 
 The console can edit your policy, approve asks, and run commands in the

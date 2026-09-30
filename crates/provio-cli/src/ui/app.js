@@ -166,6 +166,7 @@
     history: [],
     policy: null,
     sandbox: { status: null, last: null, busy: false, command: "" },
+    lookback: { days: 30, packs: "", data: null, loading: false, error: null },
   };
 
   function mergeDecisions(items, markFresh) {
@@ -260,7 +261,7 @@
   }
 
   // ------------------------------------------------------------------ routing
-  const ROUTES = ["connect", "live", "approvals", "policy", "sandbox"];
+  const ROUTES = ["connect", "live", "approvals", "policy", "sandbox", "lookback"];
   function currentRoute() {
     const m = /^#\/(\w+)/.exec(location.hash);
     return m && ROUTES.includes(m[1]) ? m[1] : "connect";
@@ -272,7 +273,7 @@
       else a.removeAttribute("aria-current");
     });
     const v = clear($("#view"));
-    ({ connect: renderConnect, live: renderLive, approvals: renderApprovals, policy: renderPolicy, sandbox: renderSandbox })[r](v);
+    ({ connect: renderConnect, live: renderLive, approvals: renderApprovals, policy: renderPolicy, sandbox: renderSandbox, lookback: renderLookback })[r](v);
   }
   window.addEventListener("hashchange", () => { render(); $("#main").focus({ preventScroll: true }); window.scrollTo(0, 0); });
 
@@ -869,6 +870,79 @@
   }
 
   // ------------------------------------------------------------------ sandbox
+  // ------------------------------------------------------------------ look back
+  function lookbackRun() {
+    const L = S.lookback;
+    L.loading = true; L.error = null;
+    if (currentRoute() === "lookback") render();
+    api("/api/scan?days=" + L.days + (L.packs ? "&packs=" + L.packs : ""))
+      .then((r) => { L.data = r; })
+      .catch((e) => { L.error = String(e && e.message ? e.message : e); })
+      .finally(() => { L.loading = false; if (currentRoute() === "lookback") render(); });
+  }
+  const AGENT_LABEL = { "claude-code": "Claude Code", codex: "Codex", "gemini-cli": "Gemini CLI" };
+  function gist(reason) {
+    let r = reason || "";
+    const i = r.indexOf("`. ");
+    if (i > 0 && /^(script |the file|the heredoc|the program|the SQL|package\.json)/.test(r)) r = r.slice(i + 3);
+    const e = r.indexOf(". ");
+    return e > 0 ? r.slice(0, e + 1) : r;
+  }
+  function renderLookback(v) {
+    const L = S.lookback;
+    const days = h("select.input", { "aria-label": "How far back", onchange: (e) => { L.days = +e.target.value; lookbackRun(); } },
+      [7, 30, 90].map((d) => h("option", { value: String(d), text: "last " + d + " days", selected: L.days === d ? "selected" : null })));
+    const packs = h("select.input", { "aria-label": "Judge with", onchange: (e) => { L.packs = e.target.value; lookbackRun(); } },
+      h("option", { value: "", text: "this policy", selected: L.packs === "" ? "selected" : null }),
+      h("option", { value: "all", text: "every bundled pack", selected: L.packs === "all" ? "selected" : null }));
+    const again = h("button.btn", { type: "button", onclick: () => lookbackRun(), disabled: L.loading ? "disabled" : null }, icon("undo"), "Scan again");
+    v.appendChild(pageHead("Look back", "What your agents already did",
+      "provio scan replays the Claude Code, Codex and Gemini CLI transcripts on this machine through the policy. It only reads: nothing is installed, hooked or recorded.",
+      days, packs, again));
+    if (!L.data && !L.loading && !L.error) { lookbackRun(); return; }
+    if (L.loading) { v.appendChild(h("p.muted", { role: "status", text: "Reading transcripts… a long history takes a little while." })); return; }
+    if (L.error) {
+      v.appendChild(h("div.refused", { role: "alert" }, icon("alert"), h("div", h("strong", { text: "The scan failed." }), h("p.small", { text: L.error }))));
+      return;
+    }
+    const d = L.data, t = d.totals;
+    const calls = d.sources.reduce((n, s) => n + s.tool_calls, 0);
+    const stat = (cls, label, n) => h("div.card.stat." + cls, h("div.l", { text: label }), h("div.n", { text: String(n) }));
+    v.appendChild(h("div.stats",
+      stat("", "tool calls", calls),
+      stat("deny", "would have been blocked", t.deny),
+      stat("ask", "would have asked you", t.ask),
+      stat("redact", "outputs scanned for secrets", t.redact),
+      stat("allow", "allowed", t.allow_by_rule + t.no_rule_matched)));
+    v.appendChild(h("p.small.muted", { text: "Judged by " + d.policy + ". " +
+      d.sources.map((s) => (AGENT_LABEL[s.agent] || s.agent) + ": " + (s.dir ? s.tool_calls + " calls in " + s.sessions + " sessions" : "no transcripts")).join(" · ") }));
+    if (calls === 0) {
+      v.appendChild(h("p", { text: "No agent tool calls found in this window. Try a longer one." }));
+      return;
+    }
+    const groups = new Map();
+    for (const f of d.findings) {
+      if (f.verdict === "redact") continue;
+      const k = f.verdict + " " + f.rule_id;
+      if (!groups.has(k)) groups.set(k, { verdict: f.verdict, rule: f.rule_id, reason: f.reason, items: [] });
+      groups.get(k).items.push(f);
+    }
+    const rank = { deny: 0, ask: 1 };
+    const list = [...groups.values()].sort((a, b) => (rank[a.verdict] - rank[b.verdict]) || (b.items.length - a.items.length));
+    if (!list.length) {
+      v.appendChild(h("section.card.card-pad", h("div.row", icon("shieldok"), h("strong", { text: "Nothing in this window would have been blocked or asked." }))));
+      return;
+    }
+    v.appendChild(h("div.stack", list.map((g) => h("section.card",
+      h("div.card-head",
+        h("div.row", h("span.pill." + (g.verdict === "deny" ? "bad" : "warn"), { text: g.verdict === "deny" ? "BLOCK" : "ASK" }), h("h2.mono", { text: g.rule })),
+        h("span.pill", { text: g.items.length + (g.items.length === 1 ? " call" : " calls") })),
+      h("div.card-body",
+        h("p.small", { text: gist(g.reason) }),
+        h("ul.small.mono", g.items.slice(0, 3).map((f) => h("li", { text: (f.when || "").slice(0, 10) + "  " + (AGENT_LABEL[f.agent] || f.agent) + "  " + (f.summary.length > 160 ? f.summary.slice(0, 160) + "…" : f.summary) }))))))));
+    v.appendChild(h("p.tiny.muted.section-gap", { text: "Transcripts record what the agent asked to run; its own permission prompt may have stopped some of these. Scripts are read as they are on disk now." }));
+  }
+
   function renderSandbox(v) {
     v.appendChild(pageHead("Kernel boundary", "Sandbox",
       "Run a command inside provio's local-os kernel boundary, in a throwaway workspace. The command is decided by provio.yaml first (as tool bash) and recorded to the ledger; only an allowed or approved command runs, and never outside the boundary."));

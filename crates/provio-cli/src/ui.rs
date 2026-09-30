@@ -292,6 +292,7 @@ fn route(c: &Arc<Console>, req: Request) -> Response {
         ("/api/integrate/claude-code", _, true) => with_json(&req, |b| api_integrate(c, b)),
         ("/api/sandbox", true, _) => Response::ok(sandbox::status()),
         ("/api/sandbox/run", _, true) => with_json(&req, |b| sandbox::run(c, b)),
+        ("/api/scan", true, _) => api_scan(c, &req),
         (p, _, _) if p.starts_with("/api/") => {
             let known = [
                 "/api/info",
@@ -310,6 +311,7 @@ fn route(c: &Arc<Console>, req: Request) -> Response {
                 "/api/integrate/claude-code",
                 "/api/sandbox",
                 "/api/sandbox/run",
+                "/api/scan",
             ];
             if known.contains(&p) {
                 let mut r =
@@ -507,6 +509,26 @@ fn api_decide(c: &Console, b: &Value) -> Response {
     match approvals::write_decision(&c.console_dir, id, &rec.record_hash, approve) {
         Ok(d) => Response::ok(json!({"ok": true, "decision": d})),
         Err(e) => Response::error(500, "io", &format!("could not write the decision: {e}")),
+    }
+}
+
+/// `provio scan` over this machine's agent transcripts (read-only): the
+/// Look back screen. `days` (default 30, 1..365); `packs=all` judges with
+/// every bundled pack instead of the console's policy.
+fn api_scan(c: &Console, req: &Request) -> Response {
+    let days: u32 = req
+        .query
+        .get("days")
+        .and_then(|d| d.parse().ok())
+        .unwrap_or(30)
+        .clamp(1, 365);
+    let packs: Vec<String> = match req.query.get("packs").map(String::as_str) {
+        Some("all") => vec!["all".to_string()],
+        _ => Vec::new(),
+    };
+    match crate::scan::json_report(&c.policy, days, &packs) {
+        Ok(v) => Response::ok(v),
+        Err(e) => Response::error(500, "scan_failed", &e.to_string()),
     }
 }
 
