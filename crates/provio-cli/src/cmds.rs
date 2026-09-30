@@ -23,7 +23,24 @@ use provio_tui::{render_call_line, render_rule_note};
 
 type DecisionMap = Rc<RefCell<HashMap<String, (LedgerRecord, Vec<String>)>>>;
 
+static STARTER_WHEN_MISSING: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// From now on, a missing policy file loads the starter policy (the floor
+/// and secrets-guard packs) instead of failing (`check --if-no-policy
+/// starter`).
+pub(crate) fn use_starter_when_missing() {
+    STARTER_WHEN_MISSING.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
 pub(crate) fn load_engine(policy_path: &Path, yolo: bool) -> Result<NativePolicyEngine> {
+    if !policy_path.exists() && STARTER_WHEN_MISSING.load(std::sync::atomic::Ordering::SeqCst) {
+        let mut source = crate::onboard::starter_policy(false);
+        if yolo {
+            source = source.replacen("default: ask", "default: allow", 1);
+        }
+        return NativePolicyEngine::from_source(&source).map_err(|e| anyhow!(e.to_string()));
+    }
     if !policy_path.exists() {
         bail!(
             "no policy file at {} — create one (see examples/provio.yaml) or pass --policy",

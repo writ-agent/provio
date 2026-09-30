@@ -103,6 +103,13 @@ enum Commands {
         /// defer the human decision to the calling agent's own UI.
         #[arg(long, value_enum, default_value_t = hook::AskMode::Deny)]
         ask: hook::AskMode,
+        /// When the policy file does not exist: `deny` every call (fail
+        /// closed), or judge with the `starter` policy (the floor and
+        /// secrets-guard packs) and record to ~/.provio/ledger.jsonl unless
+        /// --ledger is given. Used by the Claude Code plugin, which runs in
+        /// projects that have no provio.yaml.
+        #[arg(long, value_enum, default_value_t = NoPolicy::Deny)]
+        if_no_policy: NoPolicy,
     },
 
     /// Wire provio into an agent's configuration: `provio integrate claude-code`
@@ -190,6 +197,13 @@ enum Commands {
     Report(report::ReportArgs),
 }
 
+/// `provio check --if-no-policy`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+enum NoPolicy {
+    Deny,
+    Starter,
+}
+
 #[derive(Subcommand)]
 enum PolicyCmd {
     /// Unit-test your rules against recorded fixtures.
@@ -246,7 +260,23 @@ fn main() -> anyhow::Result<()> {
             no_hooks,
             cmd,
         }),
-        Commands::Check { stdio, format, ask } => {
+        Commands::Check {
+            stdio,
+            format,
+            ask,
+            if_no_policy,
+        } => {
+            let mut ledger = ledger;
+            if if_no_policy == NoPolicy::Starter && !policy.exists() {
+                cmds::use_starter_when_missing();
+                if cli.ledger.is_none() {
+                    if let Some(home) =
+                        std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))
+                    {
+                        ledger = PathBuf::from(home).join(".provio").join("ledger.jsonl");
+                    }
+                }
+            }
             hook::check(&policy, &ledger, cli.yolo, stdio, format, ask)
         }
         Commands::Integrate { target, print } => {

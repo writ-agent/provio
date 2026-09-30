@@ -110,7 +110,7 @@ is missing or errors, the tool does not run.
 
 | Agent | How | Per tool call |
 |---|---|---|
-| **Claude Code** | `provio integrate claude-code` (writes hooks into `.claude/settings.json`), or just `provio run -- claude` | yes — a provio `ask` becomes Claude Code's own permission prompt |
+| **Claude Code** | the plugin: `/plugin marketplace add writ-agent/provio` then `/plugin install provio@provio` ([plugins/claude-code](plugins/claude-code/)); or per project `provio integrate claude-code` (writes hooks into `.claude/settings.json`), or just `provio run -- claude` | yes — a provio `ask` becomes Claude Code's own permission prompt |
 | **OpenAI Codex CLI** | `provio integrate codex` (`.codex/config.toml`), or `provio run -- codex` | yes |
 | **Gemini CLI** | `provio integrate gemini` (`.gemini/settings.json`), or `provio run -- gemini` | yes — a provio `ask` becomes Gemini's confirmation |
 | **Cursor** | `provio integrate cursor` (`.cursor/hooks.json`), or `provio run -- agent` | yes (MCP asks use Cursor's prompt) |

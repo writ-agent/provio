@@ -379,3 +379,45 @@ fn report_summarizes_the_ledger_and_embeds_a_verifiable_receipt() {
     let _ = std::fs::remove_dir_all(&home);
     let _ = std::fs::remove_dir_all(&work);
 }
+
+#[test]
+fn check_without_a_policy_fails_closed_unless_told_to_use_the_starter() {
+    use std::io::Write;
+    let home = empty_dir("home");
+    let work = empty_dir("work");
+    let run = |extra: &[&str], cmd: &str| {
+        let mut args = vec!["check", "--format", "claude-code"];
+        args.extend_from_slice(extra);
+        let mut child = Command::new(env!("CARGO_BIN_EXE_provio"))
+            .args(&args)
+            .current_dir(&work)
+            .env("HOME", &home)
+            .env("USERPROFILE", &home)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let payload = json!({"hook_event_name": "PreToolUse", "session_id": "s",
+            "tool_use_id": cmd, "tool_name": "Bash", "tool_input": {"command": cmd}});
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(payload.to_string().as_bytes())
+            .unwrap();
+        let out = child.wait_with_output().unwrap();
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    // No provio.yaml: every call is refused (fail closed)...
+    assert!(run(&[], "cargo test").contains("\"deny\""));
+    // ...unless the starter floor is asked for: ordinary calls pass,
+    // disasters do not, and the ledger goes to ~/.provio/.
+    assert!(run(&["--if-no-policy", "starter"], "cargo test").contains("\"allow\""));
+    let d = run(&["--if-no-policy", "starter"], "rm -rf ~");
+    assert!(d.contains("floor-rm-home-or-root-denied"), "{d}");
+    assert!(home.join(".provio/ledger.jsonl").is_file());
+    assert!(!work.join(".provio").exists());
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&work);
+}

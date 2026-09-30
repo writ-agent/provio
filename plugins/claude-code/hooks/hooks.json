@@ -1,0 +1,13 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/provio-hook.sh\"", "timeout": 60 }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/provio-hook.sh\"", "timeout": 60 }] }
+    ],
+    "PostToolUseFailure": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/provio-hook.sh\"", "timeout": 60 }] }
+    ]
+  }
+}

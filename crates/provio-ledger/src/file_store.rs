@@ -452,17 +452,38 @@ pub fn is_append_race(e: &ProvioError) -> bool {
     }
 }
 
+/// How long [`retry_append`] keeps rebuilding a record that lost the race
+/// to other writers (after at least [`APPEND_RETRIES`] attempts).
+pub const APPEND_RETRY_DEADLINE: Duration = Duration::from_secs(30);
+
 /// Run `f` (typically one `LedgerWriter::record_*` call, which rebuilds its
 /// record on the current tip) until it succeeds, fails with anything other
-/// than [`is_append_race`], or [`APPEND_RETRIES`] races were lost.
+/// than [`is_append_race`], or it has lost [`APPEND_RETRIES`] races and
+/// [`APPEND_RETRY_DEADLINE`] has passed.
+///
+/// The backoff is jittered: writers that lose a race at the same moment
+/// would otherwise retry in lockstep and the slowest could lose every time.
 pub fn retry_append<T>(mut f: impl FnMut() -> Result<T>) -> Result<T> {
+    let start = std::time::Instant::now();
     let mut attempt = 0u32;
+    let mut seed = u64::from(std::process::id())
+        ^ std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or(0);
     loop {
         match f() {
-            Err(e) if is_append_race(&e) && attempt < APPEND_RETRIES => {
+            Err(e)
+                if is_append_race(&e)
+                    && (attempt < APPEND_RETRIES || start.elapsed() < APPEND_RETRY_DEADLINE) =>
+            {
                 attempt += 1;
-                // Small, growing backoff so a burst of writers spreads out.
-                std::thread::sleep(Duration::from_millis(u64::from(attempt.min(20))));
+                // xorshift64: cheap jitter without a dependency.
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                let cap = u64::from(attempt.min(25)) * 2; // up to 50 ms
+                std::thread::sleep(Duration::from_millis(1 + seed % cap.max(1)));
             }
             other => return other,
         }
