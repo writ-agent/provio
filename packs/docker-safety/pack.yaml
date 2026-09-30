@@ -1,0 +1,106 @@
+id: docker-safety
+version: 0.1.0
+description: Human gates on Docker and Podman commands that delete data (volume removal, prune -a/--volumes, compose down -v, mass container and image deletes, swarm teardown) or hand a container the host (privileged runs, host PID/user namespaces, the Docker socket); mounting the host root into a container is refused; read-only ps/images/ls calls pass.
+# Evaluated in order, first match wins: deny, then ask, then the read-only
+# allow at the bottom.
+#
+# A docker command is found at the start of a pipeline segment: after
+# ^ ; & | ( ` { ! , after `sh -c '` / `ssh host `, or after a wrapper word
+# (sudo, env, xargs, then, do, ...), optionally behind VAR=value
+# assignments (DOCKER_HOST=ssh://prod docker ...). So `echo "docker volume
+# rm x"`, `grep 'docker system prune'` and commit messages do not match.
+# The subcommand is matched anywhere after the binary within the segment
+# ([^;&|\n]*), so global flags in front of it (--context prod, -H ssh://x,
+# --log-level) do not hide it. The binary name is case-insensitive
+# (DOCKER.EXE); docker flags are case-sensitive, so the rest is too.
+# [/\x5c] is / or \, \x22 is a double quote, \x60 a backtick.
+rules:
+  # ------------------------------------------------------------ DENY ---
+  - id: docker-host-takeover-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker|podman|nerdctl)(\.exe)?(\s[^;&|\n]*)?\s(run|create|container\s+(run|create))(\s[^;&|\n]*)?((\s-v\s*|\s--volume[=\s]+)[\x22']?/(etc|root|boot)?/?:|\s--mount[=\s]+[\x22']?[^\s;&|]*\b(source|src)=/(etc|root|boot)?/?([,\s\x22']|$))"
+        or (command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker|podman|nerdctl)(\.exe)?(\s[^;&|\n]*)?\s(run|create|container\s+(run|create))(\s[^;&|\n]*)?\s--privileged\b"
+            and command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker|podman|nerdctl)(\.exe)?(\s[^;&|\n]*)?\s(run|create|container\s+(run|create))(\s[^;&|\n]*)?(\s--pid[=\s]+host\b|\snsenter\s)")
+      )
+    verdict: deny
+    reason: "This container gets the host itself: the host's / (or /etc, /root, /boot) mounted inside, or --privileged in the host PID namespace (the nsenter escape). The Docker daemon runs as root, so this is root on this machine, outside any sandbox. Mount only the directory the task needs."
+
+  # ------------------------------------------------------------- ASK ---
+  - id: docker-system-prune-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker|podman|nerdctl)(\.exe)?(\s[^;&|\n]*)?\ssystem\s+prune\b[^;&|\n]*\s(-[a-zA-Z]*a[a-zA-Z]*|--all|--volumes)(\s|$|=|[\x22')\x60])"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:podman)(\.exe)?(\s[^;&|\n]*)?\ssystem\s+reset\b"
+      )
+    verdict: ask
+    reason: "`system prune -a` removes every image not used by a running container; with --volumes it also deletes volume data (databases, uploads). `podman system reset` deletes all containers, images, volumes and pods. Confirm nothing stopped still holds data you need."
+    irreversible: true
+
+  - id: docker-volume-delete-asks
+    when: >-
+      tool == "bash"
+      and command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker|podman|nerdctl)(\.exe)?(\s[^;&|\n]*)?\svolume\s+(rm|remove|prune)\b"
+    verdict: ask
+    reason: "Deletes Docker volumes: that is where containerised databases and uploads keep their data, and there is no undo. Confirm the volume names and that a backup exists."
+    irreversible: true
+
+  - id: docker-compose-down-volumes-asks
+    when: >-
+      tool == "bash"
+      and command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?((?i:docker|podman)(\.exe)?(\s[^;&|\n]*)?\scompose|(?i:docker-compose|podman-compose)(\.exe)?)(\s[^;&|\n]*)?\sdown\b[^;&|\n]*\s(-v|--volumes)(\s|$|=|[\x22')\x60])"
+    verdict: ask
+    reason: "`compose down -v` deletes the project's named volumes along with the containers: the database data goes with them. Plain `compose down` keeps the volumes."
+    irreversible: true
+
+  - id: docker-mass-remove-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker|podman|nerdctl)(\.exe)?(\s[^;&|\n]*)?\s(rm|rmi|container\s+(rm|remove)|image\s+(rm|remove))\s[^;&|\n]*(\$\(|\x60)\s*(?i:docker|podman|nerdctl)(\.exe)?\s+(ps|images|container\s+(ls|list)|image\s+(ls|list))\b"
+        or command matches "\|\s*xargs\s([^;&|\n]*\s)?(?i:docker|podman|nerdctl)(\.exe)?\s+(rm|rmi|container\s+(rm|remove)|image\s+(rm|remove))\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker|podman|nerdctl)(\.exe)?(\s[^;&|\n]*)?\s(image|builder|buildx)\s+prune\b[^;&|\n]*\s(-[a-zA-Z]*a[a-zA-Z]*|--all)(\s|$|=|[\x22')\x60])"
+      )
+    verdict: ask
+    reason: "Deletes every container or image the listing returns (`rm -f $(docker ps -aq)`, `| xargs docker rmi`), or all unused images / build cache (`image prune -a`, `buildx prune -a`). Stopped containers lose their writable layer; locally built images must be rebuilt. Name the containers or images instead."
+    irreversible: true
+
+  - id: docker-swarm-teardown-asks
+    when: >-
+      tool == "bash"
+      and command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker)(\.exe)?(\s[^;&|\n]*)?\s(swarm\s+leave\b[^;&|\n]*\s(-f|--force)\b|swarm\s+init\b[^;&|\n]*\s--force-new-cluster\b|stack\s+(rm|remove|down)\b|service\s+(rm|remove)\b|node\s+(rm|remove)\b)"
+    verdict: ask
+    reason: "Removes running Swarm services or stacks, removes a node, or forces a manager out of (or re-forms) the cluster. Services go down and a forced leave can cost the swarm its quorum. Confirm the context (`docker context show`) and the target."
+    irreversible: true
+
+  - id: docker-host-escape-run-asks
+    when: >-
+      tool == "bash"
+      and command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker|podman|nerdctl)(\.exe)?(\s[^;&|\n]*)?\s(run|create|exec|container\s+(run|create|exec))(\s[^;&|\n]*)?(\s--privileged\b|\s--(pid|userns|cgroupns)[=\s]+host\b|\s--cap-add[=\s]+[\x22']?(?i:(CAP_)?(SYS_ADMIN|ALL|SYS_PTRACE|SYS_MODULE|DAC_READ_SEARCH))\b|\s--security-opt[=\s]+[\x22']?(apparmor|seccomp|label)[=:](unconfined|disable)|(\s-v\s*|\s--volume[=\s]+|\s--mount[=\s]+)[^\s;&|]*(docker\.sock|docker_engine|podman\.sock|containerd\.sock))"
+    verdict: ask
+    reason: "This container can reach past its own boundary: --privileged, the host PID or user namespace, SYS_ADMIN/ALL capabilities, AppArmor/seccomp off, or the Docker socket mounted (whoever holds the socket can start a root container with the host's / mounted). Confirm the image is trusted and the flag is needed."
+
+  - id: docker-login-asks
+    when: >-
+      tool == "bash"
+      and command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker|podman|nerdctl)(\.exe)?(\s[^;&|\n]*)?\slogin\b"
+    verdict: ask
+    reason: "Logs in to a container registry: the credential passes through the command line or stdin and is stored in ~/.docker/config.json, and later pushes act as that account. Log in yourself, outside the agent, if the task needs it."
+
+  - id: docker-context-remove-asks
+    when: >-
+      tool == "bash"
+      and command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\bssh(\.exe)?\s[^;&|\n]*?\s[\x22']?|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*((/usr)?(/local)?/bin/)?(?i:docker)(\.exe)?(\s[^;&|\n]*)?\scontext\s+(rm|remove)\b"
+    verdict: ask
+    reason: "Removes a Docker context, including the TLS material stored with it. Confirm you can recreate the endpoint and its certificates."
+    irreversible: true
+
+  # ----------------------------------------------------------- ALLOW ---
+  - id: docker-read-only-allowed
+    when: >-
+      tool == "bash"
+      and command matches "^\s*(?i:docker|podman)(\.exe)?\s+(ps|images|version|info|(container|image|volume|network|context|node|service|stack|plugin)\s+(ls|list)|compose\s+(ps|ls|images|version)|system\s+df|buildx\s+ls)(\s[^;&|<>$\x60()\n\r]*)?$"
+    verdict: allow
+    reason: "Read-only docker listing with no shell chaining."

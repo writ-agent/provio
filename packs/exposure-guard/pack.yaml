@@ -1,0 +1,127 @@
+id: exposure-guard
+version: 0.1.0
+description: Human gates for an agent making this machine, a service or data reachable from the internet - public tunnels (ngrok, cloudflared, localtunnel, Tailscale Funnel, ssh -R), servers listening on all interfaces, database ports published by Docker, host firewall openings, world-open cloud ingress rules and public storage shares. All ask - these are sometimes exactly what you want.
+# Every rule is `ask`: a tunnel or an open port is often the task itself
+# (show a client the dev build, reach a VM), so the point is that a human
+# sees it happen, not that it never happens. Use it in writ.yaml as
+#
+#   version: 1
+#   default: ask
+#   packs: [floor, exposure-guard]
+#
+# Already covered by other packs and left out here: S3 bucket policy/ACL
+# and Block Public Access (aws-safety), gcloud IAM bindings incl. allUsers
+# (gcp-azure-safety), public repos (github-safety), reverse shells (floor),
+# switching the Windows firewall off (windows-safety).
+#
+# Regex notes: [^;&|\n]* keeps a match inside one pipeline segment. Where a
+# command name is short or generic (ngrok, lt, bore, serve) it must sit at
+# the start of a pipeline segment, after a quote, or after a wrapper word
+# (sudo, env, npx, pnpm dlx, ...), optionally with a path (./ngrok,
+# C:\tools\ngrok.exe). \x22 is a double quote, \x60 a backtick, \x5c a
+# backslash. The ssh rule is case-sensitive on purpose: -L/-l, -g/-G and
+# -R differ in meaning.
+rules:
+  - id: expose-tunnel-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)(^|[;&|(\x60{!\x22']\s*|\b(sudo|doas|nohup|exec|env|then|do|else|start|npx|bunx|pnpx|dlx)(\s+-{1,2}[\w=-]+)*\s+)([^\s;&|\x22'\x60]*[/\x5c])?ngrok(\.exe)?(\s[^;&|\n]*)?\s(http|tcp|tls|start|tunnel)(\s|$)"
+        or command matches "(?i)(^|[;&|(\x60{!\x22']\s*|\b(sudo|doas|nohup|exec|env|then|do|else|start|npx|bunx|pnpx|dlx)(\s+-{1,2}[\w=-]+)*\s+)([^\s;&|\x22'\x60]*[/\x5c])?cloudflared(\.exe)?(\s+--?[\w-]+(=\S+)?)*\s+(tunnel(\s[^;&|\n]*)?\s(run|--url)|--url|service\s+install)(\s|=|$)"
+        or command matches "(?i)(^|[;&|(\x60{!\x22']\s*|\b(sudo|doas|nohup|exec|env|then|do|else|start|npx|bunx|pnpx|dlx)(\s+-{1,2}[\w=-]+)*\s+)([^\s;&|\x22'\x60]*[/\x5c])?(lt|localtunnel)(\.cmd)?(\s[^;&|\n]*)?\s(--port|-p)(\s|=|\d)"
+        or command matches "(?i)(^|[;&|(\x60{!\x22']\s*|\b(sudo|doas|nohup|exec|env|then|do|else|start|npx|bunx|pnpx|dlx)(\s+-{1,2}[\w=-]+)*\s+)([^\s;&|\x22'\x60]*[/\x5c])?bore(\.exe)?\s+local\s"
+        or command matches "(?i)\bzrok(\.exe)?\s+share\s+public\b|\bdevtunnel(\.exe)?\s[^;&|\n]*--allow-anonymous\b"
+        or command matches "(?i)\btailscale(\.exe)?\s+funnel(\s+--?[\w=./:-]+)*\s+([0-9]|https?://|localhost|127\.|text:|/|on(\s|$))"
+      )
+    verdict: ask
+    reason: "Opens a public tunnel (ngrok, cloudflared, localtunnel, bore, zrok, Tailscale Funnel) to a port on this machine: anyone with the URL reaches it, past your firewall and NAT. Confirm what listens on that port and that it requires authentication; stop the tunnel when you are done."
+
+  - id: expose-ssh-forward-asks
+    when: >-
+      tool == "bash"
+      and command matches "(^|[\s;&|(\x60{!\x22'/\x5c])(auto)?ssh(\.exe)?(\s+(-[46AaCfGgKkMNnqsTtVvXxYy]*[BbcDEeFIiJLlmOopQSWw]\s*([\x22'][^\x22']*[\x22']|[^\s;&|]+)|-[46AaCfGgKkMNnqsTtVvXxYy]+|-M\s*\d+))*\s+-[46AaCfGgKkMNnqsTtVvXxYy]*(R|g|[LD]\s*[\x22']?(0\.0\.0\.0|\*|\[::\]|::)?:|o\s*[\x22']?(RemoteForward|GatewayPorts(=|\s+)[\x22']?(yes|clientspecified)))"
+    verdict: ask
+    reason: "SSH remote forward (-R, as used by serveo.net and localhost.run) or a local/SOCKS forward open to other hosts (-g, GatewayPorts, or a 0.0.0.0 / * bind): a port on this machine or your private network becomes reachable from elsewhere. Confirm the remote host; bind local forwards to 127.0.0.1 unless others must connect."
+
+  - id: expose-listener-asks
+    when: >-
+      tool == "bash"
+      and (
+        (command matches "(?i)(^|[\s;&|(\x60{!\x22'/\x5c])(python[\d.]*|py)(\.exe)?\s[^;&|\n]*-m\s*(http\.server|SimpleHTTPServer)\b"
+         and not command matches "(?i)(http\.server|SimpleHTTPServer)\b[^;&|\n]*\s(--bind|-b)(\s+|=)[\x22']?(127\.\d+\.\d+\.\d+|localhost|::1|\[::1\])([\x22'\s]|$)")
+        or command matches "(^|[\s;&|(\x60{!\x22'/\x5c])php(\.exe)?(\s[^;&|\n]*)?\s-S\s*[\x22']?(0\.0\.0\.0|\[::\]):\d"
+        or (command matches "(?i)(^|[\s;&|(\x60{!\x22'/\x5c])(nc|ncat|netcat)(\.exe)?(\s[^;&|\n]*)?\s(-[a-z]*l[a-z]*|--listen)(\s|\d|$)"
+            and not command matches "(?i)(^|[\s;&|(\x60{!\x22'/\x5c])(nc|ncat|netcat)(\.exe)?\s[^;&|\n]*\s(-s\s*)?[\x22']?(127\.0\.0\.1|localhost|::1)([\x22'\s]|$)")
+        or (command matches "(?i)\bsocat(\.exe)?\s[^;&|\n]*\b(tcp|tcp4|tcp6|udp|udp4|udp6|sctp|openssl)-listen:"
+            and not command matches "(?i)-listen:[^\s;&|]*,(bind=(127\.|localhost|\[?::1)|range=127\.)")
+        or command matches "(^|[;&|(\x60{!\x22']\s*|\b(sudo|npx|bunx|pnpx|dlx)(\s+-{1,2}[\w=-]+)*\s+)([^\s;&|\x22'\x60]*[/\x5c])?(http-server|serve)(\.cmd)?(\s[^;&|\n]*)?\s(-a|--address|-l|--listen|--host|-H)(\s+|=)[\x22']?(tcp://)?(0\.0\.0\.0|\[::\]|::|\*)([\x22'\s:]|$)"
+        or command matches "(?i)\bkubectl(\.exe)?\s[^;&|\n]*\bport-forward\b[^;&|\n]*--address(\s+|=)[\x22']?([^\s,\x22']+,)*(0\.0\.0\.0|::|\*)([\x22'\s,]|$)"
+        or command matches "(?i)\bjupyter[\s-]+(notebook|lab|server)\b[^;&|\n]*--(NotebookApp|ServerApp|IdentityProvider)\.(token|password)(=|\s+)([\x22']{2}|\s|$)"
+        or (command matches "(?i)\bnetsh(\.exe)?\s+interface\s+portproxy\s+add\b"
+            and not command matches "(?i)\bportproxy\s+add\b[^;&|\n]*\blistenaddress\s*=\s*(127\.|localhost|::1)")
+      )
+    verdict: ask
+    reason: "Starts a server on all network interfaces (python -m http.server, php -S 0.0.0.0, nc -l, socat TCP-LISTEN, http-server/serve on 0.0.0.0, kubectl port-forward --address 0.0.0.0, Jupyter with no token, netsh portproxy): anyone on the network can reach it, and a file server hands out the whole directory. Bind to 127.0.0.1 (for example `python3 -m http.server --bind 127.0.0.1`) unless others must connect."
+
+  - id: expose-docker-db-port-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\b(docker|podman|nerdctl)(\.exe)?\s[^;&|\n]*\b(run|create)\b[^;&|\n]*\s(-p|--publish)(\s+|=)[\x22']?((0\.0\.0\.0|\[::\]|::):)?(\d+(-\d+)?:)?(5432|3306|6379|27017|9200|11211|5984|1433)(/(tcp|udp))?[\x22']?(\s|$)"
+    verdict: ask
+    reason: "Publishes a database or cache port (Postgres, MySQL, Redis, MongoDB, Elasticsearch, Memcached, CouchDB, SQL Server) on every interface; Docker's own iptables rules bypass ufw/firewalld, so a host firewall does not protect it. Use `-p 127.0.0.1:5432:5432` unless other hosts must connect."
+
+  - id: expose-host-firewall-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)(^|[\s;&|(\x60{!\x22'/\x5c])ufw(\s[^;&|\n]*)?\s(allow|disable)(\s|$)"
+        or command matches "(?i)\bfirewall-cmd(\s[^;&|\n]*)?\s--(add-port|add-service|add-rich-rule|add-forward-port|set-default-zone(=|\s+)trusted)\b"
+        or command matches "(?i)\bsystemctl(\s[^;&|\n]*)?\s(stop|disable|mask)(\s+--\S+)*\s+(firewalld|ufw|nftables)(\.service)?(\s|$)"
+        or command matches "\bip6?tables(-legacy|-nft)?(\s[^;&|\n]*)?\s(-A|-I|--append|--insert)\s+INPUT\b[^;&|\n]*\s(-j|--jump)\s+ACCEPT\b"
+        or command matches "\bip6?tables(-legacy|-nft)?(\s[^;&|\n]*)?\s((-P|--policy)\s+INPUT\s+ACCEPT|(-F|--flush)(\s+INPUT)?\s*($|[;&|\n]))"
+        or command matches "\bnft\s+((add|insert)\s+rule\s[^;&|\n]*\binput\b[^;&|\n]*\baccept\b|flush\s+ruleset\b)"
+        or (command matches "(?i)\bnetsh(\.exe)?\s+(advfirewall\s+)?firewall\s+add\s+(rule|portopening|allowedprogram)\b"
+            and not command matches "(?i)\bnetsh(\.exe)?\s[^;&|\n]*\b(dir\s*=\s*out|action\s*=\s*block)\b")
+        or (command matches "(?i)\bNew-NetFirewallRule\b"
+            and not command matches "(?i)\bNew-NetFirewallRule\b[^;&|\n]*-(Action\s+[\x22']?Block|Direction\s+[\x22']?Outbound)\b")
+        or command matches "(?i)\bEnable-NetFirewallRule\b|\bSet-NetFirewallRule\b[^;&|\n]*-Action\s+[\x22']?Allow\b"
+        or command matches "(?i)fDenyTSConnections[^;&|\n]*(/d\s+0|-Value\s+0)\b|\bEnable-PSRemoting\b|\bwinrm(\.cmd)?\s+(quickconfig|qc)\b|\bsystemsetup\s+-setremotelogin\s+on\b"
+      )
+    verdict: ask
+    reason: "Opens this machine's host firewall (ufw allow/disable, firewall-cmd --add-port/--add-service, iptables/nft ACCEPT on INPUT or a flush, netsh or New-NetFirewallRule allow rules) or turns on remote login (RDP, WinRM, macOS Remote Login). Confirm the port and source range, and remove the rule when it is no longer needed."
+
+  - id: expose-cloud-world-open-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\baws(\.exe|\.cmd)?\s[^;&|\n]*\bec2\s+(authorize-security-group-ingress|modify-security-group-rules)\b[^;&|\n]*(0\.0\.0\.0/0|::/0)"
+        or command matches "(?i)\bGrant-EC2SecurityGroupIngress\b[^;&|\n]*(0\.0\.0\.0/0|::/0)"
+        or command matches "(?i)\baws(\.exe|\.cmd)?\s[^;&|\n]*(\blightsail\s+(open|put)-instance-public-ports\b|\s--publicly-accessible(\s|$)|\blambda\s+(create|update)-function-url-config\b[^;&|\n]*--auth-type(\s+|=)[\x22']?NONE\b)"
+        or command matches "(?i)\bgcloud(\.cmd|\.exe)?\s[^;&|\n]*\b(firewall-rules\s+(create|update)\b[^;&|\n]*--source-ranges|sql\s+instances\s+(create|patch)\b[^;&|\n]*--authorized-networks)(\s+|=)[\x22']?([^\s,\x22']+,)*(0\.0\.0\.0/0|::/0)"
+        or (command matches "(?i)\bgcloud(\.cmd|\.exe)?\s[^;&|\n]*\bfirewall-rules\s+create\b"
+            and not command matches "(?i)\bfirewall-rules\s+create\b[^;&|\n]*--(source-ranges|source-tags|source-service-accounts|direction(\s+|=)[\x22']?(egress|out)\b|action(\s+|=)[\x22']?deny\b)")
+        or command matches "(?i)\baz(\.cmd)?\s[^;&|\n]*\bnetwork\s+nsg\s+rule\s+(create|update)\b[^;&|\n]*--source-address-prefix(es)?(\s+|=)([^\s;&|-][^\s;&|]*\s+)*[\x22']?(\*|Internet|Any|0\.0\.0\.0/0|::/0)[\x22']?(\s|$)"
+        or (command matches "(?i)\baz(\.cmd)?\s[^;&|\n]*\bnetwork\s+nsg\s+rule\s+create\b"
+            and not command matches "(?i)\bnsg\s+rule\s+create\b[^;&|\n]*--(source-address-prefix|access(\s+|=)[\x22']?deny\b|direction(\s+|=)[\x22']?outbound\b)")
+        or command matches "(?i)\baz(\.cmd)?\s[^;&|\n]*(\bvm\s+open-port\b|\bfirewall-rule\s+(create|update)\b[^;&|\n]*--end-ip-address(\s+|=)[\x22']?255\.255\.255\.255\b|\bflexible-server\s+(create|update)\b[^;&|\n]*--public-access(\s+|=)[\x22']?(all|0\.0\.0\.0-255\.255\.255\.255)\b)"
+        or command matches "(?i)\b(New|Add|Set)-AzNetworkSecurityRuleConfig\b[^;&|\n]*-SourceAddressPrefix\s+[\x22']?(\*|Internet|0\.0\.0\.0/0)"
+        or command matches "(?i)\bkubectl(\.exe)?\s[^;&|\n]*\b(expose\b[^;&|\n]*--type(\s+|=)[\x22']?LoadBalancer|create\s+service\s+loadbalancer)\b"
+      )
+    verdict: ask
+    reason: "Opens a cloud network path to the whole internet: 0.0.0.0/0, ::/0, '*' or Internet as the source of a security group, VPC firewall or NSG rule (gcloud firewall rules and az NSG rules default to any source when none is given), a publicly accessible database, a public Lambda URL, `az vm open-port`, or a LoadBalancer service. Restrict the source to known addresses, or confirm the service is meant to be public."
+
+  - id: expose-public-share-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bgsutil(\.cmd)?\s[^;&|\n]*(\ball(authenticated)?users\b|\bpublic-read(-write)?\b)"
+        or command matches "(?i)\bgcloud(\.cmd|\.exe)?\s[^;&|\n]*\bstorage\s[^;&|\n]*(--predefined(-default-object)?-acl(\s+|=)[\x22']?public|\bentity=all(authenticated)?users\b)"
+        or command matches "(?i)\baz(\.cmd)?\s[^;&|\n]*\bstorage\s+(container\s+(create|set-permission)\b[^;&|\n]*--public-access(\s+|=)[\x22']?(blob|container)\b|account\s+(create|update)\b[^;&|\n]*--allow-blob-public-access(\s+|=)[\x22']?true\b)"
+        or command matches "(?i)\b(New-AzStorageContainer|Set-AzStorageContainerAcl)\b[^;&|\n]*-Permission\s+[\x22']?(Blob|Container)\b|\b(New|Set)-AzStorageAccount\b[^;&|\n]*-AllowBlobPublicAccess(\s+|:)\s*\$?true\b"
+        or command matches "(?i)\baws(\.exe|\.cmd)?\s[^;&|\n]*\b(s3\s+(cp|sync|mv)|s3api\s+(put-object|copy-object|create-bucket|create-multipart-upload))\b[^;&|\n]*(--acl(\s+|=)[\x22']?public-read|acs\.amazonaws\.com/groups/global/(AllUsers|AuthenticatedUsers))"
+        or command matches "(?i)\baws(\.exe|\.cmd)?\s[^;&|\n]*\b(ec2\s+modify-(snapshot|image)-attribute\b[^;&|\n]*(\bGroup=all\b|--group-names(\s+|=)[\x22']?all\b)|rds\s+modify-db-(cluster-)?snapshot-attribute\b[^;&|\n]*--values-to-add(\s+|=)[\x22']?\[?[\x22']?all\b)"
+        or command matches "(?i)\bgh(\.exe)?\s[^;&|\n]*\bgist\s+create\b[^;&|\n]*\s(--public|-p)(\s|=|$)"
+      )
+    verdict: ask
+    reason: "Makes stored data public: gsutil allUsers or public-read, a public Azure blob container, S3 uploads with a public-read ACL, EBS/AMI/RDS snapshots shared with everyone, or a public gist. Anything public even briefly should be treated as disclosed; confirm nothing private is in it."
+    irreversible: true

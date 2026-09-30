@@ -1,0 +1,68 @@
+id: mcp-destructive-tools
+version: 0.1.0
+description: Server-agnostic human gates on MCP tools whose names say they delete, drop, purge, trash, share, change permissions, revoke or rotate credentials, or run shell commands; read-style tools (get/list/search/describe/...) and GitHub (see github-safety) are left alone.
+# Evaluated in order, first match wins. Every rule needs an MCP server
+# identity (`server matches "."`), so an agent's built-in tools (Cursor's
+# delete_file, fs.write, bash) never match. GitHub servers are skipped:
+# github-safety gates their tools.
+#
+# Tool names come in snake_case (delete_file), kebab-case (send-mail,
+# API-delete-a-block), camelCase (deleteConfluencePage) and vendor OpenAPI
+# forms (TwilioApiV2010--DeleteMessage). The verb must be a whole token:
+# `deleted`, `undelete`, `dropdown` and `sharepoint` do not count. A tool
+# whose FIRST token is a read verb (get_, list_, search_, describe_,
+# fetch_, preview_, ...) never matches, so list_deleted_files,
+# get_trash_items and list_permissions pass. Neither does a tool ending in
+# _preview or _dry_run.
+rules:
+  - id: mcp-exec-tool-asks
+    when: >-
+      server matches "." and not server matches "(?i)github"
+      and (tool matches "(?i)^([a-z0-9]+[_-])?((execute|run|exec|start|spawn|invoke)[_-]?(in[_-])?(shell|bash|terminal|command|cmd|process|powershell|pwsh|script|shell[_-]?command|terminal[_-]?command|system[_-]?command|remote[_-]?command)s?|shell|shell[_-]?exec|shell[_-]?command|terminal|powershell|interact[_-]with[_-]process|ssh[_-]?(exec|execute|run))$"
+        or tool matches "(?i)(^|[_-])exec([_-]|$)")
+      and not tool matches "(?i)(sql|query|queries)$"
+      and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|lookup|retrieve|inspect)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|lookup|retrieve|inspect)[A-Z]"
+    verdict: ask
+    reason: "MCP tool that runs a shell command or process on the server's machine. Shell rules in writ packs match `tool == \x22bash\x22`, so this command passes none of them: read the full command before approving."
+
+  - id: mcp-sharing-permission-asks
+    when: >-
+      server matches "." and not server matches "(?i)github"
+      and (tool matches "(?i)(^|[_.-])(share|unshare|set[_-]sharing|grant|make[_-]public|publish[_-]to[_-]web)([_.-]|$)"
+        or tool matches "(?i)(^|[_.-])(add|create|update|set|change|modify|remove|delete|insert|patch|transfer|grant)[_-]([a-z]+[_-])?(permissions?|sharing|acls?|collaborators?|access|ownership|owner|role[_-]?bindings?|iam[_-]?policy)([_.-]|$)"
+        or tool matches "^(share|unshare|grant)[A-Z]|(^|[_.-]|[a-z0-9])(Share|Unshare|Grant)([A-Z]|$)|(^|[_.-])(?i:add|create|update|set|change|modify|remove|delete|transfer|grant)(Permissions?|Sharing|Acls?|Collaborators?|Access|Ownership|Owner)([A-Z]|$)")
+      and not tool matches "(?i)sharepoint|access[_-]?(tokens?|keys?)"
+      and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|estimate|can|is|has|lookup|retrieve|download|export|inspect|explain)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|estimate|can|is|has|lookup|retrieve|download|export|inspect|explain)[A-Z]"
+    verdict: ask
+    reason: "MCP tool that shares a file or page, or changes who can access it. Confirm the recipient and the access level: a document shared outside the organisation, or made public, has to be treated as disclosed."
+
+  - id: mcp-credential-change-asks
+    when: >-
+      server matches "." and not server matches "(?i)github"
+      and (tool matches "(?i)(^|[_.-])revoke([_.-]|$)"
+        or tool matches "(?i)(^|[_.-])(rotate|roll|regenerate|reset|invalidate|expire)[_-]([a-z]+[_-])?(keys?|tokens?|secrets?|credentials?|passwords?|api[_-]?keys?|access[_-]?keys?|certificates?|certs?|sessions?)([_.-]|$)"
+        or tool matches "^revoke[A-Z]|(^|[_.-]|[a-z0-9])Revoke([A-Z]|$)|(^|[_.-])(?i:rotate|roll|regenerate|reset|invalidate)(Keys?|Tokens?|Secrets?|Credentials?|Passwords?|ApiKeys?|AccessKeys?|Certificates?|Sessions?)([A-Z]|$)")
+      and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|lookup|retrieve|inspect)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|lookup|retrieve|inspect)[A-Z]"
+    verdict: ask
+    reason: "MCP tool that revokes, rotates or resets a key, token, password or session. Every client still using the old credential stops working at once. Confirm which credential and that its users can pick up the new one."
+    irreversible: true
+
+  - id: mcp-destructive-tool-asks
+    when: >-
+      server matches "." and not server matches "(?i)github"
+      and (tool matches "(?i)(^|[_.-])(delete|destroy|purge|truncate|wipe|erase|drop|remove|rm|rmdir|unlink|del|flushall|flushdb|flush[_-](all|db|database)|empty[_-](trash|bin|bucket|recycle[_-]bin)|reset[_-](branch|database|db|project|index|repo|repository|table|collection))([_.-]|$)"
+        or tool matches "(^|[_.-]|[a-z0-9])(Delete|Destroy|Purge|Truncate|Wipe|Erase|Drop|Remove)([A-Z0-9]|$)|^(delete|destroy|purge|truncate|wipe|erase|drop|remove)[A-Z0-9]")
+      and not tool matches "(?i)drag[_-]?(and[_-]?|n[_-]?)?drop|(purge|clear|flush)[_-]?cache|cache[_-]?(purge|clear)|remove[_-]?(labels?|tags?|reactions?|background|stars?|bookmarks?|highlights?|formatting|watermark|emoji)([_.-]|$)|[_.-](preview|dry[_-]?run|dryrun)$"
+      and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|estimate|can|is|has|lookup|retrieve|download|export|inspect|explain|undo|restore|recover|undelete|untrash)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|estimate|can|is|has|lookup|retrieve|download|export|inspect|explain|undo|restore|recover|undelete|untrash)[A-Z]"
+    verdict: ask
+    reason: "MCP tool that deletes, drops, purges or wipes data on the server's side (a file, record, page, message, branch, bucket or database). Most servers keep no undo. Confirm the server, the target id and that nothing else depends on it."
+    irreversible: true
+
+  - id: mcp-trash-tool-asks
+    when: >-
+      server matches "." and not server matches "(?i)github"
+      and (tool matches "(?i)(^|[_.-])(trash|move[_-]to[_-]trash)([_.-]|$)"
+        or tool matches "^trash[A-Z]|(^|[_.-]|[a-z0-9])Trash([A-Z]|$)")
+      and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|lookup|retrieve|inspect|undo|restore|recover|untrash)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|lookup|retrieve|inspect|undo|restore|recover|untrash)[A-Z]"
+    verdict: ask
+    reason: "MCP tool that moves mail, files or pages to the trash. It can be restored until the trash is emptied, but an agent trashing items in bulk is a common prompt-injection outcome. Confirm which items."

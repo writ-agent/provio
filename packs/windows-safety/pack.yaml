@@ -1,0 +1,155 @@
+id: windows-safety
+version: 0.1.0
+description: Hard blocks and human gates for Windows host tampering an AI agent should never do on its own - switching off Defender or the firewall, wiping shadow copies (the ransomware backup wipe) or event logs, disabling UAC or System Restore, weakening the machine execution policy or ACLs, adding a local admin, and deleting System32 files. Reboot/shutdown, scheduled-task and Run-key persistence, disk formatting and recursive profile deletes are the floor pack's job.
+# Commands arrive through the bash tool (Git Bash) or as PowerShell text
+# passed to it, so every pattern is case-insensitive ((?i): PowerShell and
+# Windows paths ignore case) and matches both `foo` and `foo.exe`. A
+# backslash is written \x5c, a double quote \x22, a backtick \x60, so
+# neither YAML nor the policy string lexer rewrites them; [/\x5c] is a path
+# separator either way. [^;&|\n]* keeps a match inside one pipeline segment.
+# Deny is reserved for actions an agent should essentially never take
+# unattended (disabling security tooling, wiping backups/logs, adding a
+# backdoor admin); reversible-but-serious changes ask first.
+rules:
+  # ------------------------------------------------------------ DENY ---
+  - id: win-defender-disable-denied
+    when: >-
+      tool == "bash"
+      and (
+        (command matches "(?i)\b(Set|Add)-MpPreference\b"
+         and command matches "(?i)-Disable(RealtimeMonitoring|IOAVProtection|BehaviorMonitoring|ScriptScanning|BlockAtFirstSeen|IntrusionPreventionSystem|ArchiveScanning|EmailScanning|RemovableDriveScanning)\s+\$?(true|1)\b|-Exclusion(Path|Extension|Process|IpAddress)\b|-MAPSReporting\s+\$?(Disabled|0)\b|-SubmitSamplesConsent\s+\$?(NeverSend|2)\b|-EnableControlledFolderAccess\s+\$?(Disabled|0)\b")
+        or command matches "(?i)(^|[\s;&|(\x60{\x22'])sc(\.exe)?\s+(stop|config|delete)\s+[\x22']?(WinDefend|WdNisSvc|Sense|SecurityHealthService)\b"
+        or command matches "(?i)\b(Uninstall|Remove)-WindowsFeature\b[^;&|\n]*Windows-Defender|\bDisable-WindowsOptionalFeature\b[^;&|\n]*Defender"
+      )
+    verdict: deny
+    reason: "Disables Microsoft Defender (real-time protection, a scan feature, or a scan exclusion, or stops the WinDefend/Sense service). An agent must not switch off the machine's antivirus; make this change yourself if you mean it."
+
+  - id: win-firewall-disable-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bnetsh(\.exe)?\s+advfirewall\s+set\s+\w+\s+state\s+off\b"
+        or command matches "(?i)\bnetsh(\.exe)?\s+firewall\s+set\s+opmode\s+(mode=)?disable\b"
+        or command matches "(?i)\bSet-NetFirewallProfile\b[^;&|\n]*-Enabled\s+\$?(false|0)\b"
+        or command matches "(?i)(^|[\s;&|(\x60{\x22'])sc(\.exe)?\s+(stop|config)\s+[\x22']?(mpssvc|MpsSvc|BFE)\b"
+      )
+    verdict: deny
+    reason: "Turns off the Windows firewall (all profiles, or by stopping the mpssvc/BFE service). An agent must not open the host to the network; re-enable with `netsh advfirewall set allprofiles state on`."
+
+  - id: win-shadow-backup-wipe-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bvssadmin(\.exe)?\s+delete\s+shadows\b"
+        or command matches "(?i)\bvssadmin(\.exe)?\s+resize\s+shadowstorage\b"
+        or command matches "(?i)\bwmic(\.exe)?\s+shadowcopy\s+delete\b"
+        or command matches "(?i)\bwbadmin(\.exe)?\s+delete\s+(catalog|backup|systemstatebackup)\b"
+        or command matches "(?i)\bDelete-VssShadow\b|\bRemove-CimInstance\b[^;&|\n]*Win32_ShadowCopy"
+      )
+    verdict: deny
+    irreversible: true
+    reason: "Deletes Volume Shadow Copies or a Windows Backup catalog - the exact step ransomware runs so files cannot be restored. There is no undo; keep the shadow copies."
+
+  - id: win-event-log-clear-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bwevtutil(\.exe)?\s+(cl|clear-log)\b"
+        or command matches "(?i)\bClear-EventLog\b|\bRemove-EventLog\b|\b\[System\.Diagnostics\.EventLog\]::Delete"
+      )
+    verdict: deny
+    irreversible: true
+    reason: "Clears or deletes a Windows event log, destroying the audit trail of what happened. Logs cannot be recovered once cleared; do not clear them."
+
+  - id: win-cipher-wipe-denied
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\bcipher(\.exe)?\s+/w"
+    verdict: deny
+    irreversible: true
+    reason: "`cipher /w` overwrites all free space on the drive, permanently destroying any deleted-file recoverability. No agent task needs this."
+
+  - id: win-disable-system-restore-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bDisable-ComputerRestore\b"
+        or command matches "(?i)\breg(\.exe)?\s+add\b[^;&|\n]*SystemRestore[^;&|\n]*\b(DisableSR|DisableConfig)\b[^;&|\n]*/d\s+1\b"
+      )
+    verdict: deny
+    reason: "Disables System Restore, removing the machine's rollback points. Leave restore on; a human turns this off from System Protection if ever needed."
+
+  - id: win-uac-disable-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\breg(\.exe)?\s+add\b[^;&|\n]*\bEnableLUA\b[^;&|\n]*/d\s+0\b"
+        or command matches "(?i)\b(Set|New)-ItemProperty\b[^;&|\n]*\bEnableLUA\b[^;&|\n]*\b(-Value\s+)?0\b"
+      )
+    verdict: deny
+    reason: "Sets EnableLUA=0, disabling User Account Control for the whole machine (takes effect after reboot and silently elevates everything). Do not weaken UAC."
+
+  - id: win-execution-policy-machine-denied
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\bSet-ExecutionPolicy\b[^;&|\n]*\b(Unrestricted|Bypass)\b"
+      and command matches "(?i)\bSet-ExecutionPolicy\b[^;&|\n]*-Scope\s+(LocalMachine|MachinePolicy)\b"
+    verdict: deny
+    reason: "Sets the machine-wide PowerShell execution policy to Unrestricted/Bypass, letting any unsigned script run for every user. Use `-Scope Process` for a single session, or `powershell -ExecutionPolicy Bypass -File script.ps1` for one script, instead."
+
+  - id: win-add-admin-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bnet(\.exe)?\s+localgroup\s+[\x22']?administrators[\x22']?\s[^;&|\n]*\s/add\b"
+        or command matches "(?i)\bAdd-LocalGroupMember\b[^;&|\n]*-Group\s+[\x22']?Administrators\b"
+      )
+    verdict: deny
+    reason: "Adds an account to the local Administrators group - a persistent backdoor with full control of the machine. A human manages admin membership, not an agent."
+
+  - id: win-system-file-delete-denied
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\b(del|erase|Remove-Item|ri|rm)(\.exe)?\s[^;&|\n]*[\x22']?([a-z]:[/\x5c]windows|%SystemRoot%|\$env:SystemRoot)[/\x5c](System32|SysWOW64)[/\x5c]"
+    verdict: deny
+    irreversible: true
+    reason: "Deletes a file under Windows\\System32 or SysWOW64. Removing system binaries or drivers can leave the machine unbootable; do not touch files there."
+
+  # ------------------------------------------------------------- ASK ---
+  - id: win-new-local-user-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bnet(\.exe)?\s+user\s+\S+(\s[^;&|\n]*)?\s/add\b"
+        or command matches "(?i)\bNew-LocalUser\b"
+      )
+    verdict: ask
+    reason: "Creates a new local user account. Confirm this account is meant to exist on this machine."
+
+  - id: win-bcdedit-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\bbcdedit(\.exe)?\s[^;&|\n]*/(set|deletevalue|delete|import)\b"
+    verdict: ask
+    reason: "Changes the boot configuration (bcdedit /set). Disabling recovery or boot-failure handling here is a known ransomware step; confirm the change. Read-only `bcdedit /enum` is fine."
+
+  - id: win-acl-weaken-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\btakeown(\.exe)?\s[^;&|\n]*\s/r\b|(?i)\btakeown(\.exe)?\s/r\b"
+        or command matches "(?i)\bicacls(\.exe)?\s[^;&|\n]*\s/grant[^;&|\n]*\b(Everyone|Users|Authenticated Users)\b"
+        or command matches "(?i)\bcacls(\.exe)?\s[^;&|\n]*\s/[ge]\s[^;&|\n]*\bEveryone\b"
+      )
+    verdict: ask
+    reason: "Takes recursive ownership or grants Everyone/Users broad file access. Confirm the path and scope: this can expose or lock out system files."
+
+  - id: win-reg-delete-hklm-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\breg(\.exe)?\s+delete\s+[\x22']?HK(LM|EY_LOCAL_MACHINE)[/\x5c]"
+        or command matches "(?i)\bRemove-Item\b[^;&|\n]*\bHKLM:[/\x5c]"
+      )
+    verdict: ask
+    reason: "Deletes a machine-wide (HKLM) registry key, which can affect installed software or Windows itself. Confirm the key. Read-only `reg query` and user-hive (HKCU) edits are not gated here."

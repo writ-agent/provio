@@ -17,6 +17,13 @@ directory has a `pack.yaml` (`id`, `version`, `description`, `rules`), a
 | [terraform-safety](terraform-safety/) | Asks before `terraform destroy`, `apply -auto-approve` and `state rm`; denies `force-unlock`. |
 | [k8s-prod](k8s-prod/) | Denies `kubectl delete namespace`; asks before prod deletes, rollout restarts, exec and `drain`. |
 | [pii-redaction](pii-redaction/) | Masks emails, AWS keys, private-key headers and SSN shapes in tool results (read its README about placement first). |
+| [windows-safety](windows-safety/) | Denies switching off Defender or the firewall, wiping shadow copies (the ransomware backup wipe) or event logs, disabling UAC or System Restore, machine-wide `Set-ExecutionPolicy`, adding an administrator, deleting System32 files; asks before new local users, `bcdedit`, ACL weakening and HKLM registry deletes. |
+| [macos-safety](macos-safety/) | Denies disabling SIP, Gatekeeper or FileVault, erasing a disk, deleting a keychain, adding an admin; asks before TCC resets, Time Machine changes, quarantine removal, security `defaults`, LaunchDaemons, `nvram`, turning off updates. |
+| [linux-system-safety](linux-system-safety/) | Denies disabling SELinux/AppArmor, `/etc/ld.so.preload`, writing `/etc/passwd`/`shadow`, removing sudo/openssh/systemd/libc; asks before sshd, firewall, sudoers, user/group, log-wiping, kernel/boot, `sysctl`, `chattr`, module and `/etc/hosts` changes. |
+| [docker-safety](docker-safety/) | Denies bind-mounting the host root and privileged host-namespace runs; asks before `system prune -a/--volumes`, volume deletes, `compose down -v`, mass removes, swarm teardown, privileged/socket-mounting runs, `docker login`; allows read-only `ps`/`images`/`ls`. |
+| [paas-safety](paas-safety/) | Vercel, Netlify, Fly, Heroku, Railway, Wrangler, Supabase, Firebase: denies printing CLI auth tokens; asks before production deploys and rollbacks, env/secret changes and dumps, database wipes, resource deletes, taking an app offline. |
+| [ci-config-guard](ci-config-guard/) | Asks before the agent edits CI/CD definitions (GitHub Actions, GitLab CI, CircleCI, Jenkins, …), CODEOWNERS or Dependabot/Renovate config, or triggers pipelines; denies changing Actions permissions, OIDC claims or runner registration through `gh api`. |
+| [exposure-guard](exposure-guard/) | Asks before public tunnels (ngrok, cloudflared, `ssh -R`, Tailscale Funnel), servers on all interfaces, database ports published by Docker, host firewall openings, cloud rules open to `0.0.0.0/0`, and public buckets, snapshots or gists. |
 
 ## Using a pack
 
@@ -67,7 +74,8 @@ writ policy add aws-safety
 ```
 
 Rule ids are prefixed per pack (`floor-`, `aws-`, `gcp-`/`az-`, `github-`,
-`secrets-`, `db-`, `publish-`, `tf-`, `k8s-`), so several packs merge
+`secrets-`, `db-`, `publish-`, `tf-`, `k8s-`, `win-`, `mac-`, `linux-`,
+`docker-`, `paas-`, `ci-`, `expose-`, `mcp-`, `comms-`, `pay-`), so several packs merge
 without id collisions. Where two packs cover the same command (for example
 `gh auth token`), the first one listed decides.
 

@@ -1,0 +1,191 @@
+# Fixtures for packs/payments-guard, run against the pack wrapped in
+# `version: 1` / `default: ask` (unmatched -> rule_id: default). Bash args
+# are shaped like Claude Code's Bash tool input; MCP cases like its
+# `mcp__<server>__<tool>` after mapping (tool=<tool>, server=<server>).
+
+# --- deny: live-mode Stripe writes ------------------------------------------
+- name: stripe refunds create --live denied
+  ctx: { tool: bash, args: { command: "stripe refunds create --charge=ch_123 --live" } }
+  expect: { verdict: deny, rule_id: pay-stripe-live-write-denied }
+
+- name: stripe --live before the resource denied
+  ctx: { tool: bash, args: { command: "stripe --live subscriptions cancel sub_123" } }
+  expect: { verdict: deny, rule_id: pay-stripe-live-write-denied }
+
+- name: stripe post --live denied
+  ctx: { tool: bash, args: { command: "stripe post /v1/payouts -d amount=5000 -d currency=usd --live" } }
+  expect: { verdict: deny, rule_id: pay-stripe-live-write-denied }
+
+- name: curl to the Stripe API with a live key and data denied
+  ctx: { tool: bash, args: { command: "curl https://api.stripe.com/v1/refunds -u sk_live_51Hx0000: -d charge=ch_123" } }
+  expect: { verdict: deny, rule_id: pay-stripe-live-write-denied }
+
+- name: "near miss: live-mode list is a read"
+  ctx: { tool: bash, args: { command: "stripe customers list --limit 5 --live" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: Stripe CLI money movement ----------------------------------------
+- name: stripe charges create asks
+  ctx: { tool: bash, args: { command: "stripe charges create --amount=2000 --currency=usd --source=tok_visa" } }
+  expect: { verdict: ask, rule_id: pay-stripe-money-movement-asks }
+
+- name: stripe payment_intents confirm asks
+  ctx: { tool: bash, args: { command: "stripe payment_intents confirm pi_123 --payment-method=pm_card_visa" } }
+  expect: { verdict: ask, rule_id: pay-stripe-money-movement-asks }
+
+- name: stripe payouts create asks
+  ctx: { tool: bash, args: { command: "stripe payouts create --amount=10000 --currency=usd" } }
+  expect: { verdict: ask, rule_id: pay-stripe-money-movement-asks }
+
+- name: stripe post /v1/refunds asks
+  ctx: { tool: bash, args: { command: "stripe post /v1/refunds -d payment_intent=pi_123" } }
+  expect: { verdict: ask, rule_id: pay-stripe-money-movement-asks }
+
+# --- ask: Stripe CLI billing changes -----------------------------------------
+- name: stripe subscriptions cancel asks
+  ctx: { tool: bash, args: { command: "stripe subscriptions cancel sub_123" } }
+  expect: { verdict: ask, rule_id: pay-stripe-billing-change-asks }
+
+- name: stripe customers delete asks
+  ctx: { tool: bash, args: { command: "stripe customers delete cus_123 --confirm" } }
+  expect: { verdict: ask, rule_id: pay-stripe-billing-change-asks }
+
+- name: stripe delete /v1 path asks
+  ctx: { tool: bash, args: { command: "stripe delete /v1/subscription_items/si_123" } }
+  expect: { verdict: ask, rule_id: pay-stripe-billing-change-asks }
+
+- name: inline Stripe SDK refund asks
+  ctx: { tool: bash, args: { command: "python3 -c \"import stripe; stripe.Refund.create(charge='ch_1')\"" } }
+  expect: { verdict: ask, rule_id: pay-stripe-money-movement-asks }
+
+- name: "near miss: stripe trigger (test fixture events)"
+  ctx: { tool: bash, args: { command: "stripe trigger payment_intent.succeeded" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: "near miss: stripe charges retrieve"
+  ctx: { tool: bash, args: { command: "stripe charges retrieve ch_123" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: "near miss: stripe payment_intents create does not move money yet"
+  ctx: { tool: bash, args: { command: "stripe payment_intents create --amount=2000 --currency=usd" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: payment APIs over HTTP ------------------------------------------
+- name: curl Stripe refund with a test key asks
+  ctx: { tool: bash, args: { command: "curl https://api.stripe.com/v1/refunds -u sk_test_x: -d charge=ch_123" } }
+  expect: { verdict: ask, rule_id: pay-api-money-movement-asks }
+
+- name: PayPal order capture asks
+  ctx: { tool: bash, args: { command: "curl -X POST https://api-m.paypal.com/v2/checkout/orders/5O190127TN364715T/capture -H 'Authorization: Bearer x'" } }
+  expect: { verdict: ask, rule_id: pay-api-money-movement-asks }
+
+- name: Square payment via PowerShell asks
+  ctx: { tool: bash, args: { command: "Invoke-RestMethod -Method Post -Uri https://connect.squareup.com/v2/payments -Body $body" } }
+  expect: { verdict: ask, rule_id: pay-api-money-movement-asks }
+
+- name: "near miss: Stripe list with -G is a read"
+  ctx: { tool: bash, args: { command: "curl -G https://api.stripe.com/v1/charges -u sk_test_x: -d limit=3" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: "near miss: PayPal sandbox capture"
+  ctx: { tool: bash, args: { command: "curl -X POST https://api-m.sandbox.paypal.com/v2/checkout/orders/5O1/capture" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: payment MCP tools -------------------------------------------------
+- name: Stripe MCP create_refund asks
+  ctx: { tool: create_refund, server: stripe, args: { payment_intent: "pi_123", amount: 500 } }
+  expect: { verdict: ask, rule_id: pay-mcp-money-movement-asks }
+
+- name: Stripe MCP finalize_invoice asks
+  ctx: { tool: finalize_invoice, server: stripe, args: { invoice: "in_123" } }
+  expect: { verdict: ask, rule_id: pay-mcp-money-movement-asks }
+
+- name: PayPal MCP pay_order asks
+  ctx: { tool: pay_order, server: paypal, args: { order_id: "5O1" } }
+  expect: { verdict: ask, rule_id: pay-mcp-money-movement-asks }
+
+- name: Stripe create_transfer asks
+  ctx: { tool: create_transfer, server: stripe, args: { destination: "acct_1" } }
+  expect: { verdict: ask, rule_id: pay-mcp-money-movement-asks }
+
+- name: Stripe MCP cancel_subscription asks
+  ctx: { tool: cancel_subscription, server: stripe, args: { subscription: "sub_123" } }
+  expect: { verdict: ask, rule_id: pay-mcp-billing-change-asks }
+
+- name: Stripe MCP create_payment_link asks as a billing change
+  ctx: { tool: create_payment_link, server: stripe, args: { price: "price_1", quantity: 1 } }
+  expect: { verdict: ask, rule_id: pay-mcp-billing-change-asks }
+
+- name: "near miss: Stripe MCP list_payment_intents"
+  ctx: { tool: list_payment_intents, server: stripe, args: { limit: 5 } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: "near miss: Stripe MCP create_invoice makes a draft"
+  ctx: { tool: create_invoice, server: stripe, args: { customer: "cus_1" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: "near miss: Stripe MCP retrieve_balance"
+  ctx: { tool: retrieve_balance, server: stripe, args: {} }
+  expect: { verdict: ask, rule_id: default }
+
+- name: "near miss: create_transfer on a file-transfer server"
+  ctx: { tool: create_transfer, server: globus, args: { source: "a", destination: "b" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: cloud billing ---------------------------------------------------
+- name: gcloud billing projects unlink asks
+  ctx: { tool: bash, args: { command: "gcloud billing projects unlink my-project" } }
+  expect: { verdict: ask, rule_id: pay-cloud-billing-change-asks }
+
+- name: aws budgets delete-budget asks
+  ctx: { tool: bash, args: { command: "aws budgets delete-budget --account-id 111122223333 --budget-name monthly" } }
+  expect: { verdict: ask, rule_id: pay-cloud-billing-change-asks }
+
+- name: az consumption budget delete asks
+  ctx: { tool: bash, args: { command: "az consumption budget delete --budget-name monthly" } }
+  expect: { verdict: ask, rule_id: pay-cloud-billing-change-asks }
+
+- name: "near miss: gcloud billing accounts list"
+  ctx: { tool: bash, args: { command: "gcloud billing accounts list" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: crypto ------------------------------------------------------------
+- name: cast send to a remote RPC asks
+  ctx: { tool: bash, args: { command: "cast send 0xA0b8 'transfer(address,uint256)' 0xdEaD 1000000 --rpc-url $MAINNET_RPC --private-key $PK" } }
+  expect: { verdict: ask, rule_id: pay-crypto-transfer-asks }
+
+- name: forge script --broadcast asks
+  ctx: { tool: bash, args: { command: "forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast --verify" } }
+  expect: { verdict: ask, rule_id: pay-crypto-transfer-asks }
+
+- name: solana transfer asks
+  ctx: { tool: bash, args: { command: "solana transfer 7xKX 2.5 --allow-unfunded-recipient" } }
+  expect: { verdict: ask, rule_id: pay-crypto-transfer-asks }
+
+- name: bitcoin-cli sendtoaddress asks
+  ctx: { tool: bash, args: { command: "bitcoin-cli sendtoaddress bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh 0.1" } }
+  expect: { verdict: ask, rule_id: pay-crypto-transfer-asks }
+
+- name: "near miss: cast send to a local anvil node"
+  ctx: { tool: bash, args: { command: "cast send 0xA0b8 'set(uint256)' 1 --rpc-url http://localhost:8545 --private-key $PK" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: "near miss: forge script without --broadcast is a simulation"
+  ctx: { tool: bash, args: { command: "forge script script/Deploy.s.sol --rpc-url $RPC_URL" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: "near miss: cast call is a read"
+  ctx: { tool: bash, args: { command: "cast call 0xA0b8 'balanceOf(address)' 0xdEaD --rpc-url $MAINNET_RPC" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: wallet MCP send_transaction asks
+  ctx: { tool: send_transaction, server: evm-wallet, args: { to: "0xdEaD", value: "1" } }
+  expect: { verdict: ask, rule_id: pay-mcp-crypto-transfer-asks }
+
+- name: Coinbase AgentKit transfer asks
+  ctx: { tool: transfer, server: coinbase-agentkit, args: { amount: "5", assetId: "usdc", destination: "0xdEaD" } }
+  expect: { verdict: ask, rule_id: pay-mcp-crypto-transfer-asks }
+
+- name: "near miss: bare transfer on a non-wallet server"
+  ctx: { tool: transfer, server: jira, args: { issue: "OPS-1" } }
+  expect: { verdict: ask, rule_id: default }

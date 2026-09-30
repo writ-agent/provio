@@ -1,0 +1,286 @@
+# Fixtures for packs/linux-system-safety, run against the pack wrapped in
+# `version: 1` / `default: ask` (unmatched -> rule_id: default).
+
+# --- SELinux / AppArmor -------------------------------------------------------
+- name: setenforce 0 denied
+  ctx: { tool: bash, args: { command: "sudo setenforce 0" } }
+  expect: { verdict: deny, rule_id: linux-mac-disable-denied }
+
+- name: setenforce Permissive denied
+  ctx: { tool: bash, args: { command: "setenforce Permissive" } }
+  expect: { verdict: deny, rule_id: linux-mac-disable-denied }
+
+- name: aa-teardown denied
+  ctx: { tool: bash, args: { command: "sudo aa-teardown" } }
+  expect: { verdict: deny, rule_id: linux-mac-disable-denied }
+
+- name: systemctl disable apparmor denied
+  ctx: { tool: bash, args: { command: "sudo systemctl disable apparmor" } }
+  expect: { verdict: deny, rule_id: linux-mac-disable-denied }
+
+- name: setenforce 1 not matched
+  ctx: { tool: bash, args: { command: "sudo setenforce 1" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: getenforce not matched
+  ctx: { tool: bash, args: { command: "getenforce" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: systemctl status apparmor not matched
+  ctx: { tool: bash, args: { command: "systemctl status apparmor" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ld.so.preload ------------------------------------------------------------
+- name: echo into ld.so.preload denied
+  ctx: { tool: bash, args: { command: "echo /tmp/evil.so > /etc/ld.so.preload" } }
+  expect: { verdict: deny, rule_id: linux-ld-preload-denied }
+
+- name: tee ld.so.preload denied
+  ctx: { tool: bash, args: { command: "echo /tmp/x.so | sudo tee -a /etc/ld.so.preload" } }
+  expect: { verdict: deny, rule_id: linux-ld-preload-denied }
+
+- name: fs.write ld.so.preload denied
+  ctx: { tool: fs.write, args: { path: "/etc/ld.so.preload", content: "/tmp/evil.so" } }
+  expect: { verdict: deny, rule_id: linux-ld-preload-denied }
+
+- name: cat ld.so.preload read not matched
+  ctx: { tool: bash, args: { command: "cat /etc/ld.so.preload" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- passwd / shadow ----------------------------------------------------------
+- name: append backdoor to passwd denied
+  ctx: { tool: bash, args: { command: "echo 'bd:x:0:0::/root:/bin/bash' >> /etc/passwd" } }
+  expect: { verdict: deny, rule_id: linux-passwd-shadow-write-denied }
+
+- name: sed -i on shadow denied
+  ctx: { tool: bash, args: { command: "sudo sed -i 's/root:.*/root::/' /etc/shadow" } }
+  expect: { verdict: deny, rule_id: linux-passwd-shadow-write-denied }
+
+- name: fs.write shadow denied
+  ctx: { tool: fs.write, args: { path: "/etc/shadow", content: "root::" } }
+  expect: { verdict: deny, rule_id: linux-passwd-shadow-write-denied }
+
+- name: fs.read passwd not matched by write rule
+  ctx: { tool: fs.read, args: { path: "/etc/passwd" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: grep passwd file not matched
+  ctx: { tool: bash, args: { command: "grep root /etc/passwd" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- critical package removal -------------------------------------------------
+- name: apt purge sudo denied
+  ctx: { tool: bash, args: { command: "sudo apt-get purge -y sudo" } }
+  expect: { verdict: deny, rule_id: linux-critical-package-removal-denied }
+
+- name: apt remove openssh-server denied
+  ctx: { tool: bash, args: { command: "apt remove openssh-server" } }
+  expect: { verdict: deny, rule_id: linux-critical-package-removal-denied }
+
+- name: rpm -e --nodeps denied
+  ctx: { tool: bash, args: { command: "sudo rpm -e --nodeps glibc" } }
+  expect: { verdict: deny, rule_id: linux-critical-package-removal-denied }
+
+- name: dnf remove systemd denied
+  ctx: { tool: bash, args: { command: "dnf remove systemd" } }
+  expect: { verdict: deny, rule_id: linux-critical-package-removal-denied }
+
+- name: apt remove nginx not matched
+  ctx: { tool: bash, args: { command: "sudo apt remove nginx" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: apt install not matched
+  ctx: { tool: bash, args: { command: "sudo apt-get install -y sudo" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- sshd ---------------------------------------------------------------------
+- name: systemctl stop sshd asks
+  ctx: { tool: bash, args: { command: "sudo systemctl stop sshd" } }
+  expect: { verdict: ask, rule_id: linux-sshd-asks }
+
+- name: sed -i sshd_config asks
+  ctx: { tool: bash, args: { command: "sudo sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config" } }
+  expect: { verdict: ask, rule_id: linux-sshd-asks }
+
+- name: fs.write sshd_config asks
+  ctx: { tool: fs.write, args: { path: "/etc/ssh/sshd_config", content: "PermitRootLogin yes" } }
+  expect: { verdict: ask, rule_id: linux-sshd-asks }
+
+- name: systemctl restart sshd not matched
+  ctx: { tool: bash, args: { command: "sudo systemctl restart sshd" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: cat sshd_config not matched
+  ctx: { tool: bash, args: { command: "cat /etc/ssh/sshd_config" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- firewall -----------------------------------------------------------------
+- name: ufw disable asks
+  ctx: { tool: bash, args: { command: "sudo ufw disable" } }
+  expect: { verdict: ask, rule_id: linux-firewall-disable-asks }
+
+- name: iptables -F asks
+  ctx: { tool: bash, args: { command: "sudo iptables -F" } }
+  expect: { verdict: ask, rule_id: linux-firewall-disable-asks }
+
+- name: nft flush ruleset asks
+  ctx: { tool: bash, args: { command: "sudo nft flush ruleset" } }
+  expect: { verdict: ask, rule_id: linux-firewall-disable-asks }
+
+- name: systemctl stop firewalld asks
+  ctx: { tool: bash, args: { command: "systemctl stop firewalld" } }
+  expect: { verdict: ask, rule_id: linux-firewall-disable-asks }
+
+- name: iptables -L not matched
+  ctx: { tool: bash, args: { command: "sudo iptables -L -n" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: ufw status not matched
+  ctx: { tool: bash, args: { command: "ufw status" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- sudoers ------------------------------------------------------------------
+- name: echo NOPASSWD to sudoers.d asks
+  ctx: { tool: bash, args: { command: "echo 'ci ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/ci" } }
+  expect: { verdict: ask, rule_id: linux-sudoers-edit-asks }
+
+- name: fs.write sudoers asks
+  ctx: { tool: fs.write, args: { path: "/etc/sudoers.d/deploy", content: "deploy ALL=(ALL) NOPASSWD:ALL" } }
+  expect: { verdict: ask, rule_id: linux-sudoers-edit-asks }
+
+- name: cat sudoers not matched
+  ctx: { tool: bash, args: { command: "sudo cat /etc/sudoers" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- user admin ---------------------------------------------------------------
+- name: useradd asks
+  ctx: { tool: bash, args: { command: "sudo useradd -m deploy" } }
+  expect: { verdict: ask, rule_id: linux-user-admin-asks }
+
+- name: usermod add to sudo asks
+  ctx: { tool: bash, args: { command: "sudo usermod -aG sudo deploy" } }
+  expect: { verdict: ask, rule_id: linux-user-admin-asks }
+
+- name: chpasswd asks
+  ctx: { tool: bash, args: { command: "echo 'root:newpass' | sudo chpasswd" } }
+  expect: { verdict: ask, rule_id: linux-user-admin-asks }
+
+- name: passwd root asks
+  ctx: { tool: bash, args: { command: "sudo passwd root" } }
+  expect: { verdict: ask, rule_id: linux-user-admin-asks }
+
+- name: usermod change shell not matched
+  ctx: { tool: bash, args: { command: "sudo usermod -s /bin/zsh deploy" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: id command not matched
+  ctx: { tool: bash, args: { command: "id deploy" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- log wipe -----------------------------------------------------------------
+- name: journalctl vacuum asks
+  ctx: { tool: bash, args: { command: "sudo journalctl --vacuum-time=1s" } }
+  expect: { verdict: ask, rule_id: linux-log-wipe-asks }
+
+- name: truncate var log asks
+  ctx: { tool: bash, args: { command: "cat /dev/null > /var/log/auth.log" } }
+  expect: { verdict: ask, rule_id: linux-log-wipe-asks }
+
+- name: rm var log asks
+  ctx: { tool: bash, args: { command: "sudo rm /var/log/syslog" } }
+  expect: { verdict: ask, rule_id: linux-log-wipe-asks }
+
+- name: history -c asks
+  ctx: { tool: bash, args: { command: "history -c" } }
+  expect: { verdict: ask, rule_id: linux-log-wipe-asks }
+
+- name: unset HISTFILE asks
+  ctx: { tool: bash, args: { command: "unset HISTFILE" } }
+  expect: { verdict: ask, rule_id: linux-log-wipe-asks }
+
+- name: journalctl view not matched
+  ctx: { tool: bash, args: { command: "journalctl -u nginx --since today" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: tail var log not matched
+  ctx: { tool: bash, args: { command: "sudo tail -f /var/log/syslog" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- kernel / boot ------------------------------------------------------------
+- name: update-grub asks
+  ctx: { tool: bash, args: { command: "sudo update-grub" } }
+  expect: { verdict: ask, rule_id: linux-kernel-boot-asks }
+
+- name: grub-install asks
+  ctx: { tool: bash, args: { command: "sudo grub-install /dev/sda" } }
+  expect: { verdict: ask, rule_id: linux-kernel-boot-asks }
+
+- name: fs.write under boot asks
+  ctx: { tool: fs.write, args: { path: "/boot/grub/grub.cfg", content: "..." } }
+  expect: { verdict: ask, rule_id: linux-kernel-boot-asks }
+
+- name: ls boot not matched
+  ctx: { tool: bash, args: { command: "ls /boot" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- sysctl -------------------------------------------------------------------
+- name: sysctl disable ASLR asks
+  ctx: { tool: bash, args: { command: "sudo sysctl -w kernel.randomize_va_space=0" } }
+  expect: { verdict: ask, rule_id: linux-sysctl-security-asks }
+
+- name: sysctl ip_forward asks
+  ctx: { tool: bash, args: { command: "sysctl -w net.ipv4.ip_forward=1" } }
+  expect: { verdict: ask, rule_id: linux-sysctl-security-asks }
+
+- name: write to sysctl.d asks
+  ctx: { tool: bash, args: { command: "echo 'kernel.kptr_restrict=0' | sudo tee /etc/sysctl.d/99-x.conf" } }
+  expect: { verdict: ask, rule_id: linux-sysctl-security-asks }
+
+- name: sysctl read not matched
+  ctx: { tool: bash, args: { command: "sysctl kernel.randomize_va_space" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: sysctl swappiness not matched
+  ctx: { tool: bash, args: { command: "sudo sysctl -w vm.swappiness=10" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- chattr / modules / hosts -------------------------------------------------
+- name: chattr -i asks
+  ctx: { tool: bash, args: { command: "sudo chattr -i /etc/resolv.conf" } }
+  expect: { verdict: ask, rule_id: linux-chattr-immutable-asks }
+
+- name: chattr -R -i asks
+  ctx: { tool: bash, args: { command: "sudo chattr -R -i /var/www" } }
+  expect: { verdict: ask, rule_id: linux-chattr-immutable-asks }
+
+- name: lsattr not matched
+  ctx: { tool: bash, args: { command: "lsattr /etc/resolv.conf" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: modprobe -r asks
+  ctx: { tool: bash, args: { command: "sudo modprobe -r nf_conntrack" } }
+  expect: { verdict: ask, rule_id: linux-kernel-module-asks }
+
+- name: insmod asks
+  ctx: { tool: bash, args: { command: "sudo insmod ./rootkit.ko" } }
+  expect: { verdict: ask, rule_id: linux-kernel-module-asks }
+
+- name: modprobe load not matched
+  ctx: { tool: bash, args: { command: "sudo modprobe overlay" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: lsmod not matched
+  ctx: { tool: bash, args: { command: "lsmod" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: append to hosts asks
+  ctx: { tool: bash, args: { command: "echo '1.2.3.4 registry.npmjs.org' | sudo tee -a /etc/hosts" } }
+  expect: { verdict: ask, rule_id: linux-hosts-write-asks }
+
+- name: fs.write hosts asks
+  ctx: { tool: fs.write, args: { path: "/etc/hosts", content: "1.2.3.4 example.com" } }
+  expect: { verdict: ask, rule_id: linux-hosts-write-asks }
+
+- name: cat hosts not matched
+  ctx: { tool: bash, args: { command: "cat /etc/hosts" } }
+  expect: { verdict: ask, rule_id: default }

@@ -1,0 +1,123 @@
+id: payments-guard
+version: 0.1.0
+description: Denies live-mode Stripe writes from the shell; asks before money movement and billing changes through the Stripe CLI, payment MCP tools (Stripe, PayPal, ...), curl to payment APIs, cloud billing CLIs and crypto wallets; read-only list/retrieve calls pass.
+# Evaluated in order, first match wins. [^;&|\n]* keeps a match inside one
+# pipeline segment.
+#
+# The Stripe CLI runs against whatever key it resolves (`stripe login`,
+# STRIPE_API_KEY, --api-key), so writ cannot tell test mode from live mode
+# unless the command says `--live` or carries an sk_live_/rk_live_ key.
+# Live-mode writes are denied; everything else that moves money or changes
+# a subscription asks, in test mode too. `stripe trigger`, `listen`,
+# `logs tail`, `fixtures` and every `list`/`retrieve`/`get` are not matched.
+#
+# MCP side: tool names from the Stripe agent toolkit / Stripe MCP
+# (create_refund, create_payment_link, cancel_subscription,
+# update_subscription, finalize_invoice), PayPal's MCP server (pay_order,
+# capture_order, send_invoice, cancel_sent_invoice) and wallet servers
+# (send_transaction, transfer). Tools whose first token is a read verb
+# (list_, get_, retrieve_, search_, ...) never match.
+rules:
+  - id: pay-stripe-live-write-denied
+    when: >-
+      tool == "bash"
+      and ((command matches "\bstripe(\.exe)?(\s[^;&|\n]*)?\s--live\b"
+          and command matches "\bstripe(\.exe)?\s([^;&|\n]*\s)?([a-z_]+\s+(create|update|delete|confirm|capture|cancel|pay|finalize|finalize_invoice|send|send_invoice|void|void_invoice|reverse|close|approve|reject|resume|release|detach|attach|mark_uncollectible|increment_authorization|refund|expire)|post|delete)(\s|$)")
+        or (command matches "api\.stripe\.com/v1/"
+          and command matches "\b(sk|rk)_live_[A-Za-z0-9]"
+          and command matches "(\s-d\b|\s--data(-\w+)?\b|\s-F\b|\s--form\b|\s-X\s*(POST|DELETE)\b|\s--request\s+(POST|DELETE)\b|(?i)-Method\s+(Post|Delete)\b)"))
+    verdict: deny
+    reason: "Live-mode Stripe write from the shell: this charges, refunds, pays out or changes real customers' billing. Test it in test mode (drop --live, use an sk_test_ key); a human runs the live operation from the Dashboard or their own terminal."
+
+  - id: pay-stripe-money-movement-asks
+    when: >-
+      tool == "bash"
+      and (command matches "\bstripe(\.exe)?\s([^;&|\n]*\s)?(charges\s+(create|capture)|payment_intents\s+(confirm|capture|increment_authorization)|refunds\s+create|payouts\s+create|transfers\s+create|topups\s+create|invoices\s+(pay|finalize|finalize_invoice|send|send_invoice)|credit_notes\s+create|application_fees\s+refund|transfer_reversals\s+create|transfers\s+create_reversal)(\s|$)"
+        or command matches "\bstripe(\.exe)?\s([^;&|\n]*\s)?post\s+/?v1/(charges|refunds|payouts|transfers|topups|credit_notes|payment_intents/[^\s/]+/(confirm|capture)|invoices/[^\s/]+/(pay|finalize|send))\b"
+        or command matches "\bstripe\.(Charge|Refund|Payout|Transfer|Topup|charges|refunds|payouts|transfers|topups)\.create\s*\(|\bstripe\.(PaymentIntent|paymentIntents)\.(confirm|capture)\s*\(|\bstripe\.(Invoice|invoices)\.(pay|finalize_invoice|finalizeInvoice|send_invoice|sendInvoice)\s*\(")
+    verdict: ask
+    reason: "Stripe CLI call that moves money: a charge, capture, refund, payout, transfer, top-up or invoice payment. The CLI uses whatever key it resolves, so confirm this is test mode, or confirm the amount and the customer."
+    irreversible: true
+
+  - id: pay-stripe-billing-change-asks
+    when: >-
+      tool == "bash"
+      and (command matches "\bstripe(\.exe)?\s([^;&|\n]*\s)?((subscriptions|subscription_schedules)\s+(create|cancel|update|delete|release|resume)|subscription_items\s+(delete|update)|(customers|products|prices|plans|coupons|payment_methods|invoiceitems|invoice_items|tax_rates|accounts)\s+(delete|detach|reject)|invoices\s+(void|void_invoice|mark_uncollectible|delete)|payment_links\s+create)(\s|$)"
+        or command matches "\bstripe(\.exe)?\s([^;&|\n]*\s)?(delete\s+/?v1/|post\s+/?v1/(subscriptions|subscription_items|payment_links|invoices/[^\s/]+/(void|mark_uncollectible)|accounts/[^\s/]+/reject))")
+    verdict: ask
+    reason: "Stripe CLI call that changes billing: a subscription is created, cancelled or changed, a customer, product, price or payment method is deleted, an invoice is voided, or a payment link is created. Customers are charged or lose service on the new terms. Confirm test mode, or the account and the object id."
+    irreversible: true
+
+  - id: pay-api-money-movement-asks
+    when: >-
+      tool == "bash"
+      and (command matches "(?i)api\.stripe\.com/v1/(charges|refunds|payouts|transfers|topups|subscriptions|payment_links|credit_notes|payment_intents/[^\s/?]+/(confirm|capture)|invoices/[^\s/?]+/(pay|finalize|send|void))"
+        or command matches "(?i)//api(-m)?\.paypal\.com/v[12]/(payments/(payouts|captures|authorizations|sale|payment)|checkout/orders/[^\s/?]+/(capture|authorize)|billing/subscriptions|invoicing/invoices/[^\s/?]+/(send|cancel))"
+        or command matches "(?i)//connect\.squareup\.com/v2/(payments|refunds|payouts|orders/[^\s/?]+/pay|subscriptions)"
+        or command matches "(?i)adyenpayments\.com/[^\s]*(payments|refunds|captures|cancels|reversals|payouts|transfers)|//pal-live\.adyen\.com/|//payments\.braintree-api\.com/|//api\.(wise|transferwise)\.com/[^\s]*(transfers|payments|fund)|//api\.mercury\.com/api/v1/account/[^\s/?]+/transactions|//api\.razorpay\.com/v1/(payments/[^\s/?]+/(capture|refund)|refunds|payouts|transfers)|//api\.mollie\.com/v2/(payments|refunds)|//api\.gocardless\.com/(payments|refunds|payouts)")
+      and command matches "(?i)(\s-d\b|\s--data(-\w+)?\b|\s-F\b|\s--form\b|\s-X\s*(POST|PUT|PATCH|DELETE)\b|\s--request\s+(POST|PUT|PATCH|DELETE)\b|-Method\s+(Post|Put|Patch|Delete)\b|\s--json\b|\b(requests|httpx)\.(post|delete)\()"
+      and not command matches "\s(-G|--get)(\s|$)"
+    verdict: ask
+    reason: "Write to a payment provider's API (Stripe, PayPal, Square, Adyen, Braintree, Wise, Mercury, Razorpay, Mollie, GoCardless): a payment, refund, payout, transfer or subscription change. Confirm test/sandbox credentials, or the amount and the recipient."
+    irreversible: true
+
+  - id: pay-mcp-money-movement-asks
+    when: >-
+      server matches "."
+      and (tool matches "(?i)(^|[_.-])(create|issue|process|initiate|send|make|execute|submit|capture|confirm|pay|approve|refund)[_-]([a-z]+[_-])?(refunds?|payouts?|charges?|payments?|payment[_-]intents?|disbursements?|wires?|ach[_-]transfers?|bank[_-]transfers?|money|funds)([_.-]|$)"
+        or tool matches "(?i)(^|[_.-])(finalize|pay|send|capture|authorize)[_-](invoices?|orders?)([_.-]|$)|(?i)(^|[_.-])(transfer|wire)[_-](money|funds|payments?)([_.-]|$)|(?i)(^|[_.-])(accept|concede)[_-]disputes?([_-]claims?)?([_.-]|$)|(?i)(^|[_.-])(refund|payout)([_.-]|$)"
+        or tool matches "(^|[_.-])(?i:create|issue|capture|confirm|pay|send|make)(Refunds?|Payouts?|Charges?|Payments?|PaymentIntents?)([A-Z_.-]|$)|(^|[_.-])(?i:finalize|pay|send)Invoices?([A-Z_.-]|$)"
+        or (tool matches "(?i)(^|[_.-])(create|initiate|send|make)[_-](transfers?|transfer[_-]reversals?)$|^createTransfer$"
+          and server matches "(?i)stripe|pay|square|adyen|braintree|wise|mercury|revolut|plaid|bank|financ|brex|mollie|gocardless|moov|treasury"))
+      and not tool matches "(?i)payment[_-]?(methods?|links?)|^create[_-]?payment[_-]?intents?$"
+      and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|estimate|lookup|retrieve|download|export|inspect|calculate|simulate)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|estimate|lookup|retrieve|download|export|inspect|calculate|simulate)[A-Z]"
+    verdict: ask
+    reason: "Payment tool that moves money: a charge, payment, refund, payout, invoice payment or finalisation, or a dispute concession. Confirm test mode, or the amount, the currency and the recipient."
+    irreversible: true
+
+  - id: pay-mcp-billing-change-asks
+    when: >-
+      server matches "."
+      and (tool matches "(?i)(^|[_.-])(cancel|update|pause|resume|delete|modify|downgrade|upgrade|change|create)[_-]([a-z]+[_-])?(subscriptions?|subscription[_-]items?|subscription[_-]plans?|billing[_-]plans?)([_.-]|$)"
+        or tool matches "(?i)(^|[_.-])(create|update)[_-]payment[_-]links?([_.-]|$)|(?i)(^|[_.-])(cancel[_-]sent|void)[_-]invoices?([_.-]|$)"
+        or tool matches "(^|[_.-])(?i:cancel|update|pause|delete|create)(Subscriptions?|PaymentLinks?)([A-Z_.-]|$)")
+      and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|estimate|lookup|retrieve|download|export|inspect|calculate|simulate)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|estimate|lookup|retrieve|download|export|inspect|calculate|simulate)[A-Z]"
+    verdict: ask
+    reason: "Payment tool that changes billing: a subscription is created, cancelled, paused or changed, an invoice is voided, or a payment link is created. Customers are charged or lose service on the new terms. Confirm test mode, or the customer and the change."
+    irreversible: true
+
+  - id: pay-cloud-billing-change-asks
+    when: >-
+      tool == "bash"
+      and (command matches "(?i)\bgcloud(\.cmd)?\s([^;&|\n]*\s)?billing\s+(projects\s+(unlink|link)|budgets\s+(delete|update)|accounts\s+(set-iam-policy|add-iam-policy-binding|remove-iam-policy-binding))\b"
+        or command matches "(?i)\baws(\.exe)?\s([^;&|\n]*\s)?budgets\s+(delete-budget|update-budget|delete-notification|update-notification|delete-subscriber|delete-budget-action|execute-budget-action)\b"
+        or command matches "(?i)\baz(\.cmd)?\s([^;&|\n]*\s)?(consumption\s+budget\s+(delete|update)|billing\s+[a-z-]+(\s+[a-z-]+)?\s+(update|delete|create))\b")
+    verdict: ask
+    reason: "Cloud billing change: unlinking a project from its billing account stops (and can later delete) its billable resources; deleting or loosening a budget removes the alarm on runaway spend. Confirm the project or account."
+
+  - id: pay-crypto-transfer-asks
+    when: >-
+      tool == "bash"
+      and (command matches "\bcast\s([^;&|\n]*\s)?(send|publish|mktx\b[^;&|\n]*--broadcast)\b"
+        or command matches "\bforge\s([^;&|\n]*\s)?(script|create)\b[^;&|\n]*\s--broadcast\b"
+        or command matches "\b(solana|spl-token)(\.exe)?\s([^;&|\n]*\s)?transfer\b"
+        or command matches "\bbitcoin-cli(\.exe)?\s([^;&|\n]*\s)?(sendtoaddress|sendmany|sendrawtransaction|sendall|send|psbtbumpfee|bumpfee)\b"
+        or command matches "\belectrum\s([^;&|\n]*\s)?(payto|paytomany|broadcast)\b"
+        or command matches "\bhardhat\s([^;&|\n]*\s)?(run|deploy|ignition\s+deploy)\b[^;&|\n]*--network[\s=]+(mainnet|ethereum|polygon|matic|arbitrum|arbitrumOne|optimism|base|bsc|avalanche|gnosis)\b"
+        or command matches "eth_send(Raw)?Transaction")
+      and not command matches "(--rpc-url|--fork-url|--url|-u|-r)[\s=]+[\x22']?(https?://)?(localhost|127\.0\.0\.1|0\.0\.0\.0)\b|https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/]|\bsolana\b[^;&|\n]*\s(-u|--url)[\s=]*(l|localhost|d|devnet|t|testnet)(\s|$)|\bbitcoin-cli(\.exe)?\s([^;&|\n]*\s)?-(regtest|testnet|signet|chain=(regtest|test|signet))\b"
+    verdict: ask
+    reason: "Signs and broadcasts a blockchain transaction (token or coin transfer, contract call or deployment). A confirmed transaction cannot be reversed by anyone. Confirm the network, the recipient address and the amount."
+    irreversible: true
+
+  - id: pay-mcp-crypto-transfer-asks
+    when: >-
+      server matches "."
+      and (tool matches "(?i)(^|[_.-])(send|transfer|sign[_-]and[_-]send|broadcast|submit)[_-]([a-z0-9]+[_-])?(transactions?|tx|txs|eth|sol|btc|tokens?|crypto|usdc|native|erc20|spl|nfts?)([_.-]|$)"
+        or tool matches "(^|[_.-])(?i:send|sign|broadcast)(Raw)?Transaction([A-Z_.-]|$)|(?i)eth_send(Raw)?Transaction"
+        or (tool matches "(?i)^(native[_-])?(transfer|trade|swap|swap[_-]tokens?)$"
+          and server matches "(?i)coinbase|agentkit|wallet|crypto|solana|web3|bitcoin|ethereum|onchain|defi|(^|[_-])(eth|evm|btc|sol)([_-]|$)"))
+      and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|estimate|lookup|retrieve|inspect|simulate)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|estimate|lookup|retrieve|inspect|simulate)[A-Z]"
+    verdict: ask
+    reason: "Wallet tool that signs or sends a blockchain transaction, transfer or swap. A confirmed transaction cannot be reversed. Confirm the network, the recipient address and the amount."
+    irreversible: true

@@ -1,0 +1,303 @@
+# Fixtures for packs/paas-safety, run against the pack wrapped in
+# `version: 1` / `default: ask` (unmatched -> rule_id: default). Bash args
+# are shaped like Claude Code's Bash tool input; file tools are already
+# mapped (fs.read / fs.write with `path`).
+
+# --- deny: token printing -----------------------------------------------------
+- name: heroku auth:token denied
+  ctx: { tool: bash, args: { command: "heroku auth:token" } }
+  expect: { verdict: deny, rule_id: paas-token-print-denied }
+
+- name: flyctl.exe auth token denied
+  ctx: { tool: bash, args: { command: "flyctl.exe auth token" } }
+  expect: { verdict: deny, rule_id: paas-token-print-denied }
+
+- name: npx wrangler auth token denied
+  ctx: { tool: bash, args: { command: "npx wrangler auth token --json" } }
+  expect: { verdict: deny, rule_id: paas-token-print-denied }
+
+- name: firebase login:ci denied
+  ctx: { tool: bash, args: { command: "firebase login:ci --no-localhost" } }
+  expect: { verdict: deny, rule_id: paas-token-print-denied }
+
+- name: reading the Vercel auth.json with a file tool denied
+  ctx: { tool: fs.read, args: { path: "C:\\Users\\dev\\AppData\\Roaming\\com.vercel.cli\\Data\\auth.json" } }
+  expect: { verdict: deny, rule_id: paas-token-print-denied }
+
+- name: cat ~/.fly/config.yml denied
+  ctx: { tool: bash, args: { command: "cat ~/.fly/config.yml" } }
+  expect: { verdict: deny, rule_id: paas-token-print-denied }
+
+- name: reading the Supabase access token denied
+  ctx: { tool: fs.read, args: { path: "/home/dev/.supabase/access-token" } }
+  expect: { verdict: deny, rule_id: paas-token-print-denied }
+
+- name: fly auth whoami is left to the default
+  ctx: { tool: bash, args: { command: "fly auth whoami" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: project fly.toml read is not a token file
+  ctx: { tool: fs.read, args: { path: "/work/app/fly.toml" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: env / secret changes ------------------------------------------------
+- name: vercel env rm asks
+  ctx: { tool: bash, args: { command: "vercel env rm DATABASE_URL production --yes" } }
+  expect: { verdict: ask, rule_id: paas-env-change-asks }
+
+- name: vercel env add via npx asks
+  ctx: { tool: bash, args: { command: "echo $KEY | npx vercel@latest env add STRIPE_KEY production" } }
+  expect: { verdict: ask, rule_id: paas-env-change-asks }
+
+- name: netlify env:set asks
+  ctx: { tool: bash, args: { command: "netlify env:set API_KEY abc123 --context production" } }
+  expect: { verdict: ask, rule_id: paas-env-change-asks }
+
+- name: fly secrets set with -a first asks
+  ctx: { tool: bash, args: { command: "fly -a shop-prod secrets set SESSION_SECRET=xyz" } }
+  expect: { verdict: ask, rule_id: paas-env-change-asks }
+
+- name: heroku config:set asks
+  ctx: { tool: bash, args: { command: "heroku config:set LOG_LEVEL=debug -a shop" } }
+  expect: { verdict: ask, rule_id: paas-env-change-asks }
+
+- name: railway variables --set asks
+  ctx: { tool: bash, args: { command: "railway variables --set \"FOO=bar\"" } }
+  expect: { verdict: ask, rule_id: paas-env-change-asks }
+
+- name: railway variable delete asks
+  ctx: { tool: bash, args: { command: "railway variable delete FOO" } }
+  expect: { verdict: ask, rule_id: paas-env-change-asks }
+
+- name: wrangler secret put asks
+  ctx: { tool: bash, args: { command: "pnpm dlx wrangler secret put OPENAI_KEY --env production" } }
+  expect: { verdict: ask, rule_id: paas-env-change-asks }
+
+- name: supabase secrets unset asks
+  ctx: { tool: bash, args: { command: "supabase secrets unset STRIPE_KEY" } }
+  expect: { verdict: ask, rule_id: paas-env-change-asks }
+
+- name: firebase functions:secrets:set asks
+  ctx: { tool: bash, args: { command: "firebase functions:secrets:set SENDGRID_KEY" } }
+  expect: { verdict: ask, rule_id: paas-env-change-asks }
+
+- name: vercel env ls is left to the default
+  ctx: { tool: bash, args: { command: "vercel env ls" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: fly secrets list is left to the default
+  ctx: { tool: bash, args: { command: "fly secrets list -a shop" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: echo of a heroku config:set line does not match
+  ctx: { tool: bash, args: { command: "echo \"run heroku config:set FOO=1 later\" >> NOTES.md" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: secret reads --------------------------------------------------------
+- name: vercel env pull asks
+  ctx: { tool: bash, args: { command: "vercel env pull .env.local" } }
+  expect: { verdict: ask, rule_id: paas-secret-read-asks }
+
+- name: heroku config dump asks
+  ctx: { tool: bash, args: { command: "heroku config -a shop --json" } }
+  expect: { verdict: ask, rule_id: paas-secret-read-asks }
+
+- name: netlify env:list --plain asks
+  ctx: { tool: bash, args: { command: "netlify env:list --plain" } }
+  expect: { verdict: ask, rule_id: paas-secret-read-asks }
+
+- name: railway variables listing asks
+  ctx: { tool: bash, args: { command: "railway variables --kv" } }
+  expect: { verdict: ask, rule_id: paas-secret-read-asks }
+
+# --- ask: data wipes ----------------------------------------------------------
+- name: heroku pg:reset asks
+  ctx: { tool: bash, args: { command: "heroku pg:reset DATABASE_URL --confirm shop" } }
+  expect: { verdict: ask, rule_id: paas-data-wipe-asks }
+
+- name: heroku pg:backups:restore asks
+  ctx: { tool: bash, args: { command: "heroku pg:backups:restore b101 DATABASE_URL -a shop" } }
+  expect: { verdict: ask, rule_id: paas-data-wipe-asks }
+
+- name: supabase db reset --linked asks
+  ctx: { tool: bash, args: { command: "npx supabase db reset --linked" } }
+  expect: { verdict: ask, rule_id: paas-data-wipe-asks }
+
+- name: wrangler d1 execute DROP TABLE asks
+  ctx: { tool: bash, args: { command: "wrangler d1 execute prod-db --remote --command \"DROP TABLE users\"" } }
+  expect: { verdict: ask, rule_id: paas-data-wipe-asks }
+
+- name: firestore:delete --all-collections asks
+  ctx: { tool: bash, args: { command: "firebase firestore:delete --all-collections -P shop-prod --force" } }
+  expect: { verdict: ask, rule_id: paas-data-wipe-asks }
+
+- name: wrangler d1 execute SELECT is left to the default
+  ctx: { tool: bash, args: { command: "wrangler d1 execute prod-db --remote --command \"SELECT count(*) FROM users\"" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: firestore:delete of one document is left to the default
+  ctx: { tool: bash, args: { command: "firebase firestore:delete users/alice" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: supabase db reset (local) is left to floor
+  ctx: { tool: bash, args: { command: "supabase db reset" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: resource deletes ----------------------------------------------------
+- name: vercel domains rm asks
+  ctx: { tool: bash, args: { command: "vercel domains rm shop.example.com --yes" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: vercel project rm asks
+  ctx: { tool: bash, args: { command: "vercel.cmd project rm shop" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: netlify sites:delete asks
+  ctx: { tool: bash, args: { command: "netlify sites:delete 1234-abcd --force" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: fly volumes destroy asks
+  ctx: { tool: bash, args: { command: "fly volumes destroy vol_abc123 -y" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: heroku addons:destroy asks
+  ctx: { tool: bash, args: { command: "heroku addons:destroy heroku-postgresql -a shop --confirm shop" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: railway environment delete asks
+  ctx: { tool: bash, args: { command: "railway environment delete staging" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: wrangler delete (the Worker) asks
+  ctx: { tool: bash, args: { command: "wrangler --env production delete" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: wrangler r2 bucket delete asks
+  ctx: { tool: bash, args: { command: "npx wrangler r2 bucket delete uploads" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: wrangler kv namespace delete asks
+  ctx: { tool: bash, args: { command: "wrangler kv namespace delete --binding CACHE" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: supabase projects delete asks
+  ctx: { tool: bash, args: { command: "supabase projects delete abcdefghijklmnop" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: firebase functions:delete asks
+  ctx: { tool: bash, args: { command: "firebase functions:delete sendMail --force" } }
+  expect: { verdict: ask, rule_id: paas-resource-delete-asks }
+
+- name: wrangler kv key delete (one key) is left to the default
+  ctx: { tool: bash, args: { command: "wrangler kv key delete session:42 --binding CACHE" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: vercel rm is left to floor
+  ctx: { tool: bash, args: { command: "vercel rm shop-git-old --yes" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: app offline ---------------------------------------------------------
+- name: fly scale count 0 asks
+  ctx: { tool: bash, args: { command: "fly scale count 0 -a shop" } }
+  expect: { verdict: ask, rule_id: paas-app-offline-asks }
+
+- name: heroku ps:scale web=0 asks
+  ctx: { tool: bash, args: { command: "heroku ps:scale web=0 -a shop" } }
+  expect: { verdict: ask, rule_id: paas-app-offline-asks }
+
+- name: firebase hosting:disable asks
+  ctx: { tool: bash, args: { command: "firebase hosting:disable -f" } }
+  expect: { verdict: ask, rule_id: paas-app-offline-asks }
+
+- name: fly scale count 10 is left to the default
+  ctx: { tool: bash, args: { command: "fly scale count 10 -a shop" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: heroku ps:scale web=2 is left to the default
+  ctx: { tool: bash, args: { command: "heroku ps:scale web=2:standard-2x" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: production deploys --------------------------------------------------
+- name: vercel --prod asks
+  ctx: { tool: bash, args: { command: "vercel --prod" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: vercel deploy dist --prod asks
+  ctx: { tool: bash, args: { command: "vercel deploy build --prebuilt --prod --token $VERCEL_TOKEN" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: vercel --scope team --prod asks
+  ctx: { tool: bash, args: { command: "npx vercel --scope acme --prod --yes" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: build then deploy --prod asks
+  ctx: { tool: bash, args: { command: "vercel build --prod && vercel deploy --prebuilt --prod" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: vercel promote asks
+  ctx: { tool: bash, args: { command: "vercel promote https://shop-abc123.vercel.app" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: netlify deploy --prod asks
+  ctx: { tool: bash, args: { command: "netlify deploy --dir=dist --prod" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: wrangler deploy --env production asks
+  ctx: { tool: bash, args: { command: "npx wrangler deploy --env production" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: wrangler d1 migrations apply --remote asks
+  ctx: { tool: bash, args: { command: "wrangler d1 migrations apply prod-db --remote" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: firebase deploy -P prod asks
+  ctx: { tool: bash, args: { command: "firebase deploy --only hosting -P shop-prod" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: git push heroku main asks
+  ctx: { tool: bash, args: { command: "git push heroku main" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: heroku releases:rollback asks
+  ctx: { tool: bash, args: { command: "heroku releases:rollback v102 -a shop" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: supabase db push asks
+  ctx: { tool: bash, args: { command: "supabase db push" } }
+  expect: { verdict: ask, rule_id: paas-prod-deploy-asks }
+
+- name: vercel build --prod alone is left to the default
+  ctx: { tool: bash, args: { command: "vercel build --prod" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: vercel preview deploy is left to the default
+  ctx: { tool: bash, args: { command: "vercel deploy" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: netlify deploy (draft) is left to the default
+  ctx: { tool: bash, args: { command: "netlify deploy --dir=dist" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: wrangler deploy --env staging is left to the default
+  ctx: { tool: bash, args: { command: "wrangler deploy --env staging" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: firebase deploy to a staging project is left to the default
+  ctx: { tool: bash, args: { command: "firebase deploy --only functions --project shop-staging" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: supabase db push --dry-run is left to the default
+  ctx: { tool: bash, args: { command: "supabase db push --dry-run" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: supabase db push --local is left to the default
+  ctx: { tool: bash, args: { command: "supabase db push --local" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: git push origin to a branch named heroku-fix is left to the default
+  ctx: { tool: bash, args: { command: "git push origin heroku-fix" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: commit message naming vercel --prod does not match
+  ctx: { tool: bash, args: { command: "git commit -m \"ci: run vercel --prod from the deploy job\"" } }
+  expect: { verdict: ask, rule_id: default }

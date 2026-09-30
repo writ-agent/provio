@@ -1,0 +1,172 @@
+# Fixtures for packs/macos-safety, run against the pack wrapped in
+# `version: 1` / `default: ask` (unmatched -> rule_id: default).
+
+# --- SIP / Gatekeeper / FileVault ---------------------------------------------
+- name: csrutil disable denied
+  ctx: { tool: bash, args: { command: "csrutil disable" } }
+  expect: { verdict: deny, rule_id: mac-sip-disable-denied }
+
+- name: sudo csrutil clear denied
+  ctx: { tool: bash, args: { command: "sudo csrutil clear" } }
+  expect: { verdict: deny, rule_id: mac-sip-disable-denied }
+
+- name: csrutil status not matched
+  ctx: { tool: bash, args: { command: "csrutil status" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: echo about csrutil disable not matched
+  ctx: { tool: bash, args: { command: "echo 'run csrutil disable in recovery'" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: spctl master-disable denied
+  ctx: { tool: bash, args: { command: "sudo spctl --master-disable" } }
+  expect: { verdict: deny, rule_id: mac-gatekeeper-disable-denied }
+
+- name: spctl global-disable denied
+  ctx: { tool: bash, args: { command: "spctl --global-disable" } }
+  expect: { verdict: deny, rule_id: mac-gatekeeper-disable-denied }
+
+- name: spctl status not matched
+  ctx: { tool: bash, args: { command: "spctl --status" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: spctl master-enable not matched
+  ctx: { tool: bash, args: { command: "sudo spctl --master-enable" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: fdesetup disable denied
+  ctx: { tool: bash, args: { command: "sudo fdesetup disable" } }
+  expect: { verdict: deny, rule_id: mac-filevault-disable-denied }
+
+- name: fdesetup status not matched
+  ctx: { tool: bash, args: { command: "fdesetup status" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- diskutil -----------------------------------------------------------------
+- name: diskutil eraseDisk denied
+  ctx: { tool: bash, args: { command: "diskutil eraseDisk JHFS+ Blank /dev/disk2" } }
+  expect: { verdict: deny, rule_id: mac-disk-erase-denied }
+
+- name: diskutil secureErase denied
+  ctx: { tool: bash, args: { command: "diskutil secureErase 0 /dev/disk3" } }
+  expect: { verdict: deny, rule_id: mac-disk-erase-denied }
+
+- name: diskutil apfs deleteContainer denied
+  ctx: { tool: bash, args: { command: "diskutil apfs deleteContainer disk1" } }
+  expect: { verdict: deny, rule_id: mac-disk-erase-denied }
+
+- name: diskutil list not matched
+  ctx: { tool: bash, args: { command: "diskutil list" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: diskutil info not matched
+  ctx: { tool: bash, args: { command: "diskutil info /dev/disk0" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- admin / keychain ---------------------------------------------------------
+- name: dscl append admin denied
+  ctx: { tool: bash, args: { command: "sudo dscl . -append /Groups/admin GroupMembership eviluser" } }
+  expect: { verdict: deny, rule_id: mac-add-admin-denied }
+
+- name: dseditgroup add admin denied
+  ctx: { tool: bash, args: { command: "sudo dseditgroup -o edit -a eviluser -t user admin" } }
+  expect: { verdict: deny, rule_id: mac-add-admin-denied }
+
+- name: dscl read not matched
+  ctx: { tool: bash, args: { command: "dscl . -read /Groups/admin" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: security delete-keychain denied
+  ctx: { tool: bash, args: { command: "security delete-keychain login.keychain" } }
+  expect: { verdict: deny, rule_id: mac-keychain-delete-denied }
+
+- name: security list-keychains not matched
+  ctx: { tool: bash, args: { command: "security list-keychains" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- TCC / Time Machine -------------------------------------------------------
+- name: tccutil reset asks
+  ctx: { tool: bash, args: { command: "tccutil reset Camera" } }
+  expect: { verdict: ask, rule_id: mac-tcc-reset-asks }
+
+- name: tmutil delete asks
+  ctx: { tool: bash, args: { command: "sudo tmutil delete /Volumes/Backup/2024-01-01" } }
+  expect: { verdict: ask, rule_id: mac-time-machine-asks }
+
+- name: tmutil disable asks
+  ctx: { tool: bash, args: { command: "sudo tmutil disable" } }
+  expect: { verdict: ask, rule_id: mac-time-machine-asks }
+
+- name: tmutil status not matched
+  ctx: { tool: bash, args: { command: "tmutil status" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- quarantine ---------------------------------------------------------------
+- name: xattr -rd quarantine on Applications asks
+  ctx: { tool: bash, args: { command: "sudo xattr -rd com.apple.quarantine /Applications/Suspicious.app" } }
+  expect: { verdict: ask, rule_id: mac-quarantine-removal-asks }
+
+- name: xattr -d quarantine asks
+  ctx: { tool: bash, args: { command: "xattr -d com.apple.quarantine ./downloaded.dmg" } }
+  expect: { verdict: ask, rule_id: mac-quarantine-removal-asks }
+
+- name: xattr -rc Applications asks
+  ctx: { tool: bash, args: { command: "sudo xattr -rc /Applications/Thing.app" } }
+  expect: { verdict: ask, rule_id: mac-quarantine-removal-asks }
+
+- name: xattr -l list not matched
+  ctx: { tool: bash, args: { command: "xattr -l ./downloaded.dmg" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: xattr -p quarantine read not matched
+  ctx: { tool: bash, args: { command: "xattr -p com.apple.quarantine ./x.dmg" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- defaults / launchd / nvram / softwareupdate ------------------------------
+- name: defaults write alf firewall off asks
+  ctx: { tool: bash, args: { command: "sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 0" } }
+  expect: { verdict: ask, rule_id: mac-security-defaults-asks }
+
+- name: defaults write LSQuarantine false asks
+  ctx: { tool: bash, args: { command: "defaults write com.apple.LaunchServices LSQuarantine -bool false" } }
+  expect: { verdict: ask, rule_id: mac-security-defaults-asks }
+
+- name: defaults write dock autohide not matched
+  ctx: { tool: bash, args: { command: "defaults write com.apple.dock autohide -bool true" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: defaults read alf not matched
+  ctx: { tool: bash, args: { command: "defaults read /Library/Preferences/com.apple.alf globalstate" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: launchctl unload system daemon asks
+  ctx: { tool: bash, args: { command: "sudo launchctl unload /System/Library/LaunchDaemons/com.apple.security.syspolicy.plist" } }
+  expect: { verdict: ask, rule_id: mac-launchdaemon-asks }
+
+- name: launchctl bootout Library daemon asks
+  ctx: { tool: bash, args: { command: "sudo launchctl bootout system /Library/LaunchDaemons/com.vendor.agent.plist" } }
+  expect: { verdict: ask, rule_id: mac-launchdaemon-asks }
+
+- name: launchctl list not matched
+  ctx: { tool: bash, args: { command: "launchctl list" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: launchctl unload user agent not matched
+  ctx: { tool: bash, args: { command: "launchctl unload ~/Library/LaunchAgents/com.me.thing.plist" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: nvram set boot-args asks
+  ctx: { tool: bash, args: { command: "sudo nvram boot-args=-v" } }
+  expect: { verdict: ask, rule_id: mac-nvram-asks }
+
+- name: nvram print not matched
+  ctx: { tool: bash, args: { command: "nvram -p" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: softwareupdate schedule off asks
+  ctx: { tool: bash, args: { command: "sudo softwareupdate --schedule off" } }
+  expect: { verdict: ask, rule_id: mac-softwareupdate-disable-asks }
+
+- name: softwareupdate list not matched
+  ctx: { tool: bash, args: { command: "softwareupdate --list" } }
+  expect: { verdict: ask, rule_id: default }

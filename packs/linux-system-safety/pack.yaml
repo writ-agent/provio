@@ -1,0 +1,159 @@
+id: linux-system-safety
+version: 0.1.0
+description: Hard blocks and human gates for Linux host tampering an AI agent should never do on its own - disabling SELinux/AppArmor, planting an /etc/ld.so.preload injection, writing /etc/passwd or /etc/shadow, or removing sudo/openssh/systemd/libc. Firewall, sshd, sudoers, user/group, log-wipe, kernel/boot, sysctl, chattr, kernel-module and /etc/hosts changes ask first. Recursive deletes of /, mkfs/dd, cron/systemd persistence and reverse shells are the floor pack's job.
+# Commands run through the bash tool; file writes also arrive as fs.write on
+# `path`. A backslash is written \x5c, a double quote \x22, a backtick \x60,
+# so neither YAML nor the policy string lexer rewrites them. [^;&|\n]* keeps
+# a match inside one pipeline segment. The command-start group finds a
+# command at the start of a segment (after ^ ; & | ( ` { ! or a
+# sudo/doas/then/do/else wrapper) so the word inside a grep pattern or echo
+# string does not trigger it. The shell-writer alternation ("> PATH", tee,
+# cp/mv/dd/install/ln/truncate, sed/perl/awk -i) is reused across the
+# path-based rules. Deny is reserved for switching off mandatory access
+# control, planting a preload injection, editing the account databases, or
+# uninstalling packages that keep the box running; the rest ask.
+rules:
+  # ------------------------------------------------------------ DENY ---
+  - id: linux-mac-disable-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)setenforce\s+(0|Permissive)\b"
+        or command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)aa-teardown\b|(?i)\baa-disable\b"
+        or command matches "(?i)\bsystemctl\s+(--\S+\s+)?(stop|disable|mask)\s+apparmor(\.service)?\b"
+      )
+    verdict: deny
+    reason: "Disables mandatory access control (SELinux with `setenforce 0`, or AppArmor via aa-teardown/aa-disable or stopping the service). This removes a core defence for the whole host; leave it enforcing."
+
+  - id: linux-ld-preload-denied
+    when: >-
+      (path matches "(?i)(^|/)etc/ld\.so\.preload$" and not tool == "fs.read")
+      or (tool == "bash"
+          and command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(cp|mv|truncate|ln|install|dd)\s[^;&|\n]*|\b(sed|perl|awk)\s[^;&|\n]*-i[^;&|\n]*)[\x22']?/etc/ld\.so\.preload")
+    verdict: deny
+    reason: "Writing /etc/ld.so.preload injects a shared library into every dynamically linked program on the system - a classic rootkit foothold. Nothing legitimate an agent does needs this file."
+
+  - id: linux-passwd-shadow-write-denied
+    when: >-
+      (path matches "(?i)(^|/)etc/(passwd|shadow|gshadow)$" and not tool == "fs.read")
+      or (tool == "bash"
+          and command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(cp|mv|truncate|ln|install|dd)\s[^;&|\n]*|\b(sed|perl|awk)\s[^;&|\n]*-i[^;&|\n]*)[\x22']?/etc/(passwd|shadow|gshadow)\b")
+    verdict: deny
+    reason: "Editing /etc/passwd or /etc/shadow directly can plant a backdoor account or blank a password hash. Use `useradd`/`passwd` (which ask) if you genuinely need an account; never write these files by hand."
+
+  - id: linux-critical-package-removal-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bapt(-get)?\s+(remove|purge|autoremove)\b[^;&|\n]*\b(sudo|openssh-server|openssh-client|systemd|systemd-sysv|init|libc6|libc-bin|libpam-\S+|coreutils|bash|dpkg|apt|util-linux|login|passwd)\b"
+        or command matches "(?i)\b(dnf|yum)\s+(remove|erase|autoremove)\b[^;&|\n]*\b(sudo|openssh-server|openssh|systemd|glibc|coreutils|bash|util-linux|shadow-utils|pam|dnf|yum|rpm)\b"
+        or command matches "(?i)\brpm\s+-e\b[^;&|\n]*--nodeps"
+        or command matches "(?i)\bdpkg\s+(--purge|--remove|-P|-r)\b[^;&|\n]*\b(libc6|systemd|coreutils|bash|dpkg|login|passwd|util-linux|libpam-\S+)\b"
+        or command matches "(?i)\bpacman\s+-R[a-z]*\b[^;&|\n]*\b(glibc|systemd|coreutils|bash|pacman|util-linux|filesystem|openssh|pam)\b"
+      )
+    verdict: deny
+    irreversible: true
+    reason: "Removes a package the system needs to keep running or to be administered (libc, systemd, coreutils, sudo, openssh, the package manager itself). This can leave the machine unusable or unrecoverable; do not remove these."
+
+  # ------------------------------------------------------------- ASK ---
+  - id: linux-sshd-asks
+    when: >-
+      (path matches "(?i)(^|/)etc/ssh/sshd_config(\.d/.+)?$" and not tool == "fs.read")
+      or (tool == "bash"
+          and (
+            command matches "(?i)\bsystemctl\s+(--\S+\s+)?(stop|disable|mask)\s+(ssh|sshd)(\.socket|\.service)?\b"
+            or command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)service\s+(ssh|sshd)\s+stop\b"
+            or command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(cp|mv|truncate|ln|install|dd)\s[^;&|\n]*|\b(sed|perl|awk)\s[^;&|\n]*-i[^;&|\n]*)[\x22']?/etc/ssh/sshd_config"
+          ))
+    verdict: ask
+    reason: "Stops/disables the SSH daemon or edits sshd_config. This can lock you out of a remote host, or open it up (PermitRootLogin, PasswordAuthentication). Confirm the change."
+
+  - id: linux-firewall-disable-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bufw\s+disable\b"
+        or command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)(ip6?tables|iptables-legacy)(\s[^;&|\n]*)?\s(-F|--flush)\b"
+        or command matches "(?i)\bnft\s+flush\s+ruleset\b"
+        or command matches "(?i)\biptables\s+-P\s+(INPUT|FORWARD)\s+ACCEPT\b"
+        or command matches "(?i)\bsystemctl\s+(--\S+\s+)?(stop|disable|mask)\s+(firewalld|ufw|nftables)(\.service)?\b"
+      )
+    verdict: ask
+    reason: "Turns off or flushes the host firewall (ufw, iptables/nftables, firewalld). This exposes every listening service; confirm you mean to open the host. Read-only `iptables -L`/`ufw status` are not gated."
+
+  - id: linux-sudoers-edit-asks
+    when: >-
+      (path matches "(?i)(^|/)etc/sudoers(\.d/[\w.-]+)?$" and not tool == "fs.read")
+      or (tool == "bash"
+          and command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(cp|mv|truncate|ln|install|dd)\s[^;&|\n]*|\b(sed|perl|awk)\s[^;&|\n]*-i[^;&|\n]*)[\x22']?/etc/sudoers(\.d/[\w.-]+)?\b")
+    verdict: ask
+    reason: "Edits the sudoers configuration. A stray line (for example NOPASSWD:ALL) grants passwordless root; confirm the change and prefer `visudo`, which validates syntax."
+
+  - id: linux-user-admin-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)(useradd|adduser|userdel|deluser|groupadd|groupdel|chpasswd|newusers)\b"
+        or command matches "(?i)\busermod\b[^;&|\n]*\s-[a-zA-Z]*G\b[^;&|\n]*\b(sudo|wheel|admin|adm|root|docker)\b"
+        or command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)gpasswd\s+-a\b"
+        or command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)passwd\s+[a-z_][\w-]*\b"
+      )
+    verdict: ask
+    reason: "Creates or deletes a user/group, changes a password, or adds a user to a privileged group (sudo/wheel/admin/docker). Confirm the account and group you mean."
+
+  - id: linux-log-wipe-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bjournalctl\b[^;&|\n]*--vacuum-(time|size|files)\b"
+        or command matches "(?i)\brotate\b[^;&|\n]*--force"
+        or command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)history\s+-c\b"
+        or command matches "(?i)\bunset\s+HISTFILE\b|\bHISTFILE=(/dev/null|\x22\x22|'')|\bexport\s+HISTFILE=/dev/null"
+        or command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btruncate\s[^;&|\n]*-s\s*0\s+|\btee\s+)[\x22']?/var/log/"
+        or command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)(rm|shred)(\s[^;&|\n]*)?\s[\x22']?/var/log(/[\w.*-]*)?[\x22']?(\s|$)"
+      )
+    verdict: ask
+    reason: "Clears or truncates system logs or shell history (journalctl --vacuum, > /var/log/..., rm /var/log/..., history -c, unset HISTFILE). This is how a trail is erased; confirm it. Reading logs (`journalctl -u`, `tail /var/log/...`) is not gated."
+
+  - id: linux-kernel-boot-asks
+    when: >-
+      (path matches "(?i)(^|/)boot/" and not tool == "fs.read")
+      or (tool == "bash"
+          and (
+            command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)(update-grub2?|grub2?-install|grub2?-mkconfig|mkinitcpio|dracut)\b"
+            or command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(cp|mv|truncate|ln|install|dd)\s[^;&|\n]*|\b(sed|perl|awk)\s[^;&|\n]*-i[^;&|\n]*)[\x22']?/boot/"
+          ))
+    verdict: ask
+    reason: "Rewrites the bootloader or an initramfs, or writes under /boot. A mistake here can make the machine fail to boot; confirm the change."
+
+  - id: linux-sysctl-security-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bsysctl\s+(-w\s+|--write\s+)?[\x22']?(kernel\.(randomize_va_space|kptr_restrict|dmesg_restrict|yama\.ptrace_scope|unprivileged_bpf_disabled|modules_disabled|perf_event_paranoid|kexec_load_disabled|ftrace_enabled)|net\.ipv4\.(ip_forward|conf\.[.\w*]+\.(accept_redirects|send_redirects|rp_filter|accept_source_route))|fs\.protected_(hardlinks|symlinks|fifos|regular)|fs\.suid_dumpable)\s*="
+        or command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(cp|mv|truncate|ln|install|dd)\s[^;&|\n]*|\b(sed|perl|awk)\s[^;&|\n]*-i[^;&|\n]*)[\x22']?/etc/sysctl(\.conf|\.d/[\w.-]+)"
+      )
+    verdict: ask
+    reason: "Changes a kernel security setting (ASLR, ptrace scope, kptr/dmesg restriction, IP forwarding, protected links, ...) with sysctl or /etc/sysctl. Confirm it: these knobs weaken hardening. `sysctl -a` and reads are not gated."
+
+  - id: linux-chattr-immutable-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)chattr\s[^;&|\n]*[+-][a-zA-Z]*[ia]\b"
+    verdict: ask
+    reason: "Adds or removes the immutable/append-only file attribute (chattr +i / -i / +a). Removing it unlocks a protected file; adding it can lock out later writes. Confirm the target. `lsattr` (read) is not gated."
+
+  - id: linux-kernel-module-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)(modprobe\s+(-r|--remove)|rmmod|insmod)\b"
+    verdict: ask
+    reason: "Loads an arbitrary kernel module (insmod) or unloads one (rmmod, modprobe -r). A malicious or wrong module runs in the kernel; confirm it. `lsmod` and loading a named module with plain `modprobe` are not gated here."
+
+  - id: linux-hosts-write-asks
+    when: >-
+      (path matches "(?i)(^|/)etc/hosts$" and not tool == "fs.read")
+      or (tool == "bash"
+          and command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee\s+(-a\s+)?|(^|[\s;&|(])(cp|mv|truncate|ln|install|dd)\s[^;&|\n]*|\b(sed|perl|awk)\s[^;&|\n]*-i[^;&|\n]*)[\x22']?/etc/hosts\b")
+    verdict: ask
+    reason: "Edits /etc/hosts, which can redirect a hostname (for example a package registry or update server) to another address. Confirm the entry. Reading /etc/hosts is not gated."

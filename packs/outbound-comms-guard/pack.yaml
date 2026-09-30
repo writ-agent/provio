@@ -1,0 +1,88 @@
+id: outbound-comms-guard
+version: 0.1.0
+description: Human gates on anything that sends a message to a person outside the session, through email, chat, SMS, voice or social MCP tools, mail CLIs, or curl to messaging webhooks and APIs; drafts, reads and searches pass.
+# Evaluated in order, first match wins. A prompt-injected agent exfiltrates
+# or spams through exactly these calls, and a sent message cannot be
+# recalled, so every rule asks and is irreversible.
+#
+# MCP side: comms-mcp-send-asks matches send-shaped tool names on ANY
+# server (send_email, post_message, sendMessage, send_sms, make_call,
+# create_tweet). comms-mcp-messaging-server-asks is broader (reply,
+# forward, comment, publish, add_message, Twilio's CreateMessage) but only
+# on servers whose name says they are messaging servers (slack, discord,
+# telegram, teams, gmail, outlook, twilio, sendgrid, whatsapp, ...).
+# Drafts (create_draft, draft_email, slack_send_message_draft) pass;
+# send_draft sends, so it asks. Tools whose first token is a read verb
+# (get_, list_, search_, read_, ...) never match.
+#
+# Shell side: mail CLIs (sendmail, mail -s, mutt, swaks, msmtp,
+# Send-MailMessage, curl smtp://, git send-email, smtplib, aws ses, the
+# Twilio and az communication CLIs) and the URLs of
+# messaging webhooks and send endpoints (Slack, Discord, Telegram, Twilio,
+# SendGrid, Resend, Mailgun, Postmark, Graph sendMail, Gmail send, Google
+# Chat, ntfy, Pushover, X, LinkedIn, Bluesky, Mastodon). [^;&|\n]* keeps a
+# match inside one pipeline segment.
+rules:
+  - id: comms-mcp-send-asks
+    when: >-
+      server matches "."
+      and (tool matches "(?i)(^|[_.-])(send|post|reply|forward|schedule|broadcast)[_-]([a-z0-9]+[_-]){0,2}(emails?|mails?|messages?|msgs?|sms|mms|dms?|direct[_-]messages?|tweets?|toots?|campaigns?|newsletters?|whatsapps?|imessages?|fax)([_.-]|$)"
+        or tool matches "(^|[_.-])(?i:send|post|reply|forward|schedule)(Emails?|Mails?|Messages?|Sms|SMS|Mms|Dms?|DirectMessages?|Tweets?|Campaigns?)([A-Z0-9_.-]|$)|(?i)chat[_.]?postMessage"
+        or tool matches "(?i)(^|[_.-])(create|publish)[_-](tweet|toot|skeet)s?([_.-]|$)|(?i)^(tweet|retweet)$"
+        or tool matches "(?i)(^|[_.-])(make|place|start|initiate|create)[_-](an?[_-])?(outbound[_-]|phone[_-]|voice[_-]|video[_-]|conference[_-])*calls?$|(?i)(^|[_.-])(make|place|start)(Outbound|Phone|Voice)*Calls?$")
+      and not (tool matches "(?i)draft" and not tool matches "(?i)(^|[_.-])send[_-]?drafts?([_.-]|$)")
+      and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|lookup|retrieve|download|export|inspect|delete|remove|trash|untrash|archive|mark|label|unlabel)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|lookup|retrieve|download|export|inspect|delete|remove|trash|untrash|archive|mark|label|unlabel)[A-Z]"
+    verdict: ask
+    reason: "MCP tool that sends an email, chat message, SMS, call or post to people outside this session. A sent message cannot be recalled, and a prompt-injected agent leaks data this way. Check the recipients and the full text before approving."
+    irreversible: true
+
+  - id: comms-mcp-messaging-server-asks
+    when: >-
+      server matches "(?i)slack|discord|telegram|teams|gmail|outlook|mail|smtp|twilio|sendgrid|resend|postmark|whatsapp|sms|signal|imessage|messag|twitter|bluesky|bsky|linkedin|reddit|mastodon|facebook|instagram|threads|ms-?365|m365|microsoft|office|intercom|zendesk|zoom|vonage|plivo|pushover|ntfy|mattermost|rocket\.?chat|webex|wechat|(^|[_-])x([_-]|$)"
+      and (tool matches "(?i)(^|[_.-])(send|post|reply|forward|comment|broadcast|publish|dm|tweet|retweet|repost|quote|call)([_.-]|$)"
+        or tool matches "(?i)(^|[_.-])(add|create|write|schedule)[_-]([a-z]+[_-])?(messages?|comments?|posts?|repl(y|ies)|tweets?|calls?|emails?|mails?)([_.-]|$)"
+        or tool matches "^(send|post|reply|forward|publish|tweet|schedule)[A-Z]|(^|[_.-]|[a-z0-9])(Send|Post|Reply|Forward|Publish)([A-Z]|$)|(^|[_.-]|[a-z0-9])(Create|Add|Schedule)(Message|Call|Comment|Post|Tweet|Reply|Email|Mail)s?([A-Z_.-]|$)")
+      and not (tool matches "(?i)draft" and not tool matches "(?i)(^|[_.-])send[_-]?drafts?([_.-]|$)")
+      and not tool matches "^(?i:get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|lookup|retrieve|download|export|inspect|delete|remove|trash|untrash|archive|mark|label|unlabel)([_.-]|$)|^(get|list|search|find|describe|read|fetch|query|view|show|preview|count|check|validate|lookup|retrieve|download|export|inspect|delete|remove|trash|untrash|archive|mark|label|unlabel)[A-Z]"
+    verdict: ask
+    reason: "Messaging-server tool that sends, replies, forwards, posts or comments where other people will read it. A sent message cannot be recalled. Check the recipients, channel and full text before approving."
+    irreversible: true
+
+  - id: comms-shell-mail-sms-asks
+    when: >-
+      tool == "bash"
+      and (command matches "(?i)(^|[\s;&|(\x60]|/(usr/)?s?bin/)(sendmail|swaks|msmtp|ssmtp|sendemail|mailsend(-go)?)(\.exe)?\s"
+        or command matches "(?i)(^|[\s;&|(\x60])(mail|mailx|s-nail|mutt|neomutt)(\s[^;&|\n]*)?\s(-s\s|-a\s|[\w.+-]+@[\w-]+\.\w)"
+        or command matches "(?i)\b(Send-MailMessage|Send-MgUserMail|Send-MgUserMessage)\b"
+        or command matches "(?i)\bcurl(\.exe)?\s[^;&|\n]*(smtps?://|--mail-rcpt\b)"
+        or command matches "\bgit(\.exe)?\s([^;&|\n]*\s)?send-email\b"
+        or command matches "(?s)\bsmtplib\b.*\.(send_message|sendmail)\s*\("
+        or command matches "(?i)\baws(\.exe)?\s([^;&|\n]*\s)?(ses|sesv2)\s+send-(email|raw-email|templated-email|bulk-templated-email|bulk-email)\b|\baws(\.exe)?\s([^;&|\n]*\s)?sns\s+publish\b[^;&|\n]*--phone-number\b"
+        or command matches "(?i)\baz(\.cmd)?\s([^;&|\n]*\s)?communication\s+(email|sms)\s+send\b|\btwilio(\.exe)?\s[^;&|\n]*\bapi:core:(messages|calls):create\b")
+    verdict: ask
+    reason: "This sends an email, SMS or call from the shell. A sent message cannot be recalled, and mailing out file contents is a common exfiltration path. Check the recipients, subject and body (and any attachment) before approving."
+    irreversible: true
+
+  - id: comms-shell-webhook-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\b(curl|wget|xh|https?|httpie|Invoke-WebRequest|Invoke-RestMethod|iwr|irm|requests\.(post|put)|urllib|httpx|fetch|axios|got|node|python[\d.]*|deno|bun|ruby|php|pwsh|powershell)\b"
+      and (command matches "(?i)hooks\.slack\.com/(services|workflows|triggers)/|slack\.com/api/(chat\.(postMessage|postEphemeral|scheduleMessage|meMessage)|files\.(upload|completeUploadExternal))"
+        or command matches "(?i)discord(app)?\.com/api/(v\d+/)?(webhooks/\d+|channels/\d+/messages)|api\.telegram\.org/bot[^/\s]*/(send\w+|forwardMessages?|copyMessages?)"
+        or command matches "(?i)api\.twilio\.com/[^\s]*/(Messages|Calls)(\.json)?|rest\.nexmo\.com/sms|api\.nexmo\.com/v\d/(messages|calls)|api\.vonage\.com/v\d/messages|api\.plivo\.com/v1/Account/[^\s]*/(Message|Call)"
+        or command matches "(?i)api\.sendgrid\.com/v3/mail/send|api\.resend\.com/(emails|broadcasts/[^\s/]+/send)|api(\.eu)?\.mailgun\.net/v3/[^\s]*/messages|api\.postmarkapp\.com/email|api(\.eu)?\.sparkpost\.com/api/v1/transmissions|mandrillapp\.com/api/1\.0/messages/send|api\.(brevo|sendinblue)\.com/v3/smtp/email|api\.mailchimp\.com/3\.0/campaigns/[^\s/]+/actions/send"
+        or command matches "(?i)graph\.microsoft\.com/(v1\.0|beta)/[^\s]*(/sendMail|/messages/[^\s/]+/(send|reply|replyAll|forward)|/chats/[^\s/]+/messages|/channels/[^\s/]+/messages)|outlook\.office(365)?\.com/webhook/|\.webhook\.office\.com/|gmail\.googleapis\.com/(upload/)?gmail/v1/users/[^\s/]+/(messages|drafts)/send|chat\.googleapis\.com/v1/spaces/[^\s/]+/messages"
+        or command matches "(?i)api\.pushover\.net/1/messages|(^|[\s/\x22'=])ntfy\.sh/\w|graph\.facebook\.com/(v[\d.]+/)?[^\s/]+/messages|api\.(twitter|x)\.com/(2/tweets(\s|$|[\x22'])|1\.1/statuses/update|2/dm_conversations)|api\.linkedin\.com/(v2|rest)/(ugcPosts|posts|shares)|/xrpc/com\.atproto\.repo\.createRecord|/api/v1/statuses(\s|$|[\x22'])")
+    verdict: ask
+    reason: "This posts to a messaging webhook or a send endpoint (Slack, Discord, Telegram, Twilio, an email API, Teams, Google Chat, a social network). Whatever is in the request body reaches people outside this session. Check the destination and the payload before approving."
+    irreversible: true
+
+  - id: comms-social-post-cli-asks
+    when: >-
+      tool == "bash"
+      and ((command matches "(?i)(^|[\s;&|(\x60])(twurl|xurl)\s[^;&|\n]*(/2/tweets|/1\.1/statuses/|/2/dm_conversations|/2/users/\d+/retweets)"
+          and command matches "(?i)(^|[\s;&|(\x60])(twurl|xurl)\s([^;&|\n]*\s)?(-X\s*POST|--request\s+POST|-d|--data)(\s|=|$)")
+        or command matches "(?i)(^|[\s;&|(\x60])(bsky|toot)(\.exe)?\s+(post|reply|repost|boost|reblog|quote)\b")
+    verdict: ask
+    reason: "This publishes a post or direct message on a social network from the CLI. Public posts are copied and indexed within minutes. Check the account and the full text before approving."
+    irreversible: true

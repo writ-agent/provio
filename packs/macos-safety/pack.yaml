@@ -1,0 +1,121 @@
+id: macos-safety
+version: 0.1.0
+description: Hard blocks and human gates for macOS host tampering an AI agent should never do on its own - disabling System Integrity Protection, Gatekeeper or FileVault, erasing a disk with diskutil, deleting a keychain, adding an admin, or wiping Time Machine backups. Firewall/quarantine/TCC/launchd/nvram/software-update changes ask first. Reboot, launchd/cron persistence, `dd` and recursive home deletes are the floor pack's job.
+# Commands run through the bash tool. A backslash is written \x5c, a double
+# quote \x22, a backtick \x60, so neither YAML nor the policy string lexer
+# rewrites them. [^;&|\n]* keeps a match inside one pipeline segment. The
+# command-start group finds a command at the start of a segment (after
+# ^ ; & | ( ` { ! or a sudo/doas/then/do/else wrapper) so the word inside a
+# grep pattern or an echo string does not trigger it. Deny is reserved for
+# switching off a security subsystem, erasing a disk, deleting a keychain or
+# adding a backdoor admin; reversible-but-serious changes ask first.
+rules:
+  # ------------------------------------------------------------ DENY ---
+  - id: mac-sip-disable-denied
+    when: >-
+      tool == "bash"
+      and command matches "(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)csrutil\s+(disable|clear)\b"
+    verdict: deny
+    reason: "`csrutil disable` turns off System Integrity Protection, letting anything modify protected system files. SIP protects the whole OS; leave it on."
+
+  - id: mac-gatekeeper-disable-denied
+    when: >-
+      tool == "bash"
+      and command matches "(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)spctl\s+--(master|global)-disable\b"
+    verdict: deny
+    reason: "`spctl --master-disable` turns off Gatekeeper, so unsigned and unnotarized apps run without warning. Leave Gatekeeper on; approve a single app in System Settings if needed."
+
+  - id: mac-filevault-disable-denied
+    when: >-
+      tool == "bash"
+      and command matches "(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)fdesetup\s+disable\b"
+    verdict: deny
+    reason: "`fdesetup disable` turns off FileVault disk encryption and decrypts the whole volume. An agent must not remove disk encryption."
+
+  - id: mac-disk-erase-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bdiskutil\s+(eraseDisk|eraseVolume|secureErase|zeroDisk|randomDisk|reformat|partitionDisk)\b"
+        or command matches "(?i)\bdiskutil\s+ap(fs)?\s+delete(Container|Volume)\b"
+      )
+    verdict: deny
+    irreversible: true
+    reason: "Erases or repartitions a disk/volume with diskutil, destroying all data on it. There is no undo; confirm the target device outside the agent."
+
+  - id: mac-add-admin-denied
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)\bdscl\s+\.\s+-(append|create|merge)\s+/Groups/admin\b"
+        or command matches "(?i)\bdseditgroup\s+-o\s+edit\b[^;&|\n]*\s-a\s+\S+[^;&|\n]*\badmin\b"
+      )
+    verdict: deny
+    reason: "Adds an account to the admin group - a persistent backdoor with full control of the Mac. A human manages admin membership, not an agent."
+
+  - id: mac-keychain-delete-denied
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\bsecurity\s+delete-keychain\b"
+    verdict: deny
+    irreversible: true
+    reason: "`security delete-keychain` deletes a keychain and every credential in it. There is no undo; do not delete keychains."
+
+  # ------------------------------------------------------------- ASK ---
+  - id: mac-tcc-reset-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\btccutil\s+reset\b"
+    verdict: ask
+    reason: "`tccutil reset` clears granted privacy permissions (Camera, Microphone, Full Disk Access, Accessibility, ...). Confirm which service and app you mean to reset."
+
+  - id: mac-time-machine-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\btmutil\s+(delete|disable|deletelocalsnapshots|deleteinprogress)\b"
+    verdict: ask
+    irreversible: true
+    reason: "Deletes or disables Time Machine backups (`tmutil delete`/`disable`/`deletelocalsnapshots`). Deleted backups cannot be recovered; confirm you mean to lose them. `tmutil status`/`listbackups` are read-only."
+
+  - id: mac-quarantine-removal-asks
+    when: >-
+      tool == "bash"
+      and (
+        (command matches "(?i)\bxattr\b[^;&|\n]*\bcom\.apple\.quarantine\b"
+         and command matches "(?i)\bxattr\b[^;&|\n]*\s-[a-z]*[dc]")
+        or command matches "(?i)\bxattr\b[^;&|\n]*\s-[a-z]*c[a-z]*\s[^;&|\n]*/Applications"
+      )
+    verdict: ask
+    reason: "Strips the com.apple.quarantine attribute (or clears all attributes) so downloaded apps run without a Gatekeeper prompt. Confirm the target; `xattr -l`/`-p` (read) is not gated."
+
+  - id: mac-security-defaults-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\bdefaults\s+write\b"
+      and command matches "(?i)com\.apple\.alf\b|\bLSQuarantine\b|com\.apple\.screensaver[^;&|\n]*askForPassword|com\.apple\.loginwindow[^;&|\n]*autoLoginUser|/Library/Preferences/com\.apple\.alf"
+    verdict: ask
+    reason: "`defaults write` of a security preference (application firewall, LaunchServices quarantine, screen-lock password, or auto-login). Confirm this weakening. `defaults read` is not gated."
+
+  - id: mac-launchdaemon-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\blaunchctl\s+(unload|bootout|disable|remove)\b[^;&|\n]*(/System/Library/LaunchDaemons|/Library/LaunchDaemons)"
+    verdict: ask
+    reason: "Unloads or disables a system LaunchDaemon, which can stop a security or OS service. Confirm the daemon. User agents under ~/Library/LaunchAgents and `launchctl list` are not gated here."
+
+  - id: mac-nvram-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)nvram\s+[\w.-]+="
+        or command matches "(?i)(^|[;&|(\x60{!]\s*|\b(sudo|doas|then|do|else)\s+)nvram\s+-[cd]\b"
+      )
+    verdict: ask
+    reason: "Changes an NVRAM variable (for example boot-args). This can alter how the Mac boots; confirm the change. `nvram -p` (print) is not gated."
+
+  - id: mac-softwareupdate-disable-asks
+    when: >-
+      tool == "bash"
+      and command matches "(?i)\bsoftwareupdate\s+--(schedule\s+off|ignore)\b"
+    verdict: ask
+    reason: "Turns off automatic software updates (`softwareupdate --schedule off`/`--ignore`), so security fixes stop arriving. Confirm you want this."

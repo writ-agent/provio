@@ -1,0 +1,134 @@
+id: paas-safety
+version: 0.1.0
+description: Human gates for hosting-platform CLIs (Vercel, Netlify, Fly.io, Heroku, Railway, Cloudflare Wrangler, Supabase, Firebase) - production deploys and rollbacks, env var and secret changes, env dumps, database wipes, resource deletes and scale-to-zero; printing a platform API token is refused.
+# Evaluated in order, first match wins. floor already asks before whole-app
+# destroys (vercel rm, fly apps destroy, heroku apps:destroy, railway
+# down/delete, firebase projects:delete) and `supabase db reset`; this
+# pack covers the finer-grained operations on the same platforms.
+#
+# A CLI is found at the start of a pipeline segment: after ^ ; & | ( ` { !,
+# after `sh -c '`, or after a wrapper word (sudo, env, xargs, npx, pnpx,
+# bunx, pnpm dlx, npm exec, then, do, ...), optionally behind VAR=value
+# assignments and with an @version (npx vercel@latest). So `echo "vercel
+# --prod"` and commit messages naming a command do not match. The
+# subcommand is matched anywhere after the binary within the segment
+# ([^;&|\n]*), so global flags in front of it (--app, --cwd, --token,
+# --scope) do not hide it. Binary names are case-insensitive and may end
+# in .exe/.cmd/.ps1 (npm shims on Windows); flags are case-sensitive.
+# [/\x5c] is / or \, \x22 is a double quote, \x60 a backtick.
+#
+# `vercel build --prod` only builds locally, so the first Vercel pattern
+# accepts flags, `deploy` and paths before --prod but not `build`.
+rules:
+  - id: paas-token-print-denied
+    when: >-
+      (path matches "(?i)(com\.vercel\.cli[/\x5c](Data[/\x5c])?auth\.json|(^|[/\x5c])\.?netlify[/\x5c](Config[/\x5c])?config\.json|(^|[/\x5c])\.fly[/\x5c]config\.yml|(^|[/\x5c])\.supabase[/\x5c]access-token|(^|[/\x5c])\.?wrangler[/\x5c]config[/\x5c]default\.toml|(^|[/\x5c])\.railway[/\x5c]config\.json|configstore[/\x5c]firebase-tools\.json)$" and not tool == "http")
+      or (tool == "bash"
+          and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:heroku)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(auth:token|authorizations:create)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:flyctl|fly)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sauth\s+token\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:wrangler)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sauth\s+token\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:firebase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\slogin:ci\b"
+        or command matches "(?i)\b(cat|bat|less|more|head|tail|type|gc|Get-Content|base64|xxd|od|strings|cp|scp|rsync|curl|jq|yq|grep|rg|findstr|Select-String|sls|awk|sed)(\.exe)?\s[^;&|\n]*(com\.vercel\.cli[/\x5c](Data[/\x5c])?auth\.json|\.?netlify[/\x5c](Config[/\x5c])?config\.json|\.fly[/\x5c]config\.yml|\.supabase[/\x5c]access-token|wrangler[/\x5c]config[/\x5c]default\.toml|\.railway[/\x5c]config\.json|configstore[/\x5c]firebase-tools\.json)([\s\x22')]|$)"
+          ))
+    verdict: deny
+    reason: "Prints a platform API token (heroku auth:token, fly auth token, wrangler auth token, firebase login:ci) or reads a CLI's stored login (Vercel auth.json, Netlify config.json, ~/.fly/config.yml, ~/.supabase/access-token, Wrangler, Railway, Firebase configstore). The token would land in the model's context and the transcript; the CLIs authenticate by themselves."
+
+  - id: paas-env-change-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:vercel|vc)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\senv\s+(add|rm|remove|update)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:netlify|ntl)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\senv:(set|unset|import|clone)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:flyctl|fly)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\ssecrets\s+(set|unset|import)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:heroku)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sconfig:(set|unset|add|remove|edit)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:railway)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(variables?|vars)\b[^;&|\n]*\s--set(-from-stdin)?\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:railway)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(variables?|vars)\s+(set|delete|rm|remove)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:wrangler)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\ssecret(:|\s+)(put|delete|bulk)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:supabase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\ssecrets\s+(set|unset)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:firebase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(functions:config:(set|unset|clone)|functions:secrets:(set|destroy|prune)|apphosting:secrets:set)\b"
+      )
+    verdict: ask
+    reason: "Changes a deployed app's environment variables or secrets. The old value is overwritten, and on Fly and Heroku the change restarts the app. Confirm the name, the environment (production?) and where the value came from."
+    irreversible: true
+
+  - id: paas-secret-read-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:vercel|vc)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(env\s+)?pull(\s|$)"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:netlify|ntl)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\senv:get\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:netlify|ntl)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\senv:list\b[^;&|\n]*\s--(plain|json)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:heroku)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sconfig(:get)?(\s|$)"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:railway)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(variables?|vars)(\s|$)"
+      )
+    verdict: ask
+    reason: "Prints or downloads the app's environment variables (database URLs, API keys) into the transcript or a local .env file. Confirm the agent needs the values, not just the names."
+
+  - id: paas-data-wipe-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:heroku)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\spg:(reset|copy|backups:restore)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:supabase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sdb\s+reset\b[^;&|\n]*\s(--linked|--db-url)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:wrangler)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sd1\s+execute\b[^\n]*(?i:\bdrop\s+(table|index|view|trigger)\b|\bdelete\s+from\b|\btruncate\b)"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:firebase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sfirestore:delete\b[^;&|\n]*\s(-r|--recursive|--all-collections)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:firebase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sdatabase:remove\b"
+      )
+    verdict: ask
+    reason: "Wipes or overwrites a hosted database: heroku pg:reset / pg:copy / pg:backups:restore, supabase db reset against the linked project, destructive SQL through wrangler d1, recursive Firestore deletes, Realtime Database removes. Confirm the app/project is not production and a backup exists."
+    irreversible: true
+
+  - id: paas-resource-delete-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:vercel|vc)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(domains?|dns|certs?|alias(es)?|projects?)\s+(rm|remove)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:netlify|ntl)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\ssites:delete\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:flyctl|fly)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(volumes?|vol)\s+(destroy|delete|rm|remove)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:flyctl|fly)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\smachines?\s+(destroy|rm|remove)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:heroku)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(addons:(destroy|remove|detach)|pg:backups:delete|domains:(remove|clear)|pipelines:destroy|spaces:destroy)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:railway)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(environment|env)\s+(delete|rm|remove)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:railway)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\svolume\s+delete\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:wrangler)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s+-[^\s;&|]+(\s+[^-\s;&|][^\s;&|]*)?)*\s+delete\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:wrangler)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(r2\s+bucket|kv\s+namespace|kv:namespace|kv\s+bulk|kv:bulk|d1|queues|vectorize|hyperdrive|pages\s+project|pages\s+deployment)\s+delete\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:supabase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(projects|functions|branches|orgs)\s+delete\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:supabase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sstorage\s+rm\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:firebase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(functions:delete|hosting:sites:delete|firestore:databases:delete|extensions:uninstall)\b"
+      )
+    verdict: ask
+    reason: "Deletes a hosted resource: a site, project, domain, Worker, volume, machine, add-on (with its data), bucket, KV namespace, D1 database, environment or function. Confirm the name and the account; most of these have no undo."
+    irreversible: true
+
+  - id: paas-app-offline-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:flyctl|fly)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sscale\s+count\b[^;&|\n]*\s([\w-]+=)?0(\s|$)"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:heroku)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sps:scale\b[^;&|\n]*\s[\w-]+=0(\s|$|:)"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:heroku)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\smaintenance:on\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:firebase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\shosting:disable\b"
+      )
+    verdict: ask
+    reason: "Takes a live app offline: scales it to zero, turns on maintenance mode or disables Firebase Hosting. Confirm this is the app you mean and that downtime is intended."
+
+  - id: paas-prod-deploy-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:vercel|vc)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s+(-[^\s;&|]+(\s+[^-\s;&|][^\s;&|]*)?|deploy|[^\s;&|b-][^\s;&|]*))*\s+(--prod|--target[=\s]+production)(\s|$|=|[\x22')\x60])"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:vercel|vc)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sdeploy\b[^;&|\n]*\s(--prod|--target[=\s]+production)(\s|$|=|[\x22')\x60])"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:vercel|vc)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(promote|rollback)(\s|$)"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:netlify|ntl)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sdeploy\b[^;&|\n]*\s--prod(-if-unlocked|IfUnlocked)?(\s|$|=)"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:wrangler)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(deploy|publish|versions\s+deploy)\b[^;&|\n]*\s(--env|-e)[=\s]+[\x22']?(prod|production)[\x22']?(\s|$)"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:wrangler)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\srollback(\s|$)"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:wrangler)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sd1\s+migrations\s+apply\b[^;&|\n]*\s--remote\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:firebase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sdeploy\b[^;&|\n]*\s(-P|--project)[=\s]+[\x22']?[\w-]*prod"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:heroku)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\s(releases:rollback|rollback)(\s|$)"
+        or command matches "\bgit(\.exe)?\s([^;&|\n]*\s)?push\s+(-[^\s;&|]+\s+)*heroku(\s|$)"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:supabase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\smigration\s+up\b[^;&|\n]*\s(--linked|--db-url)\b"
+        or (command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:supabase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sdb\s+push\b"
+            and not command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else|npx|pnpx|bunx|dlx)(\s+-{1,2}[\w=@./-]+)*\s+)(\w+=\S*\s+)*(?i:supabase)(@[\w.^~-]+)?(\.exe|\.cmd|\.ps1)?(\s[^;&|\n]*)?\sdb\s+push\b[^;&|\n]*\s--(local|dry-run)\b")
+      )
+    verdict: ask
+    reason: "Deploys to or rolls back production (vercel --prod / promote / rollback, netlify deploy --prod, wrangler deploy --env production, firebase deploy to a *prod* project, git push heroku, heroku rollback), or applies migrations to the linked remote database (supabase db push, d1 migrations apply --remote). Confirm the build was reviewed and tested."

