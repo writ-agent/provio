@@ -230,7 +230,7 @@ provio log && provio verify               # what happened, and is the record int
 `provio ui` opens a local console with a live decision feed, approvals, a
 policy editor, and a sandbox screen where you can watch an escape attempt
 fail. If you'd rather not install anything, the
-[playground](https://provio.vercel.app/playground.html) runs the same
+[playground](https://getprovio.vercel.app/playground.html) runs the same
 engine as WebAssembly in your browser.
 
 ## Contributing: policy packs

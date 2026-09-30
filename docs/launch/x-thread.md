@@ -40,6 +40,6 @@ Rules only catch what they match. The ledger is tamper-evident, not tamper-proof
 Reproduce the demo offline, no API key: the tool calls are scripted, and provio's decisions and ledger are real.
 github.com/writ-agent/provio/tree/main/examples/attack-demo
 
-Try the engine in your browser: provio.vercel.app/playground.html
+Try the engine in your browser: getprovio.vercel.app/playground.html
 
 `pip install provio`

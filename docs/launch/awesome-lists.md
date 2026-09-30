@@ -180,7 +180,7 @@ Security, Developer tools
 
 ### Links
 - [GitHub](https://github.com/writ-agent/provio)
-- [Playground](https://provio.vercel.app/playground.html)
+- [Playground](https://getprovio.vercel.app/playground.html)
 </details>
 ```
 

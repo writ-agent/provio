@@ -36,7 +36,7 @@ are scripted; provio's decisions and ledger output are real:
 https://github.com/writ-agent/provio/tree/main/examples/attack-demo
 
 Repo (Apache-2.0): https://github.com/writ-agent/provio
-Try the policy engine in your browser: https://provio.vercel.app/playground.html
+Try the policy engine in your browser: https://getprovio.vercel.app/playground.html
 
 If your team gives agents real credentials, I'd like to hear how you're
 governing them today.

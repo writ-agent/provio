@@ -22,7 +22,7 @@ version = "0.1.3"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/writ-agent/provio"
-homepage = "https://provio.vercel.app"
+homepage = "https://getprovio.vercel.app"
 description = "Authorization and provenance for AI agents. One policy file, one tamper-evident ledger, any agent."
 
 [workspace.dependencies]

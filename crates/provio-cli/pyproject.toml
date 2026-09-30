@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://provio.vercel.app"
+Homepage = "https://getprovio.vercel.app"
 Source = "https://github.com/writ-agent/provio"
 Issues = "https://github.com/writ-agent/provio/issues"
 

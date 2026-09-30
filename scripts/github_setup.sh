@@ -33,7 +33,7 @@ git remote set-url origin "https://github.com/$org/$repo.git"
 echo "== 3. Metadata =="
 gh repo edit "$org/$repo" \
   --description 'Authorization and provenance for AI agents. One policy file, one signed ledger, any agent.' \
-  --homepage 'https://provio.vercel.app' \
+  --homepage 'https://getprovio.vercel.app' \
   --add-topic ai-agents --add-topic mcp --add-topic policy \
   --add-topic audit --add-topic provenance --add-topic rust --add-topic security
 

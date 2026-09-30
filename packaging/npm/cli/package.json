@@ -4,7 +4,7 @@
   "description": "A safety floor your AI agents can't get under: one policy for Claude Code, Codex, Gemini CLI, Cursor, Windsurf and MCP, checked before every tool call, with a tamper-evident ledger. Try: npx provio scan",
   "license": "Apache-2.0",
   "author": "Bhaskar Gurram <gurrambhaskar.ai@gmail.com>",
-  "homepage": "https://provio.vercel.app",
+  "homepage": "https://getprovio.vercel.app",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/writ-agent/provio.git",

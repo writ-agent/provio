@@ -78,7 +78,7 @@ Pick 1 or 3. They say what it does in the words people search for.
 > Try it: `pip install provio` (or `npm i -g provio`), then
 > `provio integrate claude-code` in a repo. There's also a browser playground
 > running the real engine as WebAssembly:
-> https://provio.vercel.app/playground.html
+> https://getprovio.vercel.app/playground.html
 >
 > Threat model with the residual risks:
 > https://github.com/writ-agent/provio/blob/main/docs/THREAT_MODEL.md

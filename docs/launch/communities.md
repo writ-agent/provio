@@ -10,7 +10,7 @@ the attack demo.
 Links used below:
 - Repo: https://github.com/writ-agent/provio
 - Demo: https://github.com/writ-agent/provio/tree/main/examples/attack-demo
-- Playground: https://provio.vercel.app/playground.html
+- Playground: https://getprovio.vercel.app/playground.html
 
 ---
 

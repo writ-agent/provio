@@ -49,7 +49,7 @@ more than you have to.
 > agent's own shell. The ledger is tamper-evident, not tamper-proof.
 >
 > Repo: https://github.com/writ-agent/provio · in-browser playground (the
-> engine compiled to WASM): https://provio.vercel.app/playground.html
+> engine compiled to WASM): https://getprovio.vercel.app/playground.html
 >
 > Feedback I'd like: which local agent stacks you'd want first-class hooks
 > for.
