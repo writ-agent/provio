@@ -36,11 +36,37 @@ The ledger record schema is versioned separately (`schema_version`, see
   database drops, cloud destroys, discarding uncommitted work, `curl | sh`
   and persistence. 100 fixtures, including near misses found by `writ scan`
   on real sessions.
+- **Ten more policy packs** (20 in total, all bundled, each with a README
+  and fixtures that include near misses): `windows-safety`, `macos-safety`,
+  `linux-system-safety` (host security tooling, backups, logs, admins),
+  `docker-safety`, `paas-safety` (Vercel, Netlify, Fly, Heroku, Railway,
+  Wrangler, Supabase, Firebase), `ci-config-guard` (agents editing CI/CD
+  definitions, CODEOWNERS, pipeline triggers), `exposure-guard` (tunnels,
+  listeners on all interfaces, world-open firewall and cloud rules, public
+  shares), `mcp-destructive-tools`, `outbound-comms-guard` (email, chat, SMS
+  and social posts from MCP tools and the shell), `payments-guard` (Stripe
+  live-mode writes denied; refunds, payouts, billing changes, crypto
+  transfers ask). `writ scan --packs all` / `writ test --packs all` judge
+  with every bundled pack.
 - **Judged by what it runs** (`writ check`, `test`, `scan`): the commands
   behind a call are evaluated too: lines of scripts it runs (`bash x.sh`,
   `./x`, `npm run x`, `python x.py`) or writes (shell scripts,
   `package.json` scripts, Makefiles, Codex patches), heredocs by consumer,
   shell strings inside Python/JS. See docs/inspection.md.
+- **MCP tool pinning** (`writ proxy`, stdio and HTTP; on by default,
+  `--no-pin` to disable): tool definitions are pinned on first use; a
+  changed definition (a rug pull) is removed from the agent's `tools/list`
+  and calls to it are refused and recorded (`mcp-tool-pin`) until
+  `writ mcp accept`. `writ mcp pins` shows old vs new. See docs/mcp-pins.md.
+- **`writ report`, rebuilt**: what the agents did, led by what writ
+  stopped and what needed a human (and how each ask ended), then a timeline
+  per session and the ledger's integrity; `--since 12h`, `--session`,
+  `--format markdown` for a pull request, `--format json`; `--sign <key>`
+  embeds a signed receipt (also written next to the report) that anyone can
+  check with `writ receipt verify`. Light and dark, no scripts.
+- **`examples/incident-88462`**: claude-code#88462 replayed in three acts:
+  the dangerous script is refused when written, refused when run, and the
+  obfuscated variant (which no rule can read) is stopped by the kernel.
 - `examples/starter.yaml` (what `writ init` writes) is the playground's first
   preset; new simulator calls for the floor.
 
@@ -51,7 +77,14 @@ The ledger record schema is versioned separately (`schema_version`, see
 - `secrets-guard`: `defaultdict(set)` and similar no longer trip the
   environment-dump rule.
 - Policy packs are bundled by `writ-policy` (was `writ-cli`), so every
-  engine and the WASM playground resolve `packs:`.
+  engine and the WASM playground resolve `packs:`. Bundled packs are
+  embedded with LF line endings whatever the checkout has, so the playground
+  build is reproducible from a Windows working tree.
+
+### Fixed
+
+- The TypeScript adapter's lockfile pinned a placeholder for
+  `@writ-agent/cli`, so `npm ci` failed once 0.1.2 was on npm.
 
 ## [0.1.2] — 2026-09-25
 

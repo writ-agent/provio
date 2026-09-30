@@ -37,6 +37,19 @@ pub(crate) fn judging_policy(
         let engine = NativePolicyEngine::from_source(&src).map_err(|e| anyhow!(e.to_string()))?;
         Ok((engine, format!("packs {}{why}", packs.join(" + "))))
     };
+    if packs.iter().any(|p| p == "all") {
+        let all: Vec<String> = writ_policy::packs::BUNDLED
+            .iter()
+            .map(|(id, _)| id.to_string())
+            // floor first: its deny/ask rules then decide before any other
+            // pack's (packs keep the order they are listed in).
+            .filter(|id| id != "floor")
+            .fold(vec!["floor".to_string()], |mut v, id| {
+                v.push(id);
+                v
+            });
+        return from_packs(all, " (every bundled pack)");
+    }
     if !packs.is_empty() {
         return from_packs(packs.to_vec(), "");
     }
@@ -79,7 +92,8 @@ pub struct TestArgs {
     /// A whole call as JSON: `{"tool": "...", "args": {...}, "server": "..."}`.
     #[arg(long)]
     pub call: Option<String>,
-    /// Judge with these bundled packs instead of the policy file.
+    /// Judge with these bundled packs instead of the policy file (`all`:
+    /// every bundled pack).
     #[arg(long, value_delimiter = ',')]
     pub packs: Vec<String>,
     /// Print the verdict as JSON.

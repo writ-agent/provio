@@ -34,13 +34,14 @@ fn bundled_pack_installs_without_a_packs_directory() {
         "{}",
         String::from_utf8_lossy(&out.stderr)
     );
-    let installed = std::fs::read(d.join(".writ/packs/aws-safety.yaml")).unwrap();
-    let shipped = std::fs::read(concat!(
+    let installed = std::fs::read_to_string(d.join(".writ/packs/aws-safety.yaml")).unwrap();
+    let shipped = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../packs/aws-safety/pack.yaml"
     ))
     .unwrap();
-    assert_eq!(installed, shipped);
+    // Bundled packs are embedded with LF line endings, whatever the checkout has.
+    assert_eq!(installed, shipped.replace("\r\n", "\n"));
     let _ = std::fs::remove_dir_all(&d);
 }
 

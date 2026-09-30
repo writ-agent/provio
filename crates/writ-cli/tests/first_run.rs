@@ -286,3 +286,96 @@ fn init_global_uses_the_home_directory() {
     let _ = std::fs::remove_dir_all(&home);
     let _ = std::fs::remove_dir_all(&work);
 }
+
+#[test]
+fn report_summarizes_the_ledger_and_embeds_a_verifiable_receipt() {
+    let home = empty_dir("home");
+    let work = empty_dir("work");
+    std::fs::copy(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/starter.yaml"),
+        work.join("writ.yaml"),
+    )
+    .unwrap();
+    for (id, cmd) in [
+        ("t1", "git push --force origin main"),
+        ("t2", "cargo test"),
+        ("t3", "terraform destroy"),
+    ] {
+        let payload = json!({"hook_event_name": "PreToolUse", "session_id": "night-1",
+            "tool_use_id": id, "tool_name": "Bash", "tool_input": {"command": cmd}});
+        let mut child = Command::new(env!("CARGO_BIN_EXE_writ"))
+            .args(["check", "--format", "claude-code"])
+            .current_dir(&work)
+            .env("HOME", &home)
+            .env("USERPROFILE", &home)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        use std::io::Write;
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(payload.to_string().as_bytes())
+            .unwrap();
+        child.wait().unwrap();
+    }
+    let out = writ(&work, &home, &["receipt", "keygen", "--out", "k.pem"]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let out = writ(
+        &work,
+        &home,
+        &[
+            "report", "--format", "json", "--since", "1h", "--sign", "k.pem", "--out", "r.json",
+        ],
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: Value =
+        serde_json::from_str(&std::fs::read_to_string(work.join("r.json")).unwrap()).unwrap();
+    assert_eq!(v["totals"]["calls"], 3, "{v:#}");
+    assert_eq!(v["totals"]["stopped"], 1, "{v:#}");
+    assert_eq!(v["totals"]["asked"], 1, "{v:#}");
+    assert_eq!(v["integrity"]["intact"], true);
+    assert!(v["receipt"]["checkpoint"]["tip_hash"].is_string(), "{v:#}");
+    // The receipt written next to the report verifies against the ledger.
+    let out = writ(
+        &work,
+        &home,
+        &[
+            "receipt",
+            "verify",
+            "r.receipt.json",
+            "--pubkey",
+            "k.pem.pub",
+        ],
+    );
+    assert!(
+        out.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    // The HTML page is self-contained and leads with what was stopped.
+    let out = writ(&work, &home, &["report"]);
+    assert!(out.status.success());
+    let page = std::fs::read_to_string(work.join("writ-report.html")).unwrap();
+    assert!(page.contains("Stopped by writ") && page.contains("floor-force-push-main-denied"));
+    assert!(
+        !page.contains("<script"),
+        "the report must not carry scripts"
+    );
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&work);
+}

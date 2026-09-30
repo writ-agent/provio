@@ -75,6 +75,21 @@ user-level configuration of each agent (`~/.claude/settings.json`,
 so every project on the machine goes through the same floor. Windsurf has
 no user-level hook file writ can manage yet; wire it per project.
 
+## `writ report`: what happened while you were away
+
+```bash
+writ report --since 12h                      # writ-report.html: stopped, needed you, timeline, integrity
+writ report --since 12h --format markdown --out -   # paste into a PR or chat
+writ report --session <id> --sign ~/.writ/signing.pem
+```
+
+The report reads the ledger: what writ stopped (with the rule and reason),
+which calls needed a human and how each ended, a timeline per session, and
+whether the hash chain is intact. `--sign` embeds a signed receipt over the
+ledger (key from `writ receipt keygen`) and writes it next to the report,
+so whoever receives it can check it against the ledger with
+`writ receipt verify` rather than trust the page ([receipts.md](receipts.md)).
+
 ## `writ test`: try one call
 
 ```bash

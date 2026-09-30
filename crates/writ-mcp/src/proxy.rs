@@ -17,6 +17,7 @@ use writ_core::call::{CallerIdentity, InterceptMode, ServerIdentity, ToolCall, T
 use writ_core::{Result, Timestamp, WritError};
 
 use crate::jsonrpc::{JsonRpcError, JsonRpcMessage, JsonRpcRequest, JsonRpcResponse, RequestId};
+use crate::pins::ToolPins;
 use crate::transport::Transport;
 
 /// What policy decided about one `tools/call`.
@@ -44,6 +45,13 @@ pub const WRIT_REFUSAL_CODE: i64 = -32043;
 pub type DecisionHook = Box<dyn FnMut(&ToolCall) -> ProxyDecision>;
 pub type ObserveHook = Box<dyn FnMut(&ToolCall, &Value)>;
 pub type TransformHook = Box<dyn FnMut(&ToolCall, Value) -> Value>;
+/// Records a call the interceptor refused before policy ran (a held tool):
+/// `(call, rule_id, reason)`.
+pub type RefusalHook = Box<dyn FnMut(&ToolCall, &str, &str)>;
+
+/// Rule id recorded when a call to a held (changed, unaccepted) tool is
+/// refused.
+pub const TOOL_PIN_RULE: &str = "mcp-tool-pin";
 
 /// Outcome of intercepting one `tools/call` request.
 pub enum Interception {
@@ -71,6 +79,9 @@ pub struct Interceptor {
     /// context (the `redact` verdict, spec §7). The observation hook sees the
     /// original; the agent sees the transform's output.
     transform: Option<TransformHook>,
+    /// Tool definition pins (see [`crate::pins`]); `None` disables pinning.
+    pins: Option<ToolPins>,
+    refused: Option<RefusalHook>,
 }
 
 impl Interceptor {
@@ -84,7 +95,25 @@ impl Interceptor {
             decide,
             observe: None,
             transform: None,
+            pins: None,
+            refused: None,
         }
+    }
+
+    /// Pin tool definitions (trust on first use): changed tools are hidden
+    /// from `tools/list` and their calls refused until accepted.
+    pub fn set_pins(&mut self, pins: ToolPins) {
+        self.pins = Some(pins);
+    }
+
+    pub fn pins(&self) -> Option<&ToolPins> {
+        self.pins.as_ref()
+    }
+
+    /// Record calls refused before policy ran (a held tool), so every
+    /// intercepted call still gets exactly one decision record.
+    pub fn on_refusal(&mut self, hook: RefusalHook) {
+        self.refused = Some(hook);
     }
 
     pub fn on_result(&mut self, hook: ObserveHook) {
@@ -133,6 +162,27 @@ impl Interceptor {
     /// call: the hook records it).
     pub fn intercept(&mut self, req: &JsonRpcRequest, call_id: Option<String>) -> Interception {
         let call = self.make_call(req, call_id);
+        if let Some(held) = self.pins.as_ref().and_then(|p| p.held(&call.tool)) {
+            let reason = format!(
+                "The definition of MCP tool `{}` on server `{}` changed since it was pinned \
+                 (new definition first seen {}). A changed tool description can carry \
+                 instructions to the model, so writ holds the tool until a human reviews it: \
+                 `writ mcp pins --server {}` shows the change, `writ mcp accept {} {}` trusts it.",
+                call.tool,
+                self.config.server_name,
+                held.seen_at,
+                self.config.server_name,
+                self.config.server_name,
+                call.tool
+            );
+            if let Some(hook) = &mut self.refused {
+                hook(&call, TOOL_PIN_RULE, &reason);
+            }
+            return Interception::Refused(refusal(
+                req.id.clone(),
+                format!("writ refused this call: rule \"{TOOL_PIN_RULE}\" — {reason}"),
+            ));
+        }
         match (self.decide)(&call) {
             ProxyDecision::Forward => Interception::Forward(call),
             ProxyDecision::Refuse { message } => {
@@ -175,6 +225,49 @@ impl Interceptor {
             {
                 self.tool_schemas = tools.clone();
             }
+        }
+    }
+
+    /// Observe a non-intercepted response and, for `tools/list` with
+    /// pinning on, pin new tools and remove held (changed) ones from what
+    /// the agent sees.
+    pub fn filter_response(&mut self, method: &str, resp: &mut JsonRpcResponse) {
+        self.observe_response(method, resp);
+        if method != "tools/list" {
+            return;
+        }
+        let Some(pins) = self.pins.as_mut() else {
+            return;
+        };
+        let Some(tools) = resp
+            .result
+            .as_mut()
+            .and_then(|r| r.get_mut("tools"))
+            .and_then(|t| t.as_array_mut())
+        else {
+            return;
+        };
+        let obs = pins.observe(tools);
+        if !obs.pinned.is_empty() {
+            tracing::info!(server = %self.config.server_name, tools = ?obs.pinned, "pinned new MCP tools");
+            eprintln!(
+                "  writ · pinned {} tool definition(s) of `{}` on first use",
+                obs.pinned.len(),
+                self.config.server_name
+            );
+        }
+        if !obs.changed.is_empty() {
+            eprintln!(
+                "  \x1b[33mwrit · `{}` changed the definition of: {} — held (hidden from the agent) until `writ mcp accept {}`\x1b[0m",
+                self.config.server_name,
+                obs.changed.join(", "),
+                self.config.server_name
+            );
+            tools.retain(|t| {
+                t.get("name")
+                    .and_then(Value::as_str)
+                    .is_none_or(|n| !obs.changed.iter().any(|c| c == n))
+            });
         }
     }
 }
@@ -290,8 +383,8 @@ impl<A: Transport, D: Transport> McpProxy<A, D> {
     }
 
     fn forward_request(&mut self, req: &JsonRpcRequest) -> Result<()> {
-        let resp = self.roundtrip(req, None)?;
-        self.core.observe_response(&req.method, &resp);
+        let mut resp = self.roundtrip(req, None)?;
+        self.core.filter_response(&req.method, &mut resp);
         self.agent_side.send(&JsonRpcMessage::Response(resp))
     }
 

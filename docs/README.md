@@ -13,6 +13,7 @@
 | [ui.md](ui.md) | `writ ui`: the local console, its security model, and `writ check --ask ui` |
 | [receipts.md](receipts.md) | Signed receipts, inclusion proofs and anchoring (Contract 7), with their threat model |
 | [ledger-postgres.md](ledger-postgres.md) | The Postgres ledger store: setup, roles, schema, concurrency, TLS |
+| [mcp-pins.md](mcp-pins.md) | MCP tool pinning: changed tool definitions (rug pulls) are held until you accept them |
 | [mcp-http.md](mcp-http.md) | The MCP proxy over Streamable HTTP / SSE |
 | [integrations/](integrations/) | Codex CLI, Gemini CLI, Cursor and Windsurf: setup, mapping, residual risks |
 

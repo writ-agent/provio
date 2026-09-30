@@ -14,6 +14,7 @@
 pub mod credentials;
 pub mod http;
 pub mod jsonrpc;
+pub mod pins;
 pub mod proxy;
 pub mod transport;
 

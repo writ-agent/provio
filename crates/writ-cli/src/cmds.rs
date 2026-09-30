@@ -102,6 +102,7 @@ pub fn proxy(
     mcp: bool,
     server: &str,
     cmd: &[String],
+    pin: bool,
 ) -> Result<()> {
     if !mcp {
         bail!("only --mcp is supported in this build (SSE/HTTP: wave 2)");
@@ -123,7 +124,7 @@ pub fn proxy(
         writ_mcp::spawn_stdio_server(&cmd[0], &cmd[1..], server, &creds, &BTreeMap::new())
             .map_err(|e| anyhow!(e.to_string()))?;
 
-    let core = mcp_interceptor(engine, ledger, server, "stdio")?;
+    let core = mcp_interceptor(engine, ledger, server, "stdio", pin)?;
     let mut proxy = McpProxy::with_interceptor(stdio_transport(), spawned.transport, core);
 
     proxy.run().map_err(|e| anyhow!(e.to_string()))?;
@@ -141,6 +142,7 @@ pub(crate) fn mcp_interceptor(
     ledger: &Path,
     server: &str,
     transport: &str,
+    pin: bool,
 ) -> Result<Interceptor> {
     let store = Rc::new(RefCell::new(
         writ_ledger::open_store(ledger).map_err(|e| anyhow!(e.to_string()))?,
@@ -197,6 +199,38 @@ pub(crate) fn mcp_interceptor(
         transport,
         decide,
     );
+    // Tool pinning: a changed tool definition is hidden and its calls are
+    // refused (and recorded as denied) until a human accepts it.
+    if pin {
+        let path = writ_mcp::pins::pin_path(&crate::mcp_pins::pins_dir(ledger), server);
+        let pins = writ_mcp::pins::ToolPins::load(&path, server).map_err(|e| anyhow!(e))?;
+        let held = pins.file().pending.len();
+        if held > 0 {
+            eprintln!(
+                "  \x1b[33mtool pins: {held} changed tool(s) of `{server}` held — `writ mcp pins --server {server}`\x1b[0m"
+            );
+        }
+        proxy.set_pins(pins);
+        let store_r = Rc::clone(&store);
+        proxy.on_refusal(Box::new(
+            move |call: &ToolCall, rule_id: &str, reason: &str| {
+                let verdict = Verdict::Deny {
+                    rule_id: rule_id.to_string(),
+                    reason: reason.to_string(),
+                    location: None,
+                };
+                eprintln!(
+                    "{}",
+                    render_call_line(&call.tool, &summarize(&call.args), &verdict)
+                );
+                let mut s = store_r.borrow_mut();
+                let mut writer = LedgerWriter::new(&mut **s);
+                if let Err(e) = writer.record_decision(call, &verdict, None) {
+                    eprintln!("  writ · could not record the refusal: {e}");
+                }
+            },
+        ));
+    }
     proxy.on_result(Box::new(
         move |call: &ToolCall, result: &serde_json::Value| {
             let Some(entry) = decisions_o.borrow().get(&call.call_id).cloned() else {
@@ -471,7 +505,6 @@ pub fn doctor(policy: &Path, ledger: &Path) -> Result<()> {
     println!("    network: open and NOT filtered by default (no mechanism filters by host);");
     println!("    --net none: {}", level(&ic.network_deny));
     println!();
-
     println!("interception coverage:");
     println!("  MCP proxy (mode A)     : ready — `writ proxy --mcp` governs every MCP tool call");
     if ic.filesystem.is_full() {
@@ -487,63 +520,6 @@ pub fn doctor(policy: &Path, ledger: &Path) -> Result<()> {
     println!("  · in MCP-proxy-only mode the agent's own shell, file writes and direct HTTP are NOT governed");
     println!("  · an agent can bypass Writ entirely unless you pair mode A with mode B or C");
     println!("  · see docs/THREAT_MODEL.md for the full residual-risk table");
-    Ok(())
-}
-/// `writ report` — shareable single-file HTML run summary (spec §9).
-pub fn report(ledger: &Path, out: &Path) -> Result<()> {
-    if !ledger_present(ledger) {
-        bail!("no ledger at {}", show_ledger(ledger));
-    }
-    let store = writ_ledger::open_store(ledger).map_err(|e| anyhow!(e.to_string()))?;
-    let mut rows = String::new();
-    let (mut n_allow, mut n_deny, mut n_ask, mut n_redact) = (0u64, 0u64, 0u64, 0u64);
-    for rec in store.iter() {
-        let rec = rec.map_err(|e| anyhow!(e.to_string()))?;
-        if rec.kind != writ_core::RecordKind::Decision {
-            continue;
-        }
-        let (tool, summary) = rec
-            .call
-            .as_ref()
-            .map(|c| (c.tool.clone(), summarize(&c.args)))
-            .unwrap_or_else(|| ("?".into(), String::new()));
-        let (kind, rule) = match &rec.verdict {
-            Some(Verdict::Allow { rule_id }) => {
-                n_allow += 1;
-                ("allow", rule_id.clone().unwrap_or_else(|| "default".into()))
-            }
-            Some(Verdict::Deny { rule_id, .. }) => {
-                n_deny += 1;
-                ("deny", rule_id.clone())
-            }
-            Some(Verdict::Ask { rule_id, .. }) => {
-                n_ask += 1;
-                ("ask", rule_id.clone())
-            }
-            Some(Verdict::Redact { rule_id, .. }) => {
-                n_redact += 1;
-                ("redact", rule_id.clone())
-            }
-            None => continue,
-        };
-        rows.push_str(&format!(
-            "<tr class=\"{kind}\"><td>{}</td><td>{}</td><td>{}</td><td><span class=\"badge {kind}\">{kind}</span></td><td>{}</td><td>{}</td></tr>\n",
-            rec.index,
-            esc(&rec.recorded_at.to_string()),
-            esc(&tool),
-            esc(&rule),
-            esc(&summary),
-        ));
-    }
-    let html = format!(
-        include_str!("report_template.html"),
-        n_allow, n_deny, n_ask, n_redact, rows
-    );
-    std::fs::write(out, html)?;
-    println!(
-        "wrote {} — open it anywhere, it is fully self-contained",
-        out.display()
-    );
     Ok(())
 }
 
@@ -659,11 +635,4 @@ pub fn replay(
         }
     }
     Ok(())
-}
-
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }

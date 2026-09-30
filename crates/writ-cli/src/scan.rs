@@ -74,7 +74,8 @@ pub struct ScanArgs {
     #[arg(long, value_enum, value_delimiter = ',')]
     pub agent: Vec<ScanAgent>,
     /// Judge with these bundled packs (default allow for everything else)
-    /// instead of the policy file, e.g. `--packs floor,secrets-guard`.
+    /// instead of the policy file, e.g. `--packs floor,secrets-guard`, or
+    /// `--packs all`.
     #[arg(long, value_delimiter = ',')]
     pub packs: Vec<String>,
     /// Read transcripts from this directory instead of the agent's default

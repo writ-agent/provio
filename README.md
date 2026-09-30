@@ -63,8 +63,12 @@ fast and only disasters stop them:
 | the agent rewriting its own hooks or `.writ/` ledger | edits to `writ.yaml` |
 | launching agents with `--dangerously-skip-permissions`, `--yolo`, `--trust-all-tools` | cron, launchd, scheduled tasks, shell-profile edits |
 
-Add more with one line (`packs: [floor, secrets-guard, github-safety, aws-safety]`);
-see [packs/](packs/).
+Add more with one line (`packs: [floor, secrets-guard, github-safety, aws-safety]`).
+20 packs ship inside the binary: cloud CLIs (AWS, GCP, Azure), GitHub, databases,
+Kubernetes, Terraform, Docker, hosting platforms, CI/CD config, package
+publishing, Windows/macOS/Linux host security, internet exposure, MCP
+destructive tools, outbound email/chat, payments; see [packs/](packs/).
+`writ scan --packs all` shows what all of them would have caught.
 
 ## Install
 
@@ -75,7 +79,11 @@ silicon, Intel) and Windows (x64). Pick one:
 pip install writ-cli                 # Python users
 npm install -g @writ-agent/cli       # Node users
 curl -fsSL https://raw.githubusercontent.com/writ-agent/writ/main/scripts/install.sh | sh
+irm https://raw.githubusercontent.com/writ-agent/writ/main/scripts/install.ps1 | iex   # Windows PowerShell
 ```
+
+The install scripts check the binary against the release's `checksums.txt`
+before installing it, and change nothing else (no PATH or profile edits).
 
 or download `writ-<target>` from the
 [latest release](https://github.com/writ-agent/writ/releases/latest)
@@ -107,7 +115,7 @@ is missing or errors, the tool does not run.
 | **LangGraph** | `writ_sdk.langgraph.writ_tool_node(tools, writ)` | yes |
 | **OpenAI Agents SDK** | `writ_sdk.openai_agents.guard_agent(agent, writ)` | yes |
 | **Claude Agent SDK** (Python / TypeScript) | `writ_sdk.claude_agent_sdk.writ_hooks(writ)` / `createWritIntegration({ client })` | yes |
-| **Any MCP client** | `writ proxy --mcp --server <name> -- <server cmd>` (stdio), or `--transport http --upstream <url>` for remote servers | every MCP tool call |
+| **Any MCP client** | `writ proxy --mcp --server <name> -- <server cmd>` (stdio), or `--transport http --upstream <url>` for remote servers; tool definitions are [pinned](docs/mcp-pins.md), so a changed one is held until you accept it | every MCP tool call |
 | **Any other agent** | `writ run -- <agent>`: kernel-confined launch; or call `writ check` from its hook system | launch, plus hooks where the agent has them |
 
 ```bash

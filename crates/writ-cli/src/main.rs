@@ -10,9 +10,11 @@ mod hook;
 mod inspect;
 mod integrate;
 mod mcp_http;
+mod mcp_pins;
 mod onboard;
 mod packs;
 mod receipt;
+mod report;
 mod run;
 mod scan;
 mod ui;
@@ -121,6 +123,11 @@ enum Commands {
         /// Streamable HTTP / SSE transport options (default transport: stdio).
         #[command(flatten)]
         http: mcp_http::HttpArgs,
+        /// Do not pin tool definitions. By default the first definition of
+        /// each tool is pinned, and a changed one is hidden from the agent
+        /// and its calls refused until `writ mcp accept`.
+        #[arg(long)]
+        no_pin: bool,
         /// Downstream server command line, after `--` (stdio transport).
         #[arg(last = true)]
         cmd: Vec<String>,
@@ -129,6 +136,12 @@ enum Commands {
     /// Local web console: connect an agent, watch decisions live, approve
     /// asks, edit and test the policy, try the sandbox.
     Ui(ui::UiArgs),
+
+    /// MCP tool pins: review and trust changed tool definitions.
+    Mcp {
+        #[command(subcommand)]
+        sub: mcp_pins::McpCmd,
+    },
 
     /// Signed receipts over the ledger, and anchoring them externally.
     Receipt {
@@ -170,11 +183,10 @@ enum Commands {
     /// Coverage report: which call paths are governed and which are blind.
     Doctor,
 
-    /// Shareable single-file HTML run summary.
-    Report {
-        #[arg(long, default_value = "writ-report.html")]
-        out: PathBuf,
-    },
+    /// What your agents did: what writ stopped, what needed you, a timeline
+    /// per session and the ledger's integrity, as one self-contained page
+    /// (or Markdown, or JSON). `--sign <key>` embeds a verifiable receipt.
+    Report(report::ReportArgs),
 }
 
 #[derive(Subcommand)]
@@ -235,17 +247,35 @@ fn main() -> anyhow::Result<()> {
             mcp,
             server,
             http,
+            no_pin,
             cmd,
         } => {
             if http.is_http() {
-                mcp_http::proxy_http(&cli.policy, &cli.ledger, cli.yolo, mcp, &server, &http)
+                mcp_http::proxy_http(
+                    &cli.policy,
+                    &cli.ledger,
+                    cli.yolo,
+                    mcp,
+                    &server,
+                    &http,
+                    !no_pin,
+                )
             } else {
                 if cmd.is_empty() {
                     anyhow::bail!("stdio transport needs the downstream server command after `--`");
                 }
-                cmds::proxy(&cli.policy, &cli.ledger, cli.yolo, mcp, &server, &cmd)
+                cmds::proxy(
+                    &cli.policy,
+                    &cli.ledger,
+                    cli.yolo,
+                    mcp,
+                    &server,
+                    &cmd,
+                    !no_pin,
+                )
             }
         }
+        Commands::Mcp { sub } => mcp_pins::run(&cli.ledger, &sub),
         Commands::Ui(args) => ui::serve(&cli.policy, &cli.ledger, cli.yolo, &args),
         Commands::Receipt { sub } => receipt::run(&cli.policy, &cli.ledger, &sub),
         Commands::Log => cmds::log(&cli.ledger),
@@ -268,6 +298,6 @@ fn main() -> anyhow::Result<()> {
             branch_from,
             ack_irreversible,
         ),
-        Commands::Report { out } => cmds::report(&cli.ledger, &out),
+        Commands::Report(args) => report::report(&cli.ledger, &args),
     }
 }

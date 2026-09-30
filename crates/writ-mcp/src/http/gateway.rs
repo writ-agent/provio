@@ -95,6 +95,7 @@ enum Job {
     Observe {
         method: String,
         resp: JsonRpcResponse,
+        reply: Sender<JsonRpcResponse>,
     },
 }
 
@@ -247,7 +248,14 @@ fn run_job(core: &mut Interceptor, job: Job) {
         Job::Mask { call, value, reply } => {
             let _ = reply.send(core.mask(&call, value));
         }
-        Job::Observe { method, resp } => core.observe_response(&method, &resp),
+        Job::Observe {
+            method,
+            mut resp,
+            reply,
+        } => {
+            core.filter_response(&method, &mut resp);
+            let _ = reply.send(resp);
+        }
     }
 }
 
@@ -397,10 +405,23 @@ impl Shared {
             None => {
                 if let (Some(m), Some(id)) = (&ctx.method, &ctx.req_id) {
                     if *id == r.id {
-                        self.job(Job::Observe {
+                        // tools/list may be filtered (held tools removed), so
+                        // wait for the interceptor; if it is gone, a
+                        // tools/list is withheld rather than passed unfiltered.
+                        let (tx, rx) = mpsc::channel();
+                        let fallback = if m == "tools/list" {
+                            withheld_response(r.id.clone())
+                        } else {
+                            r.clone()
+                        };
+                        if self.job(Job::Observe {
                             method: m.clone(),
-                            resp: r.clone(),
-                        });
+                            resp: r,
+                            reply: tx,
+                        }) {
+                            return rx.recv().unwrap_or(fallback);
+                        }
+                        return fallback;
                     }
                 }
                 r

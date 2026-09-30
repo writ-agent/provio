@@ -132,6 +132,7 @@ pub fn proxy_http(
     mcp: bool,
     server: &str,
     args: &HttpArgs,
+    pin: bool,
 ) -> Result<()> {
     if !mcp {
         bail!("only --mcp is supported by writ proxy");
@@ -191,7 +192,7 @@ pub fn proxy_http(
         }
     };
 
-    let core = cmds::mcp_interceptor(engine, ledger, server, upstream.kind())?;
+    let core = cmds::mcp_interceptor(engine, ledger, server, upstream.kind(), pin)?;
     let opts = HttpProxyOptions {
         allow_remote: args.allow_remote,
         allowed_origins: args.allow_origin.clone(),

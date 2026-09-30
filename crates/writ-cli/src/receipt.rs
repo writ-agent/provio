@@ -186,11 +186,21 @@ fn emit(out: Option<&Path>, text: &str) -> Result<()> {
     }
 }
 
-fn create(ledger_path: &Path, key: &Path, session: Option<&str>, out: Option<&Path>) -> Result<()> {
+/// Sign a receipt over the ledger as it stands now (optionally committing
+/// to one session's records).
+pub(crate) fn sign_receipt(
+    ledger_path: &Path,
+    key: &Path,
+    session: Option<&str>,
+) -> Result<Receipt> {
     let key = keys::read_private_key(key).map_err(e)?;
     let records = ledger::read_records(ledger_path).map_err(e)?;
     let cp = ledger::build_checkpoint(records, session).map_err(e)?;
-    let receipt = Receipt::sign(cp, &key).map_err(e)?;
+    Receipt::sign(cp, &key).map_err(e)
+}
+
+fn create(ledger_path: &Path, key: &Path, session: Option<&str>, out: Option<&Path>) -> Result<()> {
+    let receipt = sign_receipt(ledger_path, key, session)?;
     emit(out, &receipt.to_json().map_err(e)?)?;
     let c = &receipt.checkpoint;
     eprintln!(

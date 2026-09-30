@@ -29,16 +29,26 @@ fn main() {
     }
     found.sort();
 
+    // Embed a copy with LF line endings, so the bundled bytes (and the WASM
+    // playground built from them) are identical whatever line endings the
+    // checkout has (a Windows working tree may hold CRLF).
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let normalized = out_dir.join("packs");
+    std::fs::create_dir_all(&normalized).unwrap();
     let mut out = String::from("&[\n");
     for (id, path) in &found {
+        let text = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
+            .replace("\r\n", "\n");
+        let copy = normalized.join(format!("{id}.yaml"));
+        std::fs::write(&copy, text).unwrap();
         // `{:?}` escapes backslashes, so Windows paths are valid literals.
         let _ = writeln!(
             out,
             "    ({id:?}, include_str!({:?})),",
-            path.to_string_lossy()
+            copy.to_string_lossy()
         );
     }
     out.push(']');
-    let dest = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("bundled_packs.rs");
-    std::fs::write(dest, out).unwrap();
+    std::fs::write(out_dir.join("bundled_packs.rs"), out).unwrap();
 }
