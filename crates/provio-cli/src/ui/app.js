@@ -128,7 +128,7 @@
     if (m) {
       try { sessionStorage.setItem("provio-token", m[1]); } catch {}
       // `#token=…&/live` opens a given screen; the token leaves the URL.
-      const r = /[#&]\/(connect|live|approvals|policy|sandbox)\b/.exec(location.hash);
+      const r = /[#&]\/(connect|live|approvals|policy|sandbox|lookback)\b/.exec(location.hash);
       history.replaceState(null, "", location.pathname + "#/" + (r ? r[1] : "connect"));
       return m[1];
     }

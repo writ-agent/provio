@@ -156,7 +156,7 @@ OS error. Loopback only, token-gated, no external requests. See
 
 <p align="center">
   <img src="docs/assets/ui/connect.png" alt="provio ui: Connect your agent — snippets for Claude Code and Python with a live 'connected' indicator" width="49%">
-  <img src="docs/assets/ui/sandbox.png" alt="provio ui: Sandbox — a write outside the workspace blocked by the kernel boundary, 'Access is denied.'" width="49%">
+  <img src="docs/assets/ui/lookback.png" alt="provio ui: Look back — what the agents on this machine did in the last 30 days, judged by the policy: force pushes to main, SSH and cloud key reads, an agent relaunched with --dangerously-skip-permissions" width="49%">
 </p>
 
 No install needed to try the policy language itself: the
