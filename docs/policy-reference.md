@@ -82,12 +82,20 @@ To see the composed result for a call: `provio test "<command>"`.
 ## Session guards
 
 Some calls are only dangerous because of what came before them in the same
-session. provio keeps one such guard on by default:
+session. These are the defaults:
 
 ```yaml
 session_guards:
-  secret_then_egress: ask   # ask (default) | deny | off
+  secret_then_egress: ask   # ask | deny | off
+  repeated_call: ask        # ask | deny | off
+  repeated_call_limit: 5
+  call_budget: 0            # tool calls per session; 0 is no budget
+  over_budget: ask          # ask | deny
 ```
+
+Each guard only tightens a verdict that would have let the call run (allow
+or redact); a deny or an ask from the policy is kept as it is. Guard
+verdicts carry the location `session guard`.
 
 **`secret_then_egress`** breaks the exfiltration leg of the "lethal
 trifecta" (untrusted content + private data + a way out). Once an agent has
@@ -117,6 +125,22 @@ quotes (a commit message that mentions `curl`) is not a call. A verdict
 stricter than the guard's (a deny) is kept as it is. Sessions are separate:
 one session reading `.env` does not affect another. `provio scan` applies
 the same guard when it replays transcripts.
+
+**`repeated_call`** is a loop breaker: the same call (same tool, same
+arguments) made `repeated_call_limit` times in a row asks (rule
+`session-repeated-call`), so an agent stuck retrying a command stops burning
+time and tokens until you look. Any other call in between resets the count.
+On 30 days of real transcripts no call repeated more than three times in a
+row, so the default of 5 is quiet for normal work.
+
+**`call_budget`** caps the tool calls of one session: past it, every call
+asks (or, with `over_budget: deny`, is refused) with rule
+`session-call-budget`. It is off by default; set it for unattended runs.
+
+The hook keeps each session's counts in `sessions/` next to the ledger
+(`.provio/sessions/`, or `~/.provio/sessions/` with a Postgres ledger);
+files of sessions idle for a week are pruned. The `floor` pack denies the
+agent writes under `.provio/`.
 
 ## The four verdicts
 

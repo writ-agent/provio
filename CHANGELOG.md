@@ -22,6 +22,12 @@ The ledger record schema is versioned separately (`schema_version`, see
   30 days of real transcripts (16.8k tool calls) it asked 59 times, each a
   credential being sent to a remote API after a `.env` read. See
   [docs/policy-reference.md](docs/policy-reference.md#session-guards).
+- **Loop breaker and call budget** (session guards): the same call made 5
+  times in a row asks (`session_guards.repeated_call`,
+  `repeated_call_limit`); `call_budget` caps the tool calls of one session
+  (off by default; `over_budget: ask|deny`). Counts are kept per session in
+  `.provio/sessions/`. `provio init` writes the guards, commented, into the
+  starter policy.
 
 ## [0.1.3] — 2026-09-30
 

@@ -497,3 +497,52 @@ fn egress_after_a_secret_read_in_the_same_session_asks() {
     let _ = std::fs::remove_dir_all(&home);
     let _ = std::fs::remove_dir_all(&work);
 }
+
+#[test]
+fn the_same_call_five_times_in_a_row_asks() {
+    use std::io::Write;
+    let home = empty_dir("home");
+    let work = empty_dir("work");
+    std::fs::write(work.join("provio.yaml"), "version: 1\ndefault: allow\n").unwrap();
+    let hook = |id: &str, cmd: &str| {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_provio"))
+            .args(["check", "--format", "claude-code", "--ask", "defer"])
+            .current_dir(&work)
+            .env("HOME", &home)
+            .env("USERPROFILE", &home)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let payload = json!({"hook_event_name": "PreToolUse", "session_id": "loop",
+            "tool_use_id": id, "tool_name": "Bash", "tool_input": {"command": cmd}});
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(payload.to_string().as_bytes())
+            .unwrap();
+        String::from_utf8_lossy(&child.wait_with_output().unwrap().stdout).to_string()
+    };
+    for i in 0..4 {
+        assert!(hook(&format!("a{i}"), "npm test").contains("\"allow\""));
+    }
+    let r = hook("a4", "npm test");
+    assert!(
+        r.contains("\"ask\"") && r.contains("session-repeated-call"),
+        "{r}"
+    );
+    // Anything else breaks the run.
+    assert!(hook("b", "npm run lint").contains("\"allow\""));
+    assert!(hook("c", "npm test").contains("\"allow\""));
+    // The counts live next to the ledger.
+    assert_eq!(
+        std::fs::read_dir(work.join(".provio/sessions"))
+            .unwrap()
+            .count(),
+        1
+    );
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&work);
+}

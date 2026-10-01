@@ -332,7 +332,17 @@ pub(crate) fn starter_policy(strict: bool) -> String {
          \n\
          # Your own rules; first match wins, and the packs' deny/ask rules come\n\
          # first. Try one: provio test \"git push --force origin main\"\n\
-         rules: []\n",
+         rules: []\n\
+         \n\
+         # Session guards (these are the defaults): ask before a session that read\n\
+         # a credential file sends data out, and when an agent repeats the same call\n\
+         # 5 times in a row. call_budget caps the tool calls of one session (0: none).\n\
+         # session_guards:\n\
+         #   secret_then_egress: ask   # ask | deny | off\n\
+         #   repeated_call: ask        # ask | deny | off\n\
+         #   repeated_call_limit: 5\n\
+         #   call_budget: 0\n\
+         #   over_budget: ask          # ask | deny\n",
         STARTER_PACKS.join(", ")
     )
 }

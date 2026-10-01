@@ -198,13 +198,17 @@ fn collect(policy: &Path, args: &ScanArgs) -> Result<Collected> {
     let mut findings: Vec<Finding> = Vec::new();
     let (mut allowed, mut defaulted) = (0usize, 0usize);
     let mut seen_ids: HashSet<String> = HashSet::new();
-    // Session guard state: the first credential file each session read.
-    let guard = if args.packs.is_empty() {
-        crate::session_guard::mode_from_policy(policy)
+    // Session guard state: the first credential file each session read,
+    // and its call counts.
+    let guards = if args.packs.is_empty() {
+        crate::session_guard::Guards::from_policy(policy)
     } else {
-        crate::session_guard::Mode::Ask
+        crate::session_guard::Guards::default()
     };
-    let mut tainted: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut sessions: std::collections::HashMap<
+        String,
+        (Option<String>, crate::session_guard::Counts),
+    > = std::collections::HashMap::new();
 
     for agent in &agents {
         let src = sources.entry(agent.id()).or_default();
@@ -231,18 +235,20 @@ fn collect(policy: &Path, args: &ScanArgs) -> Result<Collected> {
                     Some(dir) => crate::inspect::evaluate_in(&engine, &f.call, dir),
                     None => crate::inspect::evaluate_in(&engine, &f.call, Path::new("\0")),
                 };
-                let key = format!("{}:{}", f.agent.id(), f.session);
+                let (secret, counts) = sessions
+                    .entry(format!("{}:{}", f.agent.id(), f.session))
+                    .or_default();
                 let v = crate::session_guard::apply(
-                    guard,
+                    guards.secret_then_egress,
                     v,
                     &f.call,
-                    tainted.get(&key).map(String::as_str),
+                    secret.as_deref(),
                 );
-                if let std::collections::hash_map::Entry::Vacant(e) = tainted.entry(key) {
-                    if let Some(file) = crate::session_guard::taints(&f.call, &v) {
-                        e.insert(file);
-                    }
+                let v = crate::session_guard::limit(&guards, v, &f.call, counts);
+                if secret.is_none() {
+                    *secret = crate::session_guard::taints(&f.call, &v);
                 }
+                counts.observe(&f.call);
                 let (verdict, rule_id, reason, location) = match &v {
                     Verdict::Allow { rule_id } => {
                         if rule_id.as_deref() == Some("default") {

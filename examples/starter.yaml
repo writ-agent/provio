@@ -17,3 +17,13 @@ packs: [floor, secrets-guard]
 # Your own rules; first match wins, and the packs' deny/ask rules come
 # first. Try one: provio test "git push --force origin main"
 rules: []
+
+# Session guards (these are the defaults): ask before a session that read
+# a credential file sends data out, and when an agent repeats the same call
+# 5 times in a row. call_budget caps the tool calls of one session (0: none).
+# session_guards:
+#   secret_then_egress: ask   # ask | deny | off
+#   repeated_call: ask        # ask | deny | off
+#   repeated_call_limit: 5
+#   call_budget: 0
+#   over_budget: ask          # ask | deny

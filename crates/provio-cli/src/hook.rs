@@ -325,8 +325,8 @@ struct Gateway {
     ledger_path: PathBuf,
     ask: AskMode,
     backend: &'static str,
-    /// `session_guards.secret_then_egress` from the policy file.
-    guard: crate::session_guard::Mode,
+    /// `session_guards:` from the policy file.
+    guards: crate::session_guard::Guards,
 }
 
 /// The outcome of one `decide`.
@@ -348,7 +348,7 @@ impl Gateway {
     fn new(policy: &Path, ledger: &Path, yolo: bool, ask: AskMode, format: Format) -> Self {
         Gateway {
             engine: load_engine(policy, yolo).map_err(|e| e.to_string()),
-            guard: crate::session_guard::mode_from_policy(policy),
+            guards: crate::session_guard::Guards::from_policy(policy),
             store: None,
             ledger_path: ledger.to_path_buf(),
             ask,
@@ -383,14 +383,30 @@ impl Gateway {
         // The call's own verdict, made stricter by the lines of any script
         // it runs or writes (see `inspect`).
         let mut verdict = crate::inspect::evaluate(self.engine()?, &call);
-        // Session guard: egress after this session let a secret read run.
-        if self.guard != crate::session_guard::Mode::Off
+        // Session guards: egress after this session let a secret read run;
+        // the same call over and over; past the session's call budget.
+        let g = self.guards;
+        if g.secret_then_egress != crate::session_guard::Mode::Off
             && crate::session_guard::is_egress(&call)
             && matches!(verdict, Verdict::Allow { .. } | Verdict::Redact { .. })
         {
             let tainted = self.session_secret_read(&call.session_id)?;
-            verdict = crate::session_guard::apply(self.guard, verdict, &call, tainted.as_deref());
+            verdict = crate::session_guard::apply(
+                g.secret_then_egress,
+                verdict,
+                &call,
+                tainted.as_deref(),
+            );
         }
+        let counts_file = g
+            .counting()
+            .then(|| crate::session_guard::counts_path(&self.ledger_path, &call.session_id))
+            .flatten();
+        let mut counts = counts_file
+            .as_deref()
+            .map(crate::session_guard::load_counts)
+            .unwrap_or_default();
+        verdict = crate::session_guard::limit(&g, verdict, &call, &counts);
         // `--ask deny`: the headless fail-closed approver answers, and its
         // identity is recorded with the ask (as `handle_call` does).
         let approver = match (&verdict, self.ask) {
@@ -410,6 +426,10 @@ impl Gateway {
             LedgerWriter::new(&mut *store).record_decision(&call, &verdict, approver.clone())
         })
         .map_err(GwError::ledger)?;
+        if let Some(path) = &counts_file {
+            counts.observe(&call);
+            crate::session_guard::save_counts(path, &counts);
+        }
         emit_span(&self.ledger_path, &call, &verdict);
         Ok(Decided {
             call,
