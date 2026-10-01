@@ -205,6 +205,18 @@ reviews like code.
 Start from a pack instead: `provio policy add terraform-safety` · `k8s-prod` ·
 `pii-redaction`.
 
+Some calls are only dangerous because of what came before them, so provio
+also judges the session, not just the call ([session guards](docs/policy-reference.md#session-guards)):
+
+- **Secret, then egress.** Once an agent has read `.env`, cloud credentials or
+  an SSH key, a later call that can carry data off the machine asks first,
+  naming the file. That is the exfiltration leg of the "lethal trifecta",
+  which no single-call rule can see.
+- **Loop breaker.** The same call five times in a row asks: a stuck agent
+  stops burning time and tokens until you look.
+- **Call budget.** `call_budget: 300` caps the tool calls of an unattended
+  session.
+
 ## The part that survives the session
 
 Logs are what an application chose to write. A ledger is evidence: every call,
