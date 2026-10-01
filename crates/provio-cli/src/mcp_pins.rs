@@ -10,6 +10,10 @@ use serde_json::Value;
 
 #[derive(Subcommand, Debug)]
 pub enum McpCmd {
+    /// Run provio as an MCP server on stdio: read-only tools to check a call
+    /// against the policy, list recent decisions and sessions, verify the
+    /// ledger, and show the policy in force.
+    Serve,
     /// List pinned MCP tools and held (changed) definitions, per server.
     Pins {
         /// Only this server; also prints each held tool's old and new
@@ -39,6 +43,7 @@ pub(crate) fn pins_dir(ledger: &Path) -> PathBuf {
 pub fn run(ledger: &Path, cmd: &McpCmd) -> Result<()> {
     let dir = pins_dir(ledger);
     match cmd {
+        McpCmd::Serve => unreachable!("`provio mcp serve` is dispatched in main"),
         McpCmd::Pins { server } => list(&dir, server.as_deref()),
         McpCmd::Accept { server, tools } => {
             let path = pin_path(&dir, server);

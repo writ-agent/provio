@@ -26,6 +26,7 @@ def main(argv):
     plugin = json.loads((ROOT / "plugins/claude-code/.claude-plugin/plugin.json").read_text(encoding="utf-8"))
     market = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text(encoding="utf-8"))
     gemini_ext = json.loads((ROOT / "gemini-extension.json").read_text(encoding="utf-8"))
+    mcp_server = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
 
     found = {
         "Cargo.toml workspace.package.version": rust,
@@ -36,6 +37,9 @@ def main(argv):
         "marketplace version": market["metadata"]["version"],
         "marketplace plugin entry version": market["plugins"][0]["version"],
         "Gemini CLI extension version": gemini_ext["version"],
+        "MCP Registry server.json version": mcp_server["version"],
+        "server.json npm package version": mcp_server["packages"][0]["version"],
+        "server.json PyPI package version": mcp_server["packages"][1]["version"],
     }
     for dep in py["project"].get("dependencies", []):
         m = re.fullmatch(r"provio==(\S+)", dep.replace(" ", ""))

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "provio-sdk"
-version = "0.1.4"
+version = "0.1.5"
 description = "Policy-gated tool calls for Python agents: every tool call is checked against provio.yaml and recorded to provio's hash-chained ledger."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,7 +24,7 @@ classifiers = [
 # One runtime dependency: provio, whose platform wheels carry the prebuilt
 # `provio` binary this package drives over stdin/stdout. Framework integrations
 # import their framework lazily.
-dependencies = ["provio==0.1.4"]
+dependencies = ["provio==0.1.5"]
 
 [project.optional-dependencies]
 langgraph = ["langgraph>=1.0", "langchain-core>=1.0"]

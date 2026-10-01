@@ -1,5 +1,5 @@
 {
   "name": "provio",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A safety floor your AI agents can't get under: every Gemini CLI tool call is checked by provio before it runs (the workspace's provio.yaml, or the built-in floor) and recorded in a tamper-evident ledger. Needs the provio binary on PATH: pip install provio."
 }

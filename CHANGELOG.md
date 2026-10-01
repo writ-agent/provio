@@ -8,6 +8,21 @@ The ledger record schema is versioned separately (`schema_version`, see
 
 ## [Unreleased]
 
+## [0.1.5] — 2026-10-01
+
+### Added
+
+- **`provio mcp serve`**: provio as an MCP server (stdio). Read-only tools
+  an agent or MCP client can call: `check_tool_call` (what the policy would
+  decide for a shell command, file read/write, HTTP or MCP call, without
+  running or recording it), `recent_decisions`, `list_sessions`,
+  `verify_ledger` and `policy_info`. Run it with `npx provio mcp serve`,
+  `uvx provio mcp serve`, or the repository's `Dockerfile`. See
+  [docs/mcp-serve.md](docs/mcp-serve.md).
+- Listing metadata: `server.json` for the official MCP Registry
+  (`io.github.writ-agent/provio`, with `mcpName` in the npm package and the
+  `mcp-name` marker in the PyPI README) and `glama.json` for Glama.
+
 ## [0.1.4] — 2026-10-01
 
 ### Added

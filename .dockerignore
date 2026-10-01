@@ -1,0 +1,14 @@
+# Secrets never go into an image.
+.env
+.env.*
+**/.env
+# Build output, dependencies and assets the binary does not need.
+target/
+**/node_modules/
+site/
+docs/assets/*
+!docs/assets/brand/
+reports/
+research_notes/
+.git/
+.provio/

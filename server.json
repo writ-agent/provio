@@ -1,0 +1,37 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.writ-agent/provio",
+  "title": "provio",
+  "description": "Check AI agent tool calls against a policy; read the tamper-evident ledger of decisions.",
+  "repository": {
+    "url": "https://github.com/writ-agent/provio",
+    "source": "github"
+  },
+  "websiteUrl": "https://getprovio.vercel.app",
+  "version": "0.1.5",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "provio",
+      "version": "0.1.5",
+      "transport": { "type": "stdio" },
+      "packageArguments": [
+        { "type": "positional", "value": "mcp" },
+        { "type": "positional", "value": "serve" }
+      ]
+    },
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "provio",
+      "version": "0.1.5",
+      "runtimeHint": "uvx",
+      "transport": { "type": "stdio" },
+      "packageArguments": [
+        { "type": "positional", "value": "mcp" },
+        { "type": "positional", "value": "serve" }
+      ]
+    }
+  ]
+}

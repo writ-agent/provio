@@ -170,7 +170,7 @@ fn loc(location: &Option<String>) -> String {
         .unwrap_or_default()
 }
 
-fn test_call(args: &TestArgs) -> Result<ToolCall> {
+pub(crate) fn test_call(args: &TestArgs) -> Result<ToolCall> {
     let (tool, argmap, server) = if let Some(raw) = &args.call {
         let v: Value = serde_json::from_str(raw).context("--call is not valid JSON")?;
         let tool = v

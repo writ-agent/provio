@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: writ-agent/provio/deploy/action@v0.1.4
+      - uses: writ-agent/provio/deploy/action@v0.1.5
         with:
           agents: claude-code
           command: claude -p "fix the failing test" --allowedTools "Bash,Edit"

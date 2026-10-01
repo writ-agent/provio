@@ -546,3 +546,45 @@ fn the_same_call_five_times_in_a_row_asks() {
     let _ = std::fs::remove_dir_all(&home);
     let _ = std::fs::remove_dir_all(&work);
 }
+
+#[test]
+fn mcp_serve_answers_over_stdio() {
+    use std::io::Write;
+    let home = empty_dir("home");
+    let work = empty_dir("work");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_provio"))
+        .args(["mcp", "serve"])
+        .current_dir(&work)
+        .env("HOME", &home)
+        .env("USERPROFILE", &home)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let msgs = [
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "0"}}}),
+        json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+        json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}),
+        json!({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "check_tool_call", "arguments": {"command": "git push --force origin main"}}}),
+    ];
+    let mut stdin = child.stdin.take().unwrap();
+    for m in &msgs {
+        writeln!(stdin, "{m}").unwrap();
+    }
+    drop(stdin);
+    let out = child.wait_with_output().unwrap();
+    let replies: Vec<Value> = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(replies.len(), 3, "{replies:?}");
+    assert_eq!(replies[0]["result"]["serverInfo"]["name"], "provio");
+    assert_eq!(replies[1]["result"]["tools"].as_array().unwrap().len(), 5);
+    let d = &replies[2]["result"]["structuredContent"];
+    assert!(d["decision"] == "deny" || d["decision"] == "ask", "{d}");
+    // It only reads: no ledger was written.
+    assert!(!work.join(".provio").exists());
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&work);
+}

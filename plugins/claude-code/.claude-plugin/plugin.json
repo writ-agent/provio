@@ -1,6 +1,6 @@
 {
   "name": "provio",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A safety floor your AI agents can't get under: every Claude Code tool call is checked by provio before it runs (the project's provio.yaml, or the built-in floor: no rm -rf ~, no force push to main, no SSH/cloud key reads, no disabling its own hooks) and recorded in a tamper-evident ledger. Needs the provio binary: pip install provio.",
   "author": { "name": "Bhaskar Gurram", "email": "gurrambhaskar.ai@gmail.com" },
   "homepage": "https://getprovio.vercel.app",

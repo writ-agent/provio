@@ -264,6 +264,7 @@ the same in all three interception modes, and so is the record.
 | `provio policy test` | unit-test rules against recorded fixtures |
 | `provio doctor` | what is governed, and what is blind |
 | `provio report` | one self-contained HTML file to hand to someone else |
+| `provio mcp serve` | provio as an MCP server: agents check a call, read decisions, verify the ledger ([docs](docs/mcp-serve.md)) |
 
 ## What provio does not do
 

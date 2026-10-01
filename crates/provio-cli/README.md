@@ -20,3 +20,6 @@ package.
 
 Documentation, policy reference and threat model:
 https://github.com/writ-agent/provio
+
+<!-- MCP Registry ownership marker -->
+mcp-name: io.github.writ-agent/provio

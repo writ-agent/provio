@@ -11,6 +11,7 @@ mod inspect;
 mod integrate;
 mod mcp_http;
 mod mcp_pins;
+mod mcp_serve;
 mod onboard;
 mod packs;
 mod receipt;
@@ -146,7 +147,8 @@ enum Commands {
     /// asks, edit and test the policy, try the sandbox.
     Ui(ui::UiArgs),
 
-    /// MCP tool pins: review and trust changed tool definitions.
+    /// provio as an MCP server (`provio mcp serve`), and MCP tool pins:
+    /// review and trust changed tool definitions.
     Mcp {
         #[command(subcommand)]
         sub: mcp_pins::McpCmd,
@@ -299,6 +301,9 @@ fn main() -> anyhow::Result<()> {
                 cmds::proxy(&policy, &ledger, cli.yolo, mcp, &server, &cmd, !no_pin)
             }
         }
+        Commands::Mcp {
+            sub: mcp_pins::McpCmd::Serve,
+        } => mcp_serve::serve(&policy, &ledger),
         Commands::Mcp { sub } => mcp_pins::run(&ledger, &sub),
         Commands::Ui(args) => ui::serve(&policy, &ledger, cli.yolo, &args),
         Commands::Receipt { sub } => receipt::run(&policy, &ledger, &sub),
