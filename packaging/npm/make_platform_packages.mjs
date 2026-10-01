@@ -12,7 +12,9 @@ const TARGETS = [
   { rust: "x86_64-apple-darwin", os: "darwin", cpu: "x64" },
   { rust: "aarch64-unknown-linux-musl", os: "linux", cpu: "arm64" },
   { rust: "x86_64-unknown-linux-musl", os: "linux", cpu: "x64" },
-  { rust: "x86_64-pc-windows-msvc", os: "win32", cpu: "x64" },
+  // npm refused `provio-cli-win32-x64` ("Package name triggered spam
+  // detection"), so the Windows package is named for the OS instead.
+  { rust: "x86_64-pc-windows-msvc", os: "win32", cpu: "x64", name: "provio-cli-windows-x64" },
 ];
 
 const [binDir, outDir, version] = process.argv.slice(2);
@@ -29,7 +31,7 @@ for (const t of TARGETS) {
     console.error(`missing binary: ${src}`);
     process.exit(1);
   }
-  const name = `provio-cli-${t.os}-${t.cpu}`;
+  const name = t.name ?? `provio-cli-${t.os}-${t.cpu}`;
   const dir = join(outDir, `cli-${t.os}-${t.cpu}`);
   mkdirSync(join(dir, "bin"), { recursive: true });
   const dest = join(dir, "bin", `provio${exe}`);

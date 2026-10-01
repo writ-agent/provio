@@ -44,6 +44,6 @@
     "provio-cli-darwin-x64": "0.1.3",
     "provio-cli-linux-arm64": "0.1.3",
     "provio-cli-linux-x64": "0.1.3",
-    "provio-cli-win32-x64": "0.1.3"
+    "provio-cli-windows-x64": "0.1.3"
   }
 }
