@@ -8,6 +8,21 @@ The ledger record schema is versioned separately (`schema_version`, see
 
 ## [Unreleased]
 
+### Added
+
+- **Session guard `secret_then_egress`** (on by default, `ask`): once an
+  agent has read a credential file in a session (`.env`, cloud credentials,
+  SSH keys, token files), a later call that can carry data off the machine
+  (a `curl` with a body or a secret-named variable, `scp`, `nc`, code that
+  posts) asks, naming the file, even where the policy allows it. It breaks
+  the exfiltration leg of the "lethal trifecta" across calls, where a
+  per-call rule cannot see it. Localhost, plain downloads and text in quotes
+  are not egress; `session_guards: {secret_then_egress: deny|off}` in
+  `provio.yaml` changes it. `provio scan` applies it to past sessions. On
+  30 days of real transcripts (16.8k tool calls) it asked 59 times, each a
+  credential being sent to a remote API after a `.env` read. See
+  [docs/policy-reference.md](docs/policy-reference.md#session-guards).
+
 ## [0.1.3] — 2026-09-30
 
 ### Renamed: writ is now **provio**

@@ -198,6 +198,13 @@ fn collect(policy: &Path, args: &ScanArgs) -> Result<Collected> {
     let mut findings: Vec<Finding> = Vec::new();
     let (mut allowed, mut defaulted) = (0usize, 0usize);
     let mut seen_ids: HashSet<String> = HashSet::new();
+    // Session guard state: the first credential file each session read.
+    let guard = if args.packs.is_empty() {
+        crate::session_guard::mode_from_policy(policy)
+    } else {
+        crate::session_guard::Mode::Ask
+    };
+    let mut tainted: std::collections::HashMap<String, String> = std::collections::HashMap::new();
 
     for agent in &agents {
         let src = sources.entry(agent.id()).or_default();
@@ -224,6 +231,18 @@ fn collect(policy: &Path, args: &ScanArgs) -> Result<Collected> {
                     Some(dir) => crate::inspect::evaluate_in(&engine, &f.call, dir),
                     None => crate::inspect::evaluate_in(&engine, &f.call, Path::new("\0")),
                 };
+                let key = format!("{}:{}", f.agent.id(), f.session);
+                let v = crate::session_guard::apply(
+                    guard,
+                    v,
+                    &f.call,
+                    tainted.get(&key).map(String::as_str),
+                );
+                if let std::collections::hash_map::Entry::Vacant(e) = tainted.entry(key) {
+                    if let Some(file) = crate::session_guard::taints(&f.call, &v) {
+                        e.insert(file);
+                    }
+                }
                 let (verdict, rule_id, reason, location) = match &v {
                     Verdict::Allow { rule_id } => {
                         if rule_id.as_deref() == Some("default") {

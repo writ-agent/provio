@@ -325,6 +325,8 @@ struct Gateway {
     ledger_path: PathBuf,
     ask: AskMode,
     backend: &'static str,
+    /// `session_guards.secret_then_egress` from the policy file.
+    guard: crate::session_guard::Mode,
 }
 
 /// The outcome of one `decide`.
@@ -346,6 +348,7 @@ impl Gateway {
     fn new(policy: &Path, ledger: &Path, yolo: bool, ask: AskMode, format: Format) -> Self {
         Gateway {
             engine: load_engine(policy, yolo).map_err(|e| e.to_string()),
+            guard: crate::session_guard::mode_from_policy(policy),
             store: None,
             ledger_path: ledger.to_path_buf(),
             ask,
@@ -379,7 +382,15 @@ impl Gateway {
     fn decide_call(&mut self, call: ToolCall) -> std::result::Result<Decided, GwError> {
         // The call's own verdict, made stricter by the lines of any script
         // it runs or writes (see `inspect`).
-        let verdict = crate::inspect::evaluate(self.engine()?, &call);
+        let mut verdict = crate::inspect::evaluate(self.engine()?, &call);
+        // Session guard: egress after this session let a secret read run.
+        if self.guard != crate::session_guard::Mode::Off
+            && crate::session_guard::is_egress(&call)
+            && matches!(verdict, Verdict::Allow { .. } | Verdict::Redact { .. })
+        {
+            let tainted = self.session_secret_read(&call.session_id)?;
+            verdict = crate::session_guard::apply(self.guard, verdict, &call, tainted.as_deref());
+        }
         // `--ask deny`: the headless fail-closed approver answers, and its
         // identity is recorded with the ask (as `handle_call` does).
         let approver = match (&verdict, self.ask) {
@@ -405,6 +416,26 @@ impl Gateway {
             verdict,
             record,
         })
+    }
+
+    /// The first credential file a dispatched call of `session` read, if any.
+    fn session_secret_read(
+        &mut self,
+        session: &str,
+    ) -> std::result::Result<Option<String>, GwError> {
+        let store = self.store()?;
+        for item in store.iter() {
+            let rec = item.map_err(GwError::ledger)?;
+            if rec.kind != RecordKind::Decision || rec.session_id != session {
+                continue;
+            }
+            if let (Some(call), Some(v)) = (&rec.call, &rec.verdict) {
+                if let Some(file) = crate::session_guard::taints(call, v) {
+                    return Ok(Some(file));
+                }
+            }
+        }
+        Ok(None)
     }
 
     /// Scan the ledger for the last decision matching `pred`, noting whether

@@ -23,6 +23,11 @@ struct RawPolicyFile {
     /// Bundled policy packs to compose with `rules` (see [`crate::packs`]).
     #[serde(default)]
     packs: Vec<PackRef>,
+    /// Session guards (`secret_then_egress: ask|deny|off`), applied by the
+    /// hook gateway and `provio scan`, not by the rule engine.
+    #[serde(default)]
+    #[allow(dead_code)]
+    session_guards: Option<serde_yaml::Value>,
     /// Any other top-level mapping (e.g. `hosts: { allowed: [...] }`) is a
     /// namespace of named lists addressable from `in` expressions.
     #[serde(flatten)]

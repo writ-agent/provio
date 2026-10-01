@@ -79,6 +79,45 @@ Cedar engines, which compile the same `provio.yaml`.
 
 To see the composed result for a call: `provio test "<command>"`.
 
+## Session guards
+
+Some calls are only dangerous because of what came before them in the same
+session. provio keeps one such guard on by default:
+
+```yaml
+session_guards:
+  secret_then_egress: ask   # ask (default) | deny | off
+```
+
+**`secret_then_egress`** breaks the exfiltration leg of the "lethal
+trifecta" (untrusted content + private data + a way out). Once an agent has
+read a credential file in a session (`.env*`, `~/.aws/credentials`, SSH
+private keys, `.npmrc`, `.pypirc`, `.netrc`, `.git-credentials`,
+`*credentials*.json`, service-account keys, `*.pem`/`*.key`; a read the
+policy let through), a later call in that session that can carry data off
+the machine is asked about (`irreversible`) or denied, even where the
+policy would allow it. The verdict names the file that was read, and the
+rule id is `session-secret-then-egress` (location `session guard`).
+
+What counts as sending data out is deliberately narrow, so a session that
+read `.env` can still `curl` documentation:
+
+- `curl`/`wget`/`xh`/`Invoke-WebRequest`/… with a body, an upload, a
+  `POST`/`PUT`/`PATCH`, a command substitution, or a secret-named variable
+  (`$TOKEN`, `$API_KEY`, …) in its arguments;
+- `nc`, `socat`, `scp`, `sftp`, `ftp`, `rsync` to a remote, `ssh` fed from
+  stdin;
+- code that posts (`requests.post`, `httpx.put`, `fetch(…, {method: "POST"})`,
+  `urlopen(…, data=…)`, raw sockets), including in heredocs;
+- a fetch tool with a write method, a body, or a URL carrying a long opaque
+  token or a credential-shaped string.
+
+Calls to `localhost`/`127.0.0.1`/`::1` are never egress, and text inside
+quotes (a commit message that mentions `curl`) is not a call. A verdict
+stricter than the guard's (a deny) is kept as it is. Sessions are separate:
+one session reading `.env` does not affect another. `provio scan` applies
+the same guard when it replays transcripts.
+
 ## The four verdicts
 
 | Verdict | Behaviour |

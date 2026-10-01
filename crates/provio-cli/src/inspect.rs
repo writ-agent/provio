@@ -314,7 +314,7 @@ pub(crate) fn split_heredocs(cmd: &str) -> (String, Vec<Heredoc>) {
     (kept.join("\n"), docs)
 }
 
-enum Consumer {
+pub(crate) enum Consumer {
     Shell,
     Sql,
     Code,
@@ -322,7 +322,7 @@ enum Consumer {
     Text,
 }
 
-fn consumer_of(intro: &str, stripped: &str) -> Consumer {
+pub(crate) fn consumer_of(intro: &str, stripped: &str) -> Consumer {
     let shell = regex::Regex::new(
         r"(?i)(^|[;&|(]\s*|\b(sudo|doas|env|exec|then|do|else|nohup)\s+)((/usr)?/bin/)?(bash|sh|zsh|dash|ksh|ash|ssh|pwsh|powershell|su|wsl)(\.exe)?\b|\|\s*(sudo\s+)?(bash|sh|zsh|dash|ksh|ash)\b|\beval\b|\bsource\s+/dev/stdin",
     )

@@ -17,6 +17,7 @@ mod receipt;
 mod report;
 mod run;
 mod scan;
+mod session_guard;
 mod ui;
 
 #[derive(Parser)]
