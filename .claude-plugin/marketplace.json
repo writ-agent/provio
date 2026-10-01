@@ -3,14 +3,14 @@
   "owner": { "name": "Bhaskar Gurram", "email": "gurrambhaskar.ai@gmail.com" },
   "metadata": {
     "description": "provio: a safety floor your AI agents can't get under.",
-    "version": "0.1.3"
+    "version": "0.1.4"
   },
   "plugins": [
     {
       "name": "provio",
       "source": "./plugins/claude-code",
       "description": "Check every Claude Code tool call with provio before it runs (your provio.yaml, or the built-in disaster floor) and record it in a tamper-evident ledger. Needs `pip install provio`.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "category": "security",
       "homepage": "https://getprovio.vercel.app",
       "keywords": ["security", "guardrails", "policy", "audit", "safety"]

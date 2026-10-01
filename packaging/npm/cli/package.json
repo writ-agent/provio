@@ -1,6 +1,6 @@
 {
   "name": "provio",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A safety floor your AI agents can't get under: one policy for Claude Code, Codex, Gemini CLI, Cursor, Windsurf and MCP, checked before every tool call, with a tamper-evident ledger. Try: npx provio scan",
   "license": "Apache-2.0",
   "author": "Bhaskar Gurram <gurrambhaskar.ai@gmail.com>",
@@ -40,10 +40,10 @@
     "access": "public"
   },
   "optionalDependencies": {
-    "provio-cli-darwin-arm64": "0.1.3",
-    "provio-cli-darwin-x64": "0.1.3",
-    "provio-cli-linux-arm64": "0.1.3",
-    "provio-cli-linux-x64": "0.1.3",
-    "provio-cli-windows-x64": "0.1.3"
+    "provio-cli-darwin-arm64": "0.1.4",
+    "provio-cli-darwin-x64": "0.1.4",
+    "provio-cli-linux-arm64": "0.1.4",
+    "provio-cli-linux-x64": "0.1.4",
+    "provio-cli-windows-x64": "0.1.4"
   }
 }

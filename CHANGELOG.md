@@ -8,6 +8,8 @@ The ledger record schema is versioned separately (`schema_version`, see
 
 ## [Unreleased]
 
+## [0.1.4] — 2026-10-01
+
 ### Added
 
 - **Session guard `secret_then_egress`** (on by default, `ask`): once an
@@ -28,6 +30,11 @@ The ledger record schema is versioned separately (`schema_version`, see
   (off by default; `over_budget: ask|deny`). Counts are kept per session in
   `.provio/sessions/`. `provio init` writes the guards, commented, into the
   starter policy.
+
+### Changed
+
+- The Windows npm binary package is `provio-cli-windows-x64` (npm refused
+  the name `provio-cli-win32-x64`); `provio` picks it up as before.
 
 ## [0.1.3] — 2026-09-30
 

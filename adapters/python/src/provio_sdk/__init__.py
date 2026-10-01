@@ -27,7 +27,7 @@ from .guard import Provio, deny_all, get_default_provio, set_default_provio, to_
 from .toolmap import MappedTool, map_claude_tool
 from .types import Approval, ApprovalRequest, Caller, Completion, Decision, Server, ToolCall
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 __all__ = [
     "Approval",

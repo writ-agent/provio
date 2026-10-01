@@ -1,6 +1,6 @@
 {
   "name": "provio-sdk",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "TypeScript/Node client for the provio hook gateway: policy-checked, ledger-recorded tool calls for AI agents (Claude Agent SDK hooks, generic tool wrappers).",
   "license": "Apache-2.0",
   "type": "module",
@@ -93,6 +93,6 @@
     "url": "https://github.com/writ-agent/provio/issues"
   },
   "optionalDependencies": {
-    "provio": "0.1.3"
+    "provio": "0.1.4"
   }
 }
