@@ -864,6 +864,8 @@ fn claude_code_errors_fail_closed() {
 
 #[test]
 fn parallel_processes_share_one_linear_chain() {
+    // Distinct commands: the same call 5 times in a row would trip the
+    // loop breaker (session_guards.repeated_call), which is not under test.
     const N: usize = 16;
     let p = Project::new();
     std::thread::scope(|s| {
@@ -871,14 +873,16 @@ fn parallel_processes_share_one_linear_chain() {
             let p = &p;
             s.spawn(move || {
                 if i % 2 == 0 {
-                    let (r, code) =
-                        p.check(&[], &bash(&format!("r{i}"), &format!("par-{i}"), "ls"));
+                    let (r, code) = p.check(
+                        &[],
+                        &bash(&format!("r{i}"), &format!("par-{i}"), &format!("ls d{i}")),
+                    );
                     assert_eq!(code, 0, "{r}");
                     let (c, code) = p.check(&[], &complete("c", &r["ref"], Some("x")));
                     assert_eq!(code, 0, "{c}");
                 } else {
                     let id = format!("toolu_par_{i}");
-                    let input = json!({"command": "echo par"});
+                    let input = json!({"command": format!("echo par {i}")});
                     let (o, code, e) = p.claude(&[], &cc_pre("par", &id, "Bash", input.clone()));
                     assert_eq!(code, 0, "{o} {e}");
                     let (o, code, e) = p.claude(
