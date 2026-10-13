@@ -50,3 +50,9 @@ runner = "cargo"
 name = "python"
 path = "adapters/python"
 runner = "pytest"
+
+# proofcheck e2e scenarios: the toy package under test (base branch only).
+[[project]]
+name = "e2e-toy"
+path = "e2e_toy"
+runner = "pytest"
