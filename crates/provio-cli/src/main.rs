@@ -161,7 +161,11 @@ enum Commands {
     },
 
     /// What did my agent actually do?
-    Log,
+    Log {
+        /// Print one JSON object per session (JSON Lines) instead of the table.
+        #[arg(long)]
+        json: bool,
+    },
 
     /// One decision, in full.
     Show { call_id: String },
@@ -307,7 +311,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Mcp { sub } => mcp_pins::run(&ledger, &sub),
         Commands::Ui(args) => ui::serve(&policy, &ledger, cli.yolo, &args),
         Commands::Receipt { sub } => receipt::run(&policy, &ledger, &sub),
-        Commands::Log => cmds::log(&ledger),
+        Commands::Log { json } => cmds::log(&ledger, json),
         Commands::Show { call_id } => cmds::show(&ledger, &call_id),
         Commands::Verify => cmds::verify(&ledger),
         Commands::Policy { sub } => match sub {
