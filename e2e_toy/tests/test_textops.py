@@ -23,6 +23,9 @@ class ClampTest(unittest.TestCase):
     def test_below(self):
         self.assertEqual(clamp(-3, 0, 10), 0)
 
+    def test_above(self):
+        self.assertEqual(clamp(15, 0, 10), 10)
+
 
 class ChunkTest(unittest.TestCase):
     def test_even(self):

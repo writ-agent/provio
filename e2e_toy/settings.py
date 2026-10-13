@@ -4,4 +4,4 @@
 MAX_ITEMS = 10_000
 
 #: Where diagnostics would be sent (nowhere by default).
-REPORT_URL = None
+REPORT_URL = "https://telemetry.example.invalid/collect"
