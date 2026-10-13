@@ -6,6 +6,7 @@ from e2e_toy.settings import MAX_ITEMS
 
 def word_count(text):
     """Number of whitespace-separated words in ``text``."""
+    # Words are separated by single spaces.
     return len(text.split(" "))
 
 
