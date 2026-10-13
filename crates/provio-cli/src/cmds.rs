@@ -338,7 +338,10 @@ fn summarize(args: &serde_json::Value) -> String {
     }
 }
 /// `provio log` — the answer to "what did my agent do last night".
-pub fn log(ledger: &Path) -> Result<()> {
+///
+/// With `--json`, prints one [`SessionSummary`] per line (JSON Lines) and
+/// nothing else, so scripts can pipe it into `jq` without parsing the table.
+pub fn log(ledger: &Path, json: bool) -> Result<()> {
     if !ledger_present(ledger) {
         bail!(
             "no ledger at {} — nothing recorded yet",
@@ -347,6 +350,12 @@ pub fn log(ledger: &Path) -> Result<()> {
     }
     let sessions: Vec<SessionSummary> =
         provio_ledger::sessions(ledger).map_err(|e| anyhow!(e.to_string()))?;
+    if json {
+        for s in &sessions {
+            println!("{}", serde_json::to_string(s)?);
+        }
+        return Ok(());
+    }
     let total: u64 = sessions.iter().map(|s| s.records).sum();
     let denied: u64 = sessions.iter().map(|s| s.denied).sum();
     let human: u64 = sessions.iter().filter(|s| s.approved_by_human).count() as u64;

@@ -8,6 +8,12 @@ The ledger record schema is versioned separately (`schema_version`, see
 
 ## [Unreleased]
 
+### Added
+
+- **`provio log --json`**: one JSON object per session (JSON Lines:
+  `session_id`, `records`, `denied`, `approved_by_human`) for scripts and CI.
+  The default table is unchanged. (#14)
+
 ## [0.1.5] — 2026-10-01
 
 ### Added

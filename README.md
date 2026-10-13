@@ -258,7 +258,7 @@ the same in all three interception modes, and so is the record.
 |---|---|
 | `provio run -- <agent>` | wrap an agent process under policy |
 | `provio proxy --mcp --server <name> -- <cmd>` | govern every call to an MCP server |
-| `provio log` · `provio show <call-id>` | what did my agent actually do last night |
+| `provio log [--json]` · `provio show <call-id>` | what did my agent actually do last night (`--json`: one session per line, for scripts) |
 | `provio verify` | is this ledger still the one that was written |
 | `provio replay <session> --candidate <file>` | what would this policy have done to last week's run |
 | `provio policy test` | unit-test rules against recorded fixtures |
