@@ -1,0 +1,52 @@
+# proofcheck configuration (https://github.com/bhaskargurram-ai/proofcheck).
+#
+# Read from the pull request's BASE commit, so a PR cannot weaken its own
+# check. Every key is optional; the commented values are the defaults.
+
+# runner = "cargo"               # pytest | unittest | jest | cargo
+# test_command = ""                 # custom command; placeholders {junitxml} and {tests}
+# setup_command = ""                # run once in each worktree before the tests
+# timeout = 600                     # seconds per test run
+# test_env = { PYTHONHASHSEED = "0" }
+# benchmark_command = ""            # e.g. "python bench.py": lets "2x faster" claims be checked
+# benchmark_runs = 5
+# large_diff_threshold = 1000
+# max_issues = 5
+
+# [repro]                           # replay ```python and >>> reproducers from linked issues
+# enabled = true
+# timeout = 60
+
+[ablation]                          # diff evidence map: revert each changed hunk, re-run the evidence
+enabled = true
+max_hunks = 12
+time_budget_s = 1200                # Rust: each hunk rebuilds the crate
+# exclude = ["*.md", "*.rst", "*.txt", "docs/*", "LICENSE*", "CHANGELOG*", ".github/*"]
+
+# [llm]                             # optional LLM claim extraction (off by default)
+# enabled = false
+# provider = "anthropic"            # or "openai" for any OpenAI-compatible endpoint
+# model = ""                        # the key comes from PROOFCHECK_LLM_API_KEY, never from this file
+
+[agent]                             # experimental agent evidence (proofcheck-agent.yml)
+enabled = true
+# variants = 3
+# max_rounds = 2
+# max_tool_calls = 25
+# when = "missing-evidence"         # or "always"
+# test_dir = "tests/proofcheck_agent"
+
+# Test projects (detected by `proofcheck init`). Each changed file belongs to the deepest
+# project containing it; tests run inside the project's directory. Per-project keys:
+# runner, test_command, setup_command, test_paths, timeout, test_env, cargo_target_dir.
+
+[[project]]
+name = "rust"
+path = "."
+runner = "cargo"
+# timeout = 1800                   # seconds per run (cargo default: 30 minutes)
+
+[[project]]
+name = "python"
+path = "adapters/python"
+runner = "pytest"
