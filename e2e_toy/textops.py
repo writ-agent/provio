@@ -10,9 +10,11 @@ def word_count(text):
 
 
 def slugify(text):
-    """Lowercase ``text`` and join its words with single dashes."""
-    words = [w for w in text.lower().split() if w]
-    return "-".join(words)
+    """Lowercase ``text`` and join its words with single separators."""
+    return _SEPARATOR.join(text.lower().split())
+
+
+_SEPARATOR = "_"
 
 
 def clamp(value, low, high):

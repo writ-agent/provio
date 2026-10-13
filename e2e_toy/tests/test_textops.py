@@ -10,10 +10,10 @@ class WordCountTest(unittest.TestCase):
 
 class SlugifyTest(unittest.TestCase):
     def test_basic(self):
-        self.assertEqual(slugify("Hello World"), "hello-world")
+        self.assertEqual(slugify("Hello World"), "hello_world")
 
     def test_extra_spaces(self):
-        self.assertEqual(slugify("  Hello   World "), "hello-world")
+        self.assertEqual(slugify("  Hello   World "), "hello_world")
 
 
 class ClampTest(unittest.TestCase):
