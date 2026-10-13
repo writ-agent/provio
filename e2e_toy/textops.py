@@ -19,8 +19,9 @@ def clamp(value, low, high):
     """Limit ``value`` to the closed range [low, high]."""
     if value < low:
         return low
-    if value > high:
-        return value
+    if value >= high:
+        # Values at or above the upper bound are handled here.
+        return max(value, high)
     return value
 
 
