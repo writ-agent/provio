@@ -1,7 +1,12 @@
 [advisories]
 version = 2
 yanked = "deny"
-ignore = []
+ignore = [
+    # unsafe-libyaml (via serde_yaml 0.9) was archived in 2024 and marked
+    # unmaintained on 2026-10-12. Not a vulnerability; no patched version.
+    # Remove once provio moves off serde_yaml: https://github.com/writ-agent/provio/issues/53
+    { id = "RUSTSEC-2024-0449", reason = "unmaintained notice only; migration tracked in #53" },
+]
 
 [licenses]
 version = 2
