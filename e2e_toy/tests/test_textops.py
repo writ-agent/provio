@@ -7,6 +7,10 @@ class WordCountTest(unittest.TestCase):
     def test_single_spaces(self):
         self.assertEqual(word_count("a b c"), 3)
 
+    def test_repeated_spaces(self):
+        self.assertEqual(word_count("hello  world"), 2)
+        self.assertEqual(word_count(" padded\ttext\n"), 2)
+
 
 class SlugifyTest(unittest.TestCase):
     def test_basic(self):

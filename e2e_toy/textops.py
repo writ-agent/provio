@@ -6,7 +6,7 @@ from e2e_toy.settings import MAX_ITEMS
 
 def word_count(text):
     """Number of whitespace-separated words in ``text``."""
-    return len(text.split(" "))
+    return len(text.split())
 
 
 def slugify(text):
