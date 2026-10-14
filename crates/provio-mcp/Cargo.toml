@@ -18,4 +18,4 @@ ureq = { version = "3", default-features = false, features = ["rustls"] }
 # Agent-facing HTTP/1.1 request parsing (also a ureq dependency).
 httparse = "1"
 # Mcp-Name / Mcp-Param-* `=?base64?…?=` sentinel decoding.
-base64 = "0.22"
+base64 = "0.23"
