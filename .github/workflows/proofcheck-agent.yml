@@ -53,7 +53,7 @@ jobs:
       contents: read
       actions: read
       pull-requests: write
-    uses: bhaskargurram-ai/proofcheck/.github/workflows/comment.yml@v1.0.0
+    uses: bhaskargurram-ai/proofcheck/.github/workflows/comment.yml@v1.0.2
     with:
       proofcheck-ref: v1.0.0
       # Trusted values: the PR number comes from the gate job (API data, no PR
