@@ -69,7 +69,7 @@ jobs:
         working-directory: adapters/typescript
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -125,7 +125,7 @@ jobs:
       - run: cargo install wasm-bindgen-cli --version 0.2.128 --locked
       - run: PLAYGROUND_TOOLCHAIN=1.98.1 bash scripts/build_playground.sh --check
       - run: git diff --exit-code -- site/assets/playground/
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: node --test crates/provio-wasm/tests/playground.test.mjs
