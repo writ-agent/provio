@@ -76,6 +76,15 @@ redacted **text** provio sends back, not the original object.
 and share one child process; `close()` (or `with`) closes its stdin and waits
 for it to exit, and an `atexit` hook closes anything left open.
 
+### Observing decisions
+
+`Provio(on_decision=fn)` calls `fn(call, decision, approval)` for every call
+that is about to run, after any approval and before the tool. `approval` is
+`None` when the policy allowed the call on its own and the approver's
+`Approval` when a human granted an `ask`. Use it to label UI or logs. It only
+observes: its return value is ignored and an exception it raises is swallowed.
+Blocked calls raise as before and are not reported to it.
+
 ### Approvals
 
 With no approver, `Provio` runs `--ask deny`: every `ask` fails closed. Give it
