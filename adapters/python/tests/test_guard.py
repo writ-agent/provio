@@ -87,6 +87,51 @@ def test_ask_defer_approved(fake_bin, fake_log):
     assert log[2]["ref"] == "ref-1.approved"  # complete uses the ref resolve returned
 
 
+def test_on_decision_tells_policy_allow_from_human_approval(fake_bin):
+    seen = []
+    with Provio(approver=lambda r: Approval(True, "human:alice"),
+                on_decision=lambda call, d, approval: seen.append((call.tool, d.dispatch, approval))) as w:
+        w.execute("allowed", {}, Spy())
+        w.execute("asky", {}, Spy())
+    assert seen[0] == ("allowed", True, None)
+    assert seen[1][:2] == ("asky", True) and seen[1][2].approver == "human:alice"
+
+
+def test_on_decision_is_not_called_for_blocked_calls_and_cannot_block(fake_bin):
+    seen = []
+
+    def observer(call, d, approval):
+        seen.append(call.tool)
+        raise RuntimeError("observer bug")
+
+    spy = Spy()
+    with Provio(approver=lambda r: False, on_decision=observer) as w:
+        with pytest.raises(ProvioDenied):
+            w.execute("denied", {}, spy)
+        with pytest.raises(ProvioApprovalRejected):
+            w.execute("asky", {}, spy)
+        assert w.execute("allowed", {}, spy) == "ran"  # the observer raised; the tool still ran
+    assert seen == ["allowed"] and spy.calls == 1
+
+
+async def test_on_decision_async_path(fake_bin):
+    seen = []
+
+    async def tool():
+        return "ran"
+
+    async def approver(r):
+        return Approval(True, "human:bob")
+
+    w = Provio(approver=approver, on_decision=lambda call, d, approval: seen.append(approval))
+    try:
+        assert await w.aexecute("allowed", {}, tool) == "ran"
+        assert await w.aexecute("asky", {}, tool) == "ran"
+    finally:
+        w.close()
+    assert seen[0] is None and seen[1].approver == "human:bob"
+
+
 def test_ask_defer_rejected(fake_bin):
     spy = Spy()
     with Provio(approver=lambda r: False) as w, pytest.raises(ProvioApprovalRejected):

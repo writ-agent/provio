@@ -120,6 +120,7 @@ is missing or errors, the tool does not run.
 | **LangGraph** | `provio_sdk.langgraph.provio_tool_node(tools, provio)` | yes |
 | **OpenAI Agents SDK** | `provio_sdk.openai_agents.guard_agent(agent, provio)` | yes |
 | **Claude Agent SDK** (Python / TypeScript) | `provio_sdk.claude_agent_sdk.provio_hooks(provio)` / `createProvioIntegration({ client })` | yes |
+| **Turnloom** | `pip install "turnloom[guard]"`; the gate turns on when the workspace has a `provio.yaml` ([docs/integrations/turnloom.md](docs/integrations/turnloom.md)) | yes — a provio `ask` becomes Turnloom's approval prompt |
 | **Any MCP client** | `provio proxy --mcp --server <name> -- <server cmd>` (stdio), or `--transport http --upstream <url>` for remote servers; tool definitions are [pinned](docs/mcp-pins.md), so a changed one is held until you accept it | every MCP tool call |
 | **Any other agent** | `provio run -- <agent>`: kernel-confined launch; or call `provio check` from its hook system | launch, plus hooks where the agent has them |
 
