@@ -32,6 +32,7 @@ from .types import Approval, ApprovalRequest, Caller, Decision, Server, ToolCall
 T = TypeVar("T")
 ApproverResult = Union[bool, Approval]
 Approver = Callable[[ApprovalRequest], Union[ApproverResult, Awaitable[ApproverResult]]]
+DecisionObserver = Callable[[ToolCall, Decision, Union[Approval, None]], None]
 
 DEFAULT_APPROVAL_TIMEOUT = 300.0
 
@@ -104,6 +105,13 @@ class Provio:
             ``timeout_ms``, else 300s). Timeout rejects.
         send_output: send tool output to ``complete`` (hashed, never stored)
             for non-redact calls too. Redact calls always send it.
+        on_decision: called with ``(call, decision, approval)`` for every call
+            that is about to run, after any approval and before the tool.
+            ``approval`` is the approver's answer for a granted ask and ``None``
+            when the policy let the call through on its own, so a host can tell
+            "the policy allowed this" from "a human approved this". It observes
+            only: its return value is ignored and an exception it raises is
+            swallowed, so it can never run or stop a tool.
     """
 
     def __init__(
@@ -116,6 +124,7 @@ class Provio:
         approver_id: str = "adapter:provio-sdk",
         approval_timeout: float | None = None,
         send_output: bool = True,
+        on_decision: DecisionObserver | None = None,
         **client_kwargs: Any,
     ) -> None:
         if client is not None and client_kwargs:
@@ -135,6 +144,7 @@ class Provio:
         self.approver_id = approver_id
         self.approval_timeout = approval_timeout
         self.send_output = send_output
+        self.on_decision = on_decision
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -235,9 +245,18 @@ class Provio:
             return Approval(False, self.approver_id)
         return _normalize_approval(res, self.approver_id)
 
+    def _observe(self, call: ToolCall, d: Decision, approval: Approval | None) -> Decision:
+        if self.on_decision is not None:
+            try:
+                self.on_decision(call, d, approval)
+            except Exception:  # noqa: BLE001 - an observer must never change the outcome
+                pass
+        return d
+
     def authorize(self, call: ToolCall) -> Decision:
         """decide (+ approve/resolve). Returns a dispatching decision or raises."""
         d = self.client.decide(call)
+        approval: Approval | None = None
         if d.approval_required:
             ap = self._ask_sync(call, d)
             assert d.ref is not None  # parse_decision guarantees it
@@ -246,10 +265,12 @@ class Provio:
                 if d.dispatch:
                     raise ProvioProtocolError("provio dispatched a call the approver rejected")
                 raise ProvioApprovalRejected(d)
-        return self._final(d)
+            approval = ap
+        return self._observe(call, self._final(d), approval)
 
     async def aauthorize(self, call: ToolCall) -> Decision:
         d = await self.aclient.decide(call)
+        approval: Approval | None = None
         if d.approval_required:
             ap = await self._ask_async(call, d)
             assert d.ref is not None
@@ -258,7 +279,8 @@ class Provio:
                 if d.dispatch:
                     raise ProvioProtocolError("provio dispatched a call the approver rejected")
                 raise ProvioApprovalRejected(d)
-        return self._final(d)
+            approval = ap
+        return self._observe(call, self._final(d), approval)
 
     # -- step 5: record ----------------------------------------------------
 

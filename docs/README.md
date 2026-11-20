@@ -17,7 +17,7 @@
 | [ledger-postgres.md](ledger-postgres.md) | The Postgres ledger store: setup, roles, schema, concurrency, TLS |
 | [mcp-pins.md](mcp-pins.md) | MCP tool pinning: changed tool definitions (rug pulls) are held until you accept them |
 | [mcp-http.md](mcp-http.md) | The MCP proxy over Streamable HTTP / SSE |
-| [integrations/](integrations/) | Codex CLI, Gemini CLI, Cursor and Windsurf: setup, mapping, residual risks |
+| [integrations/](integrations/) | Codex CLI, Gemini CLI, Cursor, Windsurf and Turnloom: setup, mapping, residual risks |
 
 Internal build planning (how the project is being built, not how to use it)
 lives in [internal/](internal/).

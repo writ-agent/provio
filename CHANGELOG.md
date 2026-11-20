@@ -10,6 +10,13 @@ The ledger record schema is versioned separately (`schema_version`, see
 
 ### Added
 
+- **`provio-sdk` (Python): `Provio(on_decision=...)`**. An observer called with
+  `(call, decision, approval)` for every call that is about to run. `approval`
+  is the approver's answer for a granted ask and `None` when the policy let the
+  call through, so a host can tell the two apart without wrapping its approver.
+  It cannot change the outcome: exceptions it raises are swallowed.
+- **Turnloom integration notes**: [docs/integrations/turnloom.md](docs/integrations/turnloom.md).
+
 - **`provio log --json`**: one JSON object per session (JSON Lines:
   `session_id`, `records`, `denied`, `approved_by_human`) for scripts and CI.
   The default table is unchanged. (#14)
